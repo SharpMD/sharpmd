@@ -877,6 +877,9 @@ pre.lmd-mermaid-error { border-color: #dc2626; }
 .lmd-share-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .lmd-share input[type=email], .lmd-share input[type=text], .lmd-share select { flex: 1; min-width: 0; height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-soft); color: var(--fg); font: inherit; font-size: 14px; outline: none; }
 .lmd-share select { flex: 0 0 auto; }
+.lmd-share-exp { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13.5px; color: var(--fg-faint); white-space: nowrap; }
+.lmd-share-row .lmd-share-exp { margin: 0; }
+.lmd-share input[type=date] { height: 36px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-soft); color: var(--fg); font: inherit; font-size: 14px; }
 .lmd-share input:focus { border-color: var(--accent-fill); }
 .lmd-share ul { margin: 0 0 4px; padding: 0; list-style: none; }
 .lmd-share li { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13.5px; color: var(--fg-muted); }

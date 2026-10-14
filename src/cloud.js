@@ -11,6 +11,7 @@
   const dnt = () => navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl === true;
   const channel = () => (LMD.count && LMD.count.source()) || (dnt() ? undefined : !window.__MDT_WEB ? 'extension' : LMD.storeApp === true && LMD.count && LMD.count.on() ? 'android' : undefined);
   let listCache = null; let listAt = 0;
+  const pubPass = new Map(); // secreto de un enlace de carpeta -> la contraseña que ya se escribió en esta pestaña
   // Dónde corre esto. En la app (la web o la página de la extensión) los pedidos salen de acá. En el lector de un
   // archivo del disco (file://) el servidor no contesta a ese origen: salen por el service worker de la extensión,
   // que solo atiende una lista cerrada de rutas (bridge-sw.js). En el lector de un sitio no hay cuenta.
@@ -722,7 +723,7 @@
     sharesAll: (p) => api('GET', '/shares' + (isTeam(p) ? '?o=' + team.space : '')),
     share: (p, mail, role, kind) => api('POST', '/shares', Object.assign({ path: isTeam(p) ? split(p).path : p, email: mail, role, kind }, isTeam(p) ? { o: +team.space } : {})),
     unshare: (id, p) => api('DELETE', '/shares/' + id + (isTeam(p) ? '?o=' + team.space : '')),
-    link: (p, password) => api('POST', '/links', Object.assign({ path: isTeam(p) ? split(p).path : p, password }, isTeam(p) ? { o: +team.space } : {})),
+    link: (p, password, expires) => api('POST', '/links', Object.assign({ path: isTeam(p) ? split(p).path : p, password }, expires ? { expires } : {}, isTeam(p) ? { o: +team.space } : {})),
     unlink: (id, p) => api('DELETE', '/links/' + id + (isTeam(p) ? '?o=' + team.space : '')),
     publicNote: async (token, password) => {
       await ready();
@@ -731,6 +732,8 @@
       catch (e) { throw Object.assign(new Error('offline'), { code: 'offline' }); }
       const json = await res.json().catch(() => null);
       if (!res.ok) throw Object.assign(new Error((json && json.error) || 'failed'), { code: (json && json.error) || 'failed', retry: +((json && json.retry_after) || 0) || 0 });
+      // La contraseña de una carpeta compartida queda en memoria mientras dure la pestaña: cada nota se pide con ella.
+      if (password) pubPass.set(token, password);
       return json;
     },
     // Una carpeta compartida por enlace, o una plantilla (content.js y fork.js). ref dice cómo se llegó: { by: 'pub',
@@ -743,7 +746,7 @@
       let res;
       try {
         res = await fetch(base + (ref.by === 't' ? '/template/' : '/public/') + encodeURIComponent(ref.key) + (what ? '/' + what : '') + (query || ''),
-          { method: what ? 'POST' : 'GET', headers: session && !guest ? { authorization: 'Bearer ' + session } : {} });
+          { method: what ? 'POST' : 'GET', headers: Object.assign(session && !guest ? { authorization: 'Bearer ' + session } : {}, ref.by === 'pub' && pubPass.has(ref.key) ? { 'x-password': pubPass.get(ref.key) } : {}) });
       } catch (e) { throw Object.assign(new Error('offline'), { code: 'offline' }); }
       const json = await res.json().catch(() => null);
       if (!res.ok) throw Object.assign(new Error((json && json.error) || 'failed'), { code: (json && json.error) || 'failed', status: res.status, retry: +((json && json.retry_after) || 0) || 0 });
@@ -773,6 +776,7 @@
     playVerify: (productId, purchaseToken) => api('POST', '/play/verify', { productId, purchaseToken }),
     freeNotes: () => freeNotes,
     setName: (name) => api('PUT', '/account', { name }),
+    setMail: (prefs) => api('PUT', '/account/mail', prefs),
     create: (path) => unlocked(() => putNote(path, '')).then((r) => { listCache = null; delete otherLists[split(path).owner]; return r; }),
     remove: (path) => api('DELETE', notePath(path)).then(async (r) => { listCache = null; delete otherLists[split(path).owner]; await S.cloudDelete(email, path); return r; }),
     // Papelera: lo eliminado de la nube, hasta que vence. owner es el espacio del equipo, o nada para lo propio.
@@ -858,6 +862,10 @@
       newToken: (body) => api('POST', '/team/tokens', body),
       revoke: (id) => api('DELETE', '/team/tokens/' + id),
       regenerate: (id) => api('POST', '/team/tokens/' + id + '/regenerate'),
+      // Carpetas de arriba del espacio cerradas a algunos miembros. Quien administra entra siempre.
+      folders: () => api('GET', '/team/folders'),
+      folderSet: (folder, members) => api('PUT', '/team/folders', { folder, members }),
+      folderOpen: (folder) => api('DELETE', '/team/folders?folder=' + encodeURIComponent(folder)),
       uninvite: (id) => api('DELETE', '/team/invites/' + id),
       accept: (id) => api('POST', '/team/accept', { id }),
       decline: (id) => api('POST', '/team/decline', { id }),

@@ -9,6 +9,8 @@
 //   RESEND_API_KEY  manda el código de acceso por Resend (con MAIL_FROM)
 //   MAIL_WEBHOOK    o lo manda a un webhook propio: POST { to, subject, text }
 //   DEV_CODES=1     sin correo: el código vuelve en la respuesta (solo para pruebas)
+//   DIGEST_TZ, DIGEST_HOUR   zona horaria (UTC) y hora (9) del resumen diario de tarjetas que vencen, que sale por el mismo correo
+//   NOTICE_MAIL_PER_HOUR     avisos de tarjeta asignada por persona y por hora (20)
 //   FREE_NOTES      notas del plan gratis (10). El número sale solo de acá: la app y la IA lo reciben del servidor
 //   FREE_AGENTS     agentes activos a la vez en el plan gratis (2). El plan pago no tiene tope y guarda su historial
 //   AGENT_STALE_MS, AGENT_GONE_MS, AGENT_DONE_MS, AGENT_HISTORY_MS   los tiempos de los agentes (ver las constantes)
@@ -342,6 +344,7 @@ async function authStart(req, body) {
   q('INSERT OR REPLACE INTO codes (email, hash, expires, tries, sent) VALUES (?, ?, ?, 0, ?)').run(email, sha(email + ':' + code), now() + 15 * 60000, now());
   if (fixed) return { ok: true };
   statAdd('signin_start', statSource(body.src)); // one more code asked for, under the channel the app says: nothing about who
+  if (body.lang === 'es' || body.lang === 'en') q('UPDATE users SET mail_lang = ? WHERE email = ?').run(body.lang, email);
   await sendCode(email, code, body.lang);
   return env.DEV_CODES ? { ok: true, dev_code: code } : { ok: true };
 }
@@ -425,7 +428,24 @@ function accountName(user, body) {
 try { db.exec('ALTER TABLE users ADD COLUMN protect_seen INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* ya estaba */ }
 const protectSeen = (userId) => { const r = q('SELECT protect_seen FROM users WHERE id = ?').get(userId); return !!(r && r.protect_seen); };
 function protectSeenSet(user) { q('UPDATE users SET protect_seen = ? WHERE id = ? AND protect_seen = 0').run(now(), user.id); return { ok: true }; }
-const account = (user) => ({ id: user.id, protect_seen: protectSeen(user.id), share: shareAllowed(user), live: user.plan === 'pro' || !!env.LIVE_FREE, email: user.email, name: nameOf(user), name_default: !user.name, plan: user.plan, own_plan: user.own || user.plan, notes: countNotes(user), limit: user.plan === 'pro' ? null : FREE_NOTES, free_notes: FREE_NOTES, mcp: true, api: apiAllowed(user), mcp_url: PUBLIC_URL + '/mcp',
+// Avisos por correo de los tableros del equipo: cuando te asignan una tarjeta y, una vez por día, las tarjetas tuyas
+// que vencen. Los dos vienen prendidos y cada persona los apaga desde Ajustes. mail_lang: el idioma con el que entró
+// por última vez, para escribirle en el suyo.
+try { db.exec('ALTER TABLE users ADD COLUMN mail_assign INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* ya estaba */ }
+try { db.exec('ALTER TABLE users ADD COLUMN mail_due INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* ya estaba */ }
+try { db.exec("ALTER TABLE users ADD COLUMN mail_lang TEXT NOT NULL DEFAULT ''"); } catch (e) { /* ya estaba */ }
+const mailPrefs = (userId) => { const r = q('SELECT mail_assign, mail_due FROM users WHERE id = ?').get(userId); return { assign: !r || r.mail_assign !== 0, due: !r || r.mail_due !== 0 }; };
+// PUT /account/mail { assign?, due?, lang? }: true o false prende o apaga cada aviso.
+function accountMail(user, body) {
+  body = body || {};
+  for (const k of ['assign', 'due']) if (body[k] != null && typeof body[k] !== 'boolean') throw new Fail(400, 'bad_mail', 'assign and due are true or false');
+  if (body.assign != null) q('UPDATE users SET mail_assign = ? WHERE id = ?').run(body.assign ? 1 : 0, user.id);
+  if (body.due != null) q('UPDATE users SET mail_due = ? WHERE id = ?').run(body.due ? 1 : 0, user.id);
+  if (body.lang === 'es' || body.lang === 'en') q('UPDATE users SET mail_lang = ? WHERE id = ?').run(body.lang, user.id);
+  return account(userById(user.id));
+}
+
+const account = (user) => ({ id: user.id, protect_seen: protectSeen(user.id), mail: mailPrefs(user.id), share: shareAllowed(user), live: user.plan === 'pro' || !!env.LIVE_FREE, email: user.email, name: nameOf(user), name_default: !user.name, plan: user.plan, own_plan: user.own || user.plan, notes: countNotes(user), limit: user.plan === 'pro' ? null : FREE_NOTES, free_notes: FREE_NOTES, mcp: true, api: apiAllowed(user), mcp_url: PUBLIC_URL + '/mcp',
   // plan_from: quién cobra el plan pago propio ('paddle', 'play', 'admin' o vacío). play: lo que la app de Android
   // necesita para ofrecer la compra por Google Play, o false si está apagada.
   plan_from: (user.own || user.plan) === 'pro' ? user.plan_from || '' : '', play: PLAY ? { package: PLAY_PACKAGE, products: PLAY_PRODUCTS } : false,
@@ -672,8 +692,33 @@ function cleanPath(v) {
 }
 // v marca las notas cuyo texto está cifrado desde el navegador. Dentro de una carpeta con contraseña, una sin esa
 // marca todavía está en claro: el navegador la cifra apenas tiene la llave.
-const listNotes = (user) => q('SELECT path, updated, size, v FROM notes WHERE user = ? ORDER BY updated DESC').all(user.id);
+// Carpetas del espacio de un equipo con acceso restringido: una carpeta de primer nivel que solo ven las personas de
+// su lista. Quien administra la ve siempre. Un token del equipo no es una persona: no ve ninguna. Para quien no la
+// ve, la carpeta no existe: no aparece en listas ni búsquedas, y cualquier pedido sobre lo que tiene adentro responde
+// 404 not_found, igual que una nota que no está. members: los números de cuenta, en JSON.
+// Cada pedido sobre el espacio lleva en owner.hide las carpetas que quien llama no ve (null si no hay ninguna).
+db.exec("CREATE TABLE IF NOT EXISTS team_folders (team INTEGER NOT NULL, folder TEXT NOT NULL, members TEXT NOT NULL DEFAULT '[]', PRIMARY KEY (team, folder))");
+const topFolder = (p) => { const s = String(p || ''); const i = s.indexOf('/'); return i < 0 ? s : s.slice(0, i); };
+const folderMembers = (row) => { try { const v = JSON.parse(row.members); return Array.isArray(v) ? v.filter(Number.isInteger) : []; } catch (e) { return []; } };
+function teamClosed(team, user) {
+  if (!team || !user) return null;
+  const rows = q('SELECT folder, members FROM team_folders WHERE team = ?').all(team.id);
+  if (!rows.length || (!user.teamToken && teamRoleOf(user) === 'admin')) return null;
+  const out = new Set(rows.filter((r) => user.teamToken || !folderMembers(r).includes(user.id)).map((r) => r.folder));
+  return out.size ? out : null;
+}
+// La cuenta del espacio, vista por quien llama: con las carpetas que no ve.
+function teamSpaceFor(user, team) {
+  team = team || user.team; const s = team ? userById(team.space) : null;
+  if (s) s.hide = teamClosed(team, user);
+  return s;
+}
+const hiddenIn = (owner, p) => !!(owner && owner.hide) && owner.hide.has(topFolder(p));
+// Lo que está en una carpeta que quien llama no ve responde como lo que no existe.
+function shut(owner, p) { if (hiddenIn(owner, p)) throw new Fail(404, 'not_found'); return p; }
+const listNotes = (user) => { const all = q('SELECT path, updated, size, v FROM notes WHERE user = ? ORDER BY updated DESC').all(user.id); return user.hide ? all.filter((n) => !hiddenIn(user, n.path)) : all; };
 function readNote(user, p) {
+  shut(user, cleanPath(p));
   const n = q('SELECT path, text, updated, e, rev FROM notes WHERE user = ? AND path = ?').get(user.id, cleanPath(p));
   if (!n) throw new Fail(404, 'not_found');
   return { path: n.path, text: unseal(n.text, n.e, 'notes.text'), updated: n.updated, rev: n.rev };
@@ -707,7 +752,7 @@ const planAfter = (u) => (u.left > LOW_ROOM ? 'Free plan: ' + u.notes + ' of ' +
 // Lo que se suma al error del tope cuando quien lo recibe es una IA.
 const FULL_FOR_AI = ' Tell the person what happened and give them that link, or offer to make room. Do not delete notes on your own. Meanwhile keep going with the notes that exist: put the new content in them with append_note or edit_note instead of creating more, or ask the person which note they want to free.';
 function writeNote(user, p, text, base) {
-  p = cleanPath(p); text = String(text == null ? '' : text);
+  p = shut(user, cleanPath(p)); text = String(text == null ? '' : text);
   const kind = checkText(user.id, p, text);
   const row = q('SELECT text, e, v, size, rev, updated, by FROM notes WHERE user = ? AND path = ?').get(user.id, p);
   const prev = row ? { text: unseal(row.text, row.e, 'notes.text') } : null;
@@ -735,7 +780,7 @@ function writeNote(user, p, text, base) {
 // Una nota que estaba en claro dentro de una carpeta con contraseña (el navegador todavía no la cifró) tampoco
 // pasa por la papelera: quedaría en claro.
 function deleteNote(user, p, forever) {
-  p = cleanPath(p);
+  p = shut(user, cleanPath(p));
   const row = q('SELECT text, e, v, size, rev FROM notes WHERE user = ? AND path = ?').get(user.id, p);
   if (!row) throw new Fail(404, 'not_found');
   const vault = vaultOf(user.id, p);
@@ -763,7 +808,7 @@ function deleteNote(user, p, forever) {
 // los enlaces públicos, las sesiones en vivo ni el MCP (todo eso trabaja sobre la tabla de notas). Solo se lista,
 // se restaura o se borra del todo, con la sesión de la cuenta; la del equipo, cualquiera de sus miembros.
 const trashSweep = () => q('DELETE FROM trash WHERE deleted < ?').run(now() - TRASH_MS);
-const trashList = (owner) => { trashSweep(); return q('SELECT id, path, size, v, deleted FROM trash WHERE user = ? ORDER BY deleted DESC, id DESC').all(owner.id).map((r) => ({ id: r.id, path: r.path, size: r.size, deleted: r.deleted, expires: r.deleted + TRASH_MS, protected: !!r.v })); };
+const trashList = (owner) => { trashSweep(); return q('SELECT id, path, size, v, deleted FROM trash WHERE user = ? ORDER BY deleted DESC, id DESC').all(owner.id).filter((r) => !hiddenIn(owner, r.path)).map((r) => ({ id: r.id, path: r.path, size: r.size, deleted: r.deleted, expires: r.deleted + TRASH_MS, protected: !!r.v })); };
 // Una ruta libre a partir de otra: "plan.md" pasa a "plan (2).md", "plan (3).md"...
 function freePath(userId, p) {
   const dot = p.lastIndexOf('.'); const cut = dot > p.lastIndexOf('/') + 1 ? dot : p.length;
@@ -778,6 +823,7 @@ function trashRestore(owner, id, body) {
   trashSweep();
   const row = q('SELECT * FROM trash WHERE id = ? AND user = ?').get(+id, owner.id);
   if (!row) throw new Fail(404, 'not_found');
+  shut(owner, row.path);
   roomFor(owner);
   let text = unseal(row.text, row.e, 'trash.text'); let to = row.path;
   if (q('SELECT 1 FROM notes WHERE user = ? AND path = ?').get(owner.id, to)) {
@@ -804,11 +850,12 @@ function trashRoute(user, p, m, url, body) {
   const owner = spaceOf(user, url.searchParams.get('o'), m === 'GET' ? 'view' : 'edit');
   const team = owner.id === user.id ? null : user.team;
   if (p === '/trash' && m === 'GET') return trashList(owner);
-  if (p === '/trash' && m === 'DELETE') { const removed = Number(q('DELETE FROM trash WHERE user = ?').run(owner.id).changes); if (team && removed) teamLog(team, user, 'empty_trash', ''); return { ok: true, removed }; }
+  if (p === '/trash' && m === 'DELETE') { const removed = owner.hide ? q('SELECT id, path FROM trash WHERE user = ?').all(owner.id).filter((r) => !hiddenIn(owner, r.path)).reduce((n, r) => n + Number(q('DELETE FROM trash WHERE id = ?').run(r.id).changes), 0) : Number(q('DELETE FROM trash WHERE user = ?').run(owner.id).changes); if (team && removed) teamLog(team, user, 'empty_trash', ''); return { ok: true, removed }; }
   const tm = /^\/trash\/(\d+)(\/restore)?$/.exec(p);
   if (tm && tm[2] && m === 'POST') { teamHold(user, owner); const r = trashRestore(owner, tm[1], body); if (team) teamLog(team, user, 'restore', r.path); return r; }
   if (tm && !tm[2] && m === 'DELETE') {
     const row = q('SELECT path FROM trash WHERE id = ? AND user = ?').get(+tm[1], owner.id);
+    if (row) shut(owner, row.path);
     if (!q('DELETE FROM trash WHERE id = ? AND user = ?').run(+tm[1], owner.id).changes) throw new Fail(404, 'not_found');
     if (team) teamLog(team, user, 'purge', row ? row.path : '');
     return { ok: true };
@@ -816,7 +863,7 @@ function trashRoute(user, p, m, url, body) {
   throw new Fail(404, 'no_route');
 }
 function renameNote(user, from, to, body) {
-  from = cleanPath(from); to = cleanPath(to);
+  from = shut(user, cleanPath(from)); to = shut(user, cleanPath(to));
   if (q('SELECT 1 FROM notes WHERE user = ? AND path = ?').get(user.id, to)) throw new Fail(409, 'exists');
   const row = q('SELECT v, updated FROM notes WHERE user = ? AND path = ?').get(user.id, from);
   if (!row) throw new Fail(404, 'not_found');
@@ -862,6 +909,7 @@ function searchNotes(user, text, reach, aadPre) {
   const out = []; const vaults = vaultsOf(user.id);
   // De a una nota: traerlas todas juntas ocuparía en memoria la nube entera de la cuenta.
   for (const n of q('SELECT path, text, e, v FROM notes WHERE user = ?').iterate(user.id)) {
+    if (hiddenIn(user, n.path)) continue;
     const vault = vaults.find((x) => inside(n.path, x.folder)); let body = null;
     if (!vault && !n.v) body = unseal(n.text, n.e, 'notes.text');
     else {
@@ -884,7 +932,7 @@ function roleOn(user, ownerId, p) {
   if (ownerId === user.id) return 'owner';
   // El espacio del equipo: quien administra y quien edita leen, editan, mueven y eliminan sus notas. Quien solo lee
   // entra como a algo compartido para ver.
-  if (user.team && user.team.space === ownerId) return teamAllows(user.team, user, 'write') ? 'team' : 'view';
+  if (user.team && user.team.space === ownerId) { const hide = p != null ? teamClosed(user.team, user) : null; if (hide && hide.has(topFolder(p))) return null; return teamAllows(user.team, user, 'write') ? 'team' : 'view'; }
   // Lo que está en una carpeta con contraseña no se comparte: ni por haberla compartido antes, ni por una carpeta de más arriba.
   if (vaultOf(ownerId, p)) return null;
   const hit = q('SELECT path, kind, role FROM shares WHERE owner = ? AND email = ?').all(ownerId, user.email).filter((s) => covers(s, p));
@@ -895,9 +943,11 @@ function roleOn(user, ownerId, p) {
 function target(user, url, p, need) {
   const ownerId = +(url.searchParams.get('o') || user.id);
   const role = roleOn(user, ownerId, p);
+  // Una carpeta del equipo que quien llama no ve: como si la nota no existiera.
+  if (!role && user.team && user.team.space === ownerId) throw new Fail(404, 'not_found');
   // A quien solo lee en su equipo se le dice eso (read_only), no que no tiene acceso.
   if (!role || (need === 'edit' && role === 'view') || (need === 'owner' && role !== 'owner' && role !== 'team')) throw new Fail(403, role && user.team && user.team.space === ownerId ? 'read_only' : 'no_access');
-  return { owner: ownerId === user.id ? user : userById(ownerId), role };
+  return { owner: ownerId === user.id ? user : user.team && user.team.space === ownerId ? teamSpaceFor(user) : userById(ownerId), role };
 }
 function sharedWith(user) {
   const out = []; const seen = new Set();
@@ -914,16 +964,18 @@ function sharedWith(user) {
 }
 // Con quién compartió la cuenta y qué enlaces públicos tiene; con of, solo lo de esa ruta.
 function sharesOf(user, of) {
-  const people = q('SELECT id, path, kind, email, role FROM shares WHERE owner = ?').all(user.id).filter((s) => !of || s.path === of);
+  const people = q('SELECT id, path, kind, email, role FROM shares WHERE owner = ?').all(user.id).filter((s) => (!of || s.path === of) && !hiddenIn(user, s.path));
   // Un enlace de carpeta sale con su tipo, sus opciones de plantilla, las copias que se hicieron y su nombre corto.
-  const links = q('SELECT l.id, l.path, l.pass IS NOT NULL AS protected, l.created, l.kind, l.tpl, l.tpl_login, l.copies, (SELECT name FROM template_names WHERE link = l.id AND owner = l.owner) AS name FROM links l WHERE l.owner = ?').all(user.id)
-    .map((l) => (l.kind === 'folder' ? { id: l.id, path: l.path.replace(/\/$/, ''), protected: 0, created: l.created, kind: 'folder', template: !!l.tpl, login: !!l.tpl_login, copies: l.copies, name: l.name || '' } : { id: l.id, path: l.path, protected: l.protected, created: l.created }))
-    .filter((l) => !of || l.path === of);
+  // expires: cuándo vence (0, nunca); expired, si ya venció.
+  const links = q('SELECT l.id, l.path, l.pass IS NOT NULL AS protected, l.created, l.expires, l.kind, l.tpl, l.tpl_login, l.copies, (SELECT name FROM template_names WHERE link = l.id AND owner = l.owner) AS name FROM links l WHERE l.owner = ?').all(user.id)
+    .map((l) => Object.assign(l.kind === 'folder' ? { id: l.id, path: l.path.replace(/\/$/, ''), protected: l.protected, created: l.created, kind: 'folder', template: !!l.tpl, login: !!l.tpl_login, copies: l.copies, name: l.name || '' } : { id: l.id, path: l.path, protected: l.protected, created: l.created },
+      { expires: l.expires || 0, expired: !!l.expires && l.expires <= now() }))
+    .filter((l) => (!of || l.path === of) && !hiddenIn(user, l.path));
   return { people, links };
 }
 function addShare(user, body) {
   if (!shareAllowed(user)) throw new Fail(402, 'share_needs_plan', 'Sharing notes and creating public links are part of the paid plan');
-  const p = cleanPath(body.path); const email = cleanEmail(body.email);
+  const p = shut(user, cleanPath(body.path)); const email = cleanEmail(body.email);
   const kind = body.kind === 'folder' ? 'folder' : 'note'; const role = body.role === 'edit' ? 'edit' : 'view';
   if (email === user.email) throw new Fail(400, 'own_email');
   if (vaultsOf(user.id).some((v) => p === v.folder || inside(p, v.folder))) throw new Fail(409, 'vault', 'A folder protected with a password cannot be shared');
@@ -936,37 +988,70 @@ function addShare(user, body) {
 
 // Enlace público de solo lectura, con contraseña opcional. La contraseña se guarda con scrypt.
 const passHash = (pass, salt) => crypto.scryptSync(String(pass), salt, 32).toString('hex');
+// Un enlace puede vencer: expires es el momento (ms) desde el que responde 410. 0 es que no vence.
+try { db.exec('ALTER TABLE links ADD COLUMN expires INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* ya estaba */ }
+const LINK_DAYS_MAX = 3660;
+// El vencimiento que se pide: milisegundos, una fecha y hora ISO, o una fecha sola (vence al terminar ese día, en UTC;
+// la app manda el fin del día en la hora de quien lo elige). Vacío, 0 o null: no vence.
+function linkExpires(v) {
+  if (v == null || v === '' || v === 0 || v === '0' || v === false) return 0;
+  const s = String(v).trim();
+  const t = typeof v === 'number' ? v : /^\d+$/.test(s) ? +s : /^\d{4}-\d{2}-\d{2}$/.test(s) ? Date.parse(s + 'T23:59:59.999Z') : Date.parse(s);
+  if (!Number.isFinite(t) || t <= now() || t > now() + LINK_DAYS_MAX * DAY) throw new Fail(400, 'bad_expires', 'The expiry date has to be in the future and within ten years');
+  return Math.floor(t);
+}
+const linkPass = (password) => {
+  if (password == null || password === '') return null;
+  if (String(password).length > 200) throw new Fail(400, 'bad_password');
+  const salt = random(12); return salt + ':' + passHash(password, salt);
+};
+// Lo que se revisa antes de mostrar nada de un enlace: que no haya vencido y, si tiene contraseña, que coincida.
+// Diez intentos fallidos bloquean el enlace diez minutos.
+function linkGate(link, password) {
+  if (link.expires && link.expires <= now()) throw new Fail(410, 'link_expired', 'This link expired');
+  if (!link.pass) return;
+  if (link.locked > now()) throw new Fail(429, 'locked', '', { retry_after: Math.ceil((link.locked - now()) / 1000) });
+  if (!password) throw new Fail(401, 'need_password');
+  const [salt, hash] = link.pass.split(':');
+  const given = Buffer.from(passHash(password, salt), 'hex');
+  if (!crypto.timingSafeEqual(given, Buffer.from(hash, 'hex'))) {
+    const fails = link.fails + 1;
+    q('UPDATE links SET fails = ?, locked = ? WHERE id = ?').run(fails >= 10 ? 0 : fails, fails >= 10 ? now() + 600000 : 0, link.id);
+    throw new Fail(403, 'bad_password');
+  }
+  if (link.fails) q('UPDATE links SET fails = 0 WHERE id = ?').run(link.id);
+}
 function addLink(user, body) {
   if (!shareAllowed(user)) throw new Fail(402, 'share_needs_plan', 'Sharing notes and creating public links are part of the paid plan');
   if (body.kind === 'folder') return addFolderLink(user, body);
-  const p = cleanPath(body.path);
+  const p = shut(user, cleanPath(body.path));
   if (vaultOf(user.id, p)) throw new Fail(409, 'vault', 'A note in a folder protected with a password cannot have a public link');
   if (!q('SELECT 1 FROM notes WHERE user = ? AND path = ?').get(user.id, p)) throw new Fail(404, 'not_found');
   if (q('SELECT COUNT(*) AS n FROM links WHERE owner = ?').get(user.id).n >= MAX_LINKS) throw new Fail(429, 'too_many');
-  if (body.password != null && String(body.password).length > 200) throw new Fail(400, 'bad_password');
-  const token = random(24); let pass = null;
-  if (body.password) { const salt = random(12); pass = salt + ':' + passHash(body.password, salt); }
-  const r = q('INSERT INTO links (hash, owner, path, pass, created) VALUES (?, ?, ?, ?, ?)').run(sha(token), user.id, p, pass, now());
+  const pass = linkPass(body.password); const expires = linkExpires(body.expires);
+  const token = random(24);
+  const r = q('INSERT INTO links (hash, owner, path, pass, created, expires) VALUES (?, ?, ?, ?, ?, ?)').run(sha(token), user.id, p, pass, now(), expires);
   statOnce(user.id, STAT_BIT.shared, 'shared');
-  return { id: Number(r.lastInsertRowid), token, protected: !!pass };
+  return { id: Number(r.lastInsertRowid), token, protected: !!pass, expires };
+}
+// Cambia la contraseña o el vencimiento de un enlace (de nota o de carpeta). password '' la quita; expires 0 o null
+// lo deja sin vencer. Lo que no viene no cambia. En uno de carpeta, también sus opciones de plantilla.
+function setLink(owner, id, body) {
+  const link = q('SELECT * FROM links WHERE id = ? AND owner = ?').get(id, owner.id);
+  if (!link || hiddenIn(owner, link.path)) throw new Fail(404, 'not_found');
+  const pass = body.password !== undefined ? linkPass(body.password) : link.pass; const expires = body.expires !== undefined ? linkExpires(body.expires) : link.expires;
+  if (link.kind === 'folder' && pass && (body.template == null ? !!link.tpl : !!body.template)) throw new Fail(400, 'template_password', TPL_PASS);
+  if (body.password !== undefined) q('UPDATE links SET pass = ?, fails = 0, locked = 0 WHERE id = ?').run(pass, link.id);
+  if (body.expires !== undefined) q('UPDATE links SET expires = ? WHERE id = ?').run(expires, link.id);
+  if (link.kind === 'folder') return setFolderLink(owner, id, body);
+  const l = q('SELECT * FROM links WHERE id = ?').get(link.id);
+  return { id: l.id, path: l.path, protected: !!l.pass, expires: l.expires };
 }
 function publicNote(token, password, req, url) {
   const link = q('SELECT * FROM links WHERE hash = ?').get(sha(String(token)));
   if (!link) throw new Fail(404, 'not_found');
+  linkGate(link, password);
   if (link.kind === 'folder') return folderPublic(link, req, url);
-  if (link.pass) {
-    if (link.locked > now()) throw new Fail(429, 'locked', '', { retry_after: Math.ceil((link.locked - now()) / 1000) });
-    if (!password) throw new Fail(401, 'need_password');
-    const [salt, hash] = link.pass.split(':');
-    const given = Buffer.from(passHash(password, salt), 'hex');
-    if (!crypto.timingSafeEqual(given, Buffer.from(hash, 'hex'))) {
-      // Diez intentos fallidos bloquean el enlace diez minutos.
-      const fails = link.fails + 1;
-      q('UPDATE links SET fails = ?, locked = ? WHERE id = ?').run(fails >= 10 ? 0 : fails, fails >= 10 ? now() + 600000 : 0, link.id);
-      throw new Fail(403, 'bad_password');
-    }
-    if (link.fails) q('UPDATE links SET fails = 0 WHERE id = ?').run(link.id);
-  }
   const n = q('SELECT path, text, updated, e, v FROM notes WHERE user = ? AND path = ?').get(link.owner, link.path);
   // Un enlace nunca muestra una nota de una carpeta con contraseña, ni siquiera su texto cifrado.
   if (!n || n.v || vaultOf(link.owner, link.path)) throw new Fail(404, 'not_found');
@@ -980,7 +1065,8 @@ function publicNote(token, password, req, url) {
 // Marcado como plantilla (tpl), quien lo abre puede llevarse todas las notas de un pedido (?all=1) para dejar una
 // copia propia: en su navegador, en su nube o en un ZIP. Lo que haga con la copia no vuelve acá. tpl_login pide una
 // cuenta para llevársela (leerla sigue abierto). copies cuenta las copias completas, sin anotar de quién.
-// Un enlace de carpeta no lleva contraseña, y una carpeta protegida con contraseña no se comparte así.
+// Un enlace de carpeta puede llevar contraseña y vencimiento, como el de una nota (una plantilla, contraseña no). Una
+// carpeta protegida con contraseña (cifrada) no se comparte así.
 for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'tpl INTEGER NOT NULL DEFAULT 0', 'tpl_login INTEGER NOT NULL DEFAULT 0', 'copies INTEGER NOT NULL DEFAULT 0']) { try { db.exec('ALTER TABLE links ADD COLUMN ' + col); } catch (e) { /* ya estaba */ } }
 // El nombre corto de una plantilla (la dirección /t/<nombre>, que puede ir impresa). Es de la cuenta que lo eligió
 // para siempre: puede apuntarlo a otro enlace suyo, y nadie más lo puede tomar aunque quede sin enlace (link nulo,
@@ -1033,10 +1119,13 @@ function tplNameSet(owner, link, raw) {
   if (name) q('INSERT INTO template_names (name, owner, link, created) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET link = excluded.link').run(name, owner.id, link.id, now());
   return name;
 }
-const folderLinkView = (link) => ({ id: link.id, path: link.path.replace(/\/$/, ''), kind: 'folder', template: !!link.tpl, login: !!link.tpl_login, copies: link.copies, name: tplNameOf(link) });
+const folderLinkView = (link) => ({ id: link.id, path: link.path.replace(/\/$/, ''), kind: 'folder', template: !!link.tpl, login: !!link.tpl_login, copies: link.copies, name: tplNameOf(link), protected: !!link.pass, expires: link.expires || 0 });
+// Una plantilla es para que cualquiera se lleve una copia (y su dirección corta puede ir impresa): no lleva contraseña.
+const TPL_PASS = 'A template cannot have a password. Share the folder as read only to protect it with one.';
 function addFolderLink(user, body) {
-  const pre = folderPre(body.path);
-  if (body.password) throw new Fail(400, 'folder_password', 'A folder link does not take a password');
+  const pre = folderPre(body.path); shut(user, pre);
+  if (body.password && body.template) throw new Fail(400, 'template_password', TPL_PASS);
+  const pass = linkPass(body.password); const expires = linkExpires(body.expires);
   // Ni la carpeta, ni una de más arriba, ni una de adentro pueden estar protegidas con contraseña.
   if (vaultsOf(user.id).some((v) => !v.folder || inside(pre + 'x', v.folder) || (v.folder + '/').startsWith(pre))) throw new Fail(409, 'vault', 'A folder protected with a password cannot have a public link or be a template');
   if (!q('SELECT 1 FROM notes WHERE user = ? AND substr(path, 1, length(?)) = ? LIMIT 1').get(user.id, pre, pre)) throw new Fail(404, 'not_found');
@@ -1045,14 +1134,14 @@ function addFolderLink(user, body) {
   const token = random(24); let made = null;
   db.exec('BEGIN');
   try {
-    const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login) VALUES (?, ?, ?, NULL, ?, 'folder', ?, ?)").run(sha(token), user.id, pre, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0);
+    const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login, expires) VALUES (?, ?, ?, ?, ?, 'folder', ?, ?, ?)").run(sha(token), user.id, pre, pass, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0, expires);
     made = q('SELECT * FROM links WHERE id = ?').get(Number(r.lastInsertRowid));
     q('UPDATE template_names SET link = NULL WHERE link = ?').run(made.id); // un enlace nuevo nunca hereda el nombre de otro que tuvo su número
     if (name) tplNameSet(user, made, name);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   statOnce(user.id, STAT_BIT.shared, 'shared');
-  return Object.assign(folderLinkView(made), { token, protected: false });
+  return Object.assign(folderLinkView(made), { token });
 }
 // Cambia las opciones de un enlace de carpeta: si es plantilla, si pide cuenta y su nombre. Dejar de ser plantilla
 // suelta el nombre (sigue siendo de la cuenta) y la dirección corta responde que fue retirada.
@@ -1060,6 +1149,7 @@ function setFolderLink(owner, id, body) {
   const link = q("SELECT * FROM links WHERE id = ? AND owner = ? AND kind = 'folder'").get(id, owner.id);
   if (!link) throw new Fail(404, 'not_found');
   const tpl = body.template == null ? !!link.tpl : !!body.template; const login = tpl && (body.login == null ? !!link.tpl_login : !!body.login);
+  if (tpl && link.pass) throw new Fail(400, 'template_password', TPL_PASS);
   db.exec('BEGIN');
   try {
     q('UPDATE links SET tpl = ?, tpl_login = ? WHERE id = ?').run(tpl ? 1 : 0, login ? 1 : 0, link.id);
@@ -1123,6 +1213,7 @@ function templateByName(raw, req) {
   if (!row) { mark(ip); throw new Fail(404, 'not_found'); }
   const link = row.link == null ? null : q("SELECT * FROM links WHERE id = ? AND owner = ? AND kind = 'folder' AND tpl = 1").get(row.link, row.owner);
   if (!link || !folderRows(link).length) throw new Fail(410, 'template_gone', 'This template was withdrawn');
+  linkGate(link, null);
   return link;
 }
 // Al renombrar o mover una carpeta, la app mueve sus notas de a una. El enlace de la carpeta la sigue cuando la
@@ -1458,7 +1549,7 @@ function liveOpen(user, body) {
     if (teamVault(team)) throw new Fail(409, 'live_vault', 'A team space protected with a password has no live sessions with guests');
     rate('lteam:' + team.id, LIVE_TEAM_HOUR, HOUR, 'too_many');
   } else if (!liveAllowed(user)) throw new Fail(402, 'live_needs_plan');
-  const p = cleanPath(body.path); const name = cleanName(body.name);
+  const p = shut(owner, cleanPath(body.path)); const name = cleanName(body.name);
   const n = q('SELECT v FROM notes WHERE user = ? AND path = ?').get(owner.id, p);
   if (!n) throw new Fail(404, 'not_found');
   // El servidor aplica y reparte los cambios: una nota cifrada desde el navegador no la puede leer.
@@ -1869,7 +1960,7 @@ const TOOLS = [
   { share: true, name: 'list_shares', description: 'List who the notes are shared with and which public links exist. Pass a path to see only that note or folder.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Optional note or folder' } } } },
   { share: true, name: 'share_note', description: 'Share a note, or a whole folder, with another SharpMD account by its email address. Only do this when the person asks for it. They open it after signing in to SharpMD with that address.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Path of a note, or of a folder to share everything inside it' }, email: { type: 'string' }, role: { type: 'string', enum: ['view', 'edit'], description: 'view (default) or edit' } }, required: ['path', 'email'] } },
   { share: true, name: 'unshare_note', description: 'Stop sharing a note or folder with an email address.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, email: { type: 'string' } }, required: ['path', 'email'] } },
-  { share: true, name: 'create_public_link', description: 'Create a read-only public link to a note and return its URL. Anyone with the URL can read the note, so only do this when the person asks for it. Pass a password to protect it. The URL is only returned once.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, password: { type: 'string', description: 'Optional password the reader must type' } }, required: ['path'] } },
+  { share: true, name: 'create_public_link', description: 'Create a read-only public link to a note and return its URL. Anyone with the URL can read the note, so only do this when the person asks for it. Pass a password to protect it, and expires to make it stop working after a date. The URL is only returned once.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, password: { type: 'string', description: 'Optional password the reader must type' }, expires: { type: 'string', description: 'Optional end date, YYYY-MM-DD (the link stops working when that day ends, UTC) or an ISO date and time' } }, required: ['path'] } },
   { share: true, name: 'revoke_public_link', description: 'Revoke public links: one by its id, or every link to a note by its path.', inputSchema: { type: 'object', properties: { id: { type: 'number' }, path: { type: 'string' } } } },
 ];
 // A un token del equipo que solo lee no se le ofrecen las que cambian algo.
@@ -1921,7 +2012,7 @@ function runTool(user, name, args, opt, did) {
   // Si quien administra no deja que los miembros conecten su IA al espacio, el token de un miembro no lo ve.
   // tt: un token del equipo. Ahí user es el espacio mismo y sus notas son la raíz, sin @team/.
   const tt = user.teamToken || null; const theTeam = tt ? tt.team : user.team;
-  const space = !tt && user.team && teamAllows(user.team, user, 'tokens') ? userById(user.team.space) : null;
+  const space = !tt && user.team && teamAllows(user.team, user, 'tokens') ? teamSpaceFor(user) : null;
   const inTeam = (a) => !!tt || a.who !== user;
   const mayWrite = (a) => { if (inTeam(a) && !teamAllows(theTeam, user, 'write')) throw new Fail(403, 'read_only', tt ? 'This token can only read the notes of the team.' : 'Your role in this team is reader: you can read the team notes but not change them.'); };
   // Lo que pasa en el espacio del equipo queda en su registro de actividad: la ruta y qué se hizo, nunca el texto.
@@ -1933,7 +2024,7 @@ function runTool(user, name, args, opt, did) {
   const barred = !tt && !!user.team && !space;
   const teamPath = (p) => (!!space || barred) && (p === TEAM_PRE.slice(0, -1) || p.startsWith(TEAM_PRE));
   // at: de quién es la nota de esa ruta y cómo se llama ahí. full es la ruta como la ve la IA.
-  const at = (raw) => { const full = scoped(user, raw); if (barred && teamPath(full)) throw new Fail(403, 'team_policy', 'The administrator of the team has not allowed members to connect their AI to the team space.'); return teamPath(full) && full.length > TEAM_PRE.length ? { who: space, p: cleanPath(full.slice(TEAM_PRE.length)), full } : { who: user, p: full, full }; };
+  const at = (raw) => { const full = scoped(user, raw); if (barred && teamPath(full)) throw new Fail(403, 'team_policy', 'The administrator of the team has not allowed members to connect their AI to the team space.'); const r = teamPath(full) && full.length > TEAM_PRE.length ? { who: space, p: cleanPath(full.slice(TEAM_PRE.length)), full } : { who: user, p: full, full }; shut(r.who, r.p); return r; };
   // El espacio del equipo protegido: su llave, si quien llama lo desbloqueó para su IA y el token alcanza todo @team.
   const tv = space ? teamVault(user.team) : null;
   const teamKey = () => { const k = tv && tv.state === 'on' && within(user, TEAM_PRE.slice(0, -1)) ? aiKey(tv, user.id) : null; return k ? k.key : null; };
@@ -2117,7 +2208,7 @@ function runTool(user, name, args, opt, did) {
     if (name === 'list_shares') {
       const a = args.path ? own(args.path, 'share') : { who: user, p: '' };
       const all = sharesOf(a.who, a.p);
-      return { people: all.people.filter((s) => within(user, pre(a) + s.path)).map((s) => ({ path: pre(a) + s.path, kind: s.kind, email: s.email, role: s.role })), links: all.links.filter((l) => within(user, pre(a) + l.path)).map((l) => ({ id: l.id, path: pre(a) + l.path, protected: !!l.protected, created: new Date(l.created).toISOString() })) };
+      return { people: all.people.filter((s) => within(user, pre(a) + s.path)).map((s) => ({ path: pre(a) + s.path, kind: s.kind, email: s.email, role: s.role })), links: all.links.filter((l) => within(user, pre(a) + l.path)).map((l) => Object.assign({ id: l.id, path: pre(a) + l.path, protected: !!l.protected, created: new Date(l.created).toISOString() }, l.expires ? { expires: new Date(l.expires).toISOString(), expired: l.expired } : {})) };
     }
     if (name === 'share_note') {
       const a = own(args.path, 'share'); const p = a.p;
@@ -2135,16 +2226,17 @@ function runTool(user, name, args, opt, did) {
       return 'Stopped sharing ' + a.full + ' with ' + email + '.';
     }
     if (name === 'create_public_link') {
-      const a = own(args.path, 'links'); const body = { path: a.p, password: args.password == null || args.password === '' ? null : String(args.password) };
+      const a = own(args.path, 'links'); const body = { path: a.p, password: args.password == null || args.password === '' ? null : String(args.password), expires: args.expires };
       const made = inTeam(a) ? teamLink(theTeam, user, a.who, body) : addLink(user, body);
-      return { path: a.full, url: appLink('pub/' + made.token), id: made.id, protected: made.protected, note: 'Anyone with this URL can read the note' + (made.protected ? ' after typing the password.' : '.') + ' The URL is not shown again.' };
+      return Object.assign({ path: a.full, url: appLink('pub/' + made.token), id: made.id, protected: made.protected }, made.expires ? { expires: new Date(made.expires).toISOString() } : {},
+        { note: 'Anyone with this URL can read the note' + (made.protected ? ' after typing the password' : '') + (made.expires ? ' until ' + new Date(made.expires).toISOString() : '') + '. The URL is not shown again.' });
     }
     // revoke_public_link: uno por id, o todos los de una nota. Por id se busca en lo propio y, si se puede, en lo del equipo.
     const of = args.id == null ? own(args.path, 'links') : null;
     const owners = of ? [of.who] : [user].concat(space && teamAllows(theTeam, user, 'links') ? [space] : []);
     if (tt && !teamAllows(theTeam, user, 'links')) throw new Fail(403, 'team_policy', NO_TEAM_SHARE);
     const hit = owners.flatMap((w) => q('SELECT id, path FROM links WHERE owner = ?').all(w.id).map((l) => ({ id: l.id, p: l.path, who: w, full: (w === user ? '' : TEAM_PRE) + l.path })))
-      .filter((l) => within(user, l.full) && (of ? l.p === of.p : l.id === +args.id));
+      .filter((l) => within(user, l.full) && !hiddenIn(l.who, l.p) && (of ? l.p === of.p : l.id === +args.id));
     if (!hit.length) throw new Fail(404, 'not_found', 'There is no public link there.');
     for (const l of hit) { q('DELETE FROM links WHERE id = ? AND owner = ?').run(l.id, l.who.id); noted('unlink', l); }
     return 'Revoked ' + hit.length + ' public link' + (hit.length === 1 ? '' : 's') + ' to ' + hit[0].full + '.';
@@ -2307,8 +2399,10 @@ function teamView(user) {
   return out;
 }
 // Quien deja de ser miembro deja de escuchar las notas del equipo en el acto.
-function teamCut(spaceId, userId) {
-  for (const [key, room] of rooms) if (key.startsWith(spaceId + ':')) for (const c of Array.from(room)) if (c.uid === userId) c.res.end();
+// Con folder, a quienes tienen abierta una nota de esa carpeta y ya no la ven.
+function teamCut(spaceId, userId, folder) {
+  const pre = spaceId + ':' + (folder ? folder + '/' : '');
+  for (const [key, room] of rooms) if (key.startsWith(pre)) for (const c of Array.from(room)) if (folder ? c.uid && !c.gid && (() => { const u = userById(c.uid); return !u || !u.team || !makerSees(u.team, c.uid, folder + '/x'); })() : c.uid === userId) c.res.end();
 }
 // Crea el equipo de esa cuenta o lo vuelve a poner al día, con esa cantidad de lugares. sub es la suscripción que
 // lo paga, si hay una. Quien ya es miembro de otro equipo no sale de ahí porque llegue un pago a su nombre (lo
@@ -2443,6 +2537,19 @@ function teamDrop(t, userId, by) {
   const r = q('DELETE FROM team_members WHERE team = ? AND user = ?').run(t.id, userId);
   if (!r.changes) throw new Fail(404, 'not_found');
   if (by && by.id !== userId) teamLog(t, by, 'remove', '', '', userId); else teamLog(t, { id: userId }, 'leave', '');
+  // En el mismo paso se corta lo que esa persona conectó al equipo: los tokens del equipo que creó (los pudo copiar),
+  // y sus webhooks y entradas del espacio. Sus tokens personales siguen siendo suyos, pero ya no llegan al equipo.
+  const who = by || { id: userId };
+  const toks = q('SELECT id, name FROM tokens WHERE team = ? AND made_by = ?').all(t.id, userId);
+  for (const k of toks) { q('DELETE FROM tokens WHERE id = ?').run(k.id); teamLog(t, who, 'token_revoke', '', k.name, userId); }
+  const hooks = q('SELECT id, scope_path FROM hooks WHERE user = ? AND maker = ?').all(t.space, userId);
+  for (const h of hooks) { q('DELETE FROM hook_jobs WHERE hook = ?').run(h.id); q('DELETE FROM hooks WHERE id = ?').run(h.id); teamLog(t, who, 'automation_remove', h.scope_path || '', 'webhook', userId); }
+  const ins = q('SELECT id, path, kind FROM inboxes WHERE user = ? AND maker = ?').all(t.space, userId);
+  for (const r of ins) { q('DELETE FROM inboxes WHERE id = ?').run(r.id); teamLog(t, who, 'automation_remove', r.path, 'inbound ' + r.kind, userId); }
+  // Y deja de figurar en las carpetas restringidas: si vuelve a entrar, empieza sin acceso a ellas.
+  for (const row of q('SELECT folder, members FROM team_folders WHERE team = ?').all(t.id)) {
+    const ids = folderMembers(row); if (ids.includes(userId)) q('UPDATE team_folders SET members = ? WHERE team = ? AND folder = ?').run(JSON.stringify(ids.filter((i) => i !== userId)), t.id, row.folder);
+  }
   teamCut(t.space, userId);
   liveTeamSweep(t);
   teamVaultLeft(t, userId);
@@ -2450,7 +2557,7 @@ function teamDrop(t, userId, by) {
   // de lugares. El próximo aviso de Paddle trae la cantidad real.
   const paid = q("SELECT id FROM paddle_subs WHERE user = ? AND kind = 'team' AND status = 'active' ORDER BY at DESC LIMIT 1").get(userId);
   if (paid) teamOpen({ id: userId }, TEAM_MIN, paid.id);
-  return { ok: true };
+  return { ok: true, revoked: { tokens: toks.length, webhooks: hooks.length, inbound: ins.length } };
 }
 // Cambiar los lugares es cambiar la cantidad del ítem de la suscripción en Paddle, con el mismo precio que ya tiene.
 // Con prorrateo en el momento; durante la prueba gratis no hay nada que cobrar y Paddle solo acepta el cambio sin
@@ -2626,7 +2733,7 @@ function spaceOf(user, o, need) {
   if (o == null || o === '' || +o === user.id) return user;
   if (user.team && +o === user.team.space) {
     if (need === 'edit' && !teamAllows(user.team, user, 'write')) throw new Fail(403, 'read_only');
-    return userById(user.team.space);
+    return teamSpaceFor(user);
   }
   throw new Fail(403, 'no_access');
 }
@@ -2717,6 +2824,7 @@ function teamTokenUser(tok) {
   const u = team ? userById(team.space) : null; if (!u) return null;
   u.scope = tok.scope || ''; u.canShare = !!tok.share; u.canWrite = !!tok.can_write; u.tokenName = tok.name; u.tokenId = tok.id;
   u.teamToken = { id: tok.id, name: tok.name, team };
+  u.hide = teamClosed(team, u);
   return u;
 }
 const TEAM_TOKEN_LOCKED = 'The team space is protected with a password, so a token of the team cannot read, search or change its notes. A member can connect their own AI and unlock the space for it from SharpMD.';
@@ -2746,7 +2854,7 @@ function teamLogSweep() {
   for (const t of q('SELECT team, COUNT(*) AS n FROM team_log GROUP BY team HAVING n > ?').all(TEAM_LOG_MAX)) q('DELETE FROM team_log WHERE team = ? AND id NOT IN (SELECT id FROM team_log WHERE team = ? ORDER BY id DESC LIMIT ?)').run(t.team, t.team, TEAM_LOG_MAX);
   for (const [k, at] of logSeen) if (now() - at > HOUR) logSeen.delete(k);
 }
-const TEAM_ACTIONS = ['create', 'edit', 'move', 'delete', 'restore', 'purge', 'empty_trash', 'share', 'unshare', 'link', 'unlink', 'invite', 'uninvite', 'join', 'leave', 'remove', 'role', 'policy', 'team_name', 'protect', 'password', 'rotate', 'rotate_done', 'unprotect', 'destroy', 'ai', 'ai_unlock', 'token_create', 'token_revoke', 'token_regenerate', 'automation', 'automation_remove', 'site', 'publish', 'unpublish', 'subdomain', 'subdomain_off', 'subdomain_ask', 'subdomain_cancel', 'subdomain_no', 'live_open', 'live_end', 'live_kick', 'attach', 'detach'];
+const TEAM_ACTIONS = ['create', 'edit', 'move', 'delete', 'restore', 'purge', 'empty_trash', 'share', 'unshare', 'link', 'unlink', 'invite', 'uninvite', 'join', 'leave', 'remove', 'role', 'policy', 'team_name', 'protect', 'password', 'rotate', 'rotate_done', 'unprotect', 'destroy', 'ai', 'ai_unlock', 'token_create', 'token_revoke', 'token_regenerate', 'automation', 'automation_remove', 'site', 'publish', 'unpublish', 'subdomain', 'subdomain_off', 'subdomain_ask', 'subdomain_cancel', 'subdomain_no', 'live_open', 'live_end', 'live_kick', 'attach', 'detach', 'folder_access', 'folder_open'];
 // Lo que se pide del registro: who (número de cuenta), token (nombre), action, from y to (milisegundos), before (id, para seguir).
 function teamLogRows(team, url, max) {
   const g = (k) => url.searchParams.get(k) || '';
@@ -2775,7 +2883,7 @@ function teamShare(team, user, owner, body) {
 }
 function teamLink(team, user, owner, body) {
   const r = addLink(owner, body);
-  teamLog(team, user, 'link', cleanPath(body.path), r.protected ? 'password' : '');
+  teamLog(team, user, 'link', cleanPath(body.path), [r.protected ? 'password' : '', r.expires ? 'expires ' + iso(r.expires).slice(0, 10) : ''].filter(Boolean).join(' '));
   return r;
 }
 // De quién es lo que se comparte en un pedido que trae o. Con el espacio del equipo, what dice qué se necesita:
@@ -2785,15 +2893,19 @@ function shareOwner(user, o, what) {
   const t = user.team;
   if (!t || +o !== t.space) throw new Fail(403, 'no_access');
   if (what === 'see' ? !teamAllows(t, user, 'write') : !teamAllows(t, user, what)) throw new Fail(403, teamRoleOf(user) === 'reader' ? 'read_only' : 'team_policy', 'The administrator of the team has not allowed this');
-  return userById(t.space);
+  return teamSpaceFor(user);
 }
 
+const TEAM_FOLDERS_MAX = 100;
+const teamFoldersView = (t) => q('SELECT folder, members FROM team_folders WHERE team = ? ORDER BY folder').all(t.id).map((r) => ({ folder: r.folder, members: folderMembers(r) }));
+// El nombre de una carpeta de primer nivel: sin barras adentro.
+function teamFolderName(v) { const f = cleanPath(String(v == null ? '' : v).replace(/\/+$/, '')); if (f.includes('/')) throw new Fail(400, 'bad_folder', 'Only a top-level folder of the team space can be restricted'); return f; }
 async function teamAdminRoute(user, p, m, req, after) {
   const t = user.team; const url = new URL(req.url, 'http://x');
   // Las políticas las lee cualquier miembro (necesita saber con qué nace una nota y qué puede hacer); las cambia quien administra.
   if (p === '/team/policies' && m === 'GET') { if (!t) throw new Fail(404, 'no_team'); return { policies: teamPolicies(t), can: Object.fromEntries(['write'].concat(POLICY_BOOLS).map((k) => [k, teamAllows(t, user, k)])), history_days: teamHistoryDays(t), history_max: TEAM_HISTORY_DAYS }; }
   // /team/subdomain existe solo con PAGES_TEAM_DOMAIN o PAGES_TEAM_ASK: sin ninguna responde como cualquier ruta que no hay.
-  const known = p === '/team/policies' || p === '/team/role' || p === '/team/log' || p === '/team/tokens' || p.startsWith('/team/tokens/') || ((p === '/team/subdomain' || p === '/team/subdomain/request') && !!TEAM_SUBS);
+  const known = p === '/team/policies' || p === '/team/role' || p === '/team/log' || p === '/team/tokens' || p === '/team/folders' || p.startsWith('/team/tokens/') || ((p === '/team/subdomain' || p === '/team/subdomain/request') && !!TEAM_SUBS);
   if (!known) return null;
   adminTeam(user);
   // Sin name, el subdominio que hay. Con name, si ese nombre se puede usar: lo pregunta la app mientras se escribe.
@@ -2808,9 +2920,32 @@ async function teamAdminRoute(user, p, m, req, after) {
     const rows = teamLogRows(t, url, TEAM_LOG_PAGE + 1);
     return { entries: rows.slice(0, TEAM_LOG_PAGE), more: rows.length > TEAM_LOG_PAGE, days: TEAM_LOG_DAYS };
   }
+  if (p === '/team/folders' && m === 'GET') return { folders: teamFoldersView(t) };
   if (p === '/team/tokens' && m === 'GET') return q('SELECT k.id, k.name, k.scope, k.share, k.can_write, k.created, k.used, u.email AS by FROM tokens k LEFT JOIN users u ON u.id = k.made_by WHERE k.team = ? ORDER BY k.created DESC, k.id DESC').all(t.id).map((k) => ({ id: k.id, name: k.name, scope: k.scope || '', write: !!k.can_write, share: !!k.share, created: k.created, used: k.used, by: k.by || '' }));
   if (m === 'GET') throw new Fail(404, 'no_route');
   limit('tadm:' + t.id, TEAM_ADMIN_HOUR, HOUR, 'too_many'); mark('tadm:' + t.id);
+  // Una carpeta de primer nivel del espacio, solo para las personas de members (quien administra la ve siempre).
+  // Con members vacío la ve solo quien administra. DELETE la vuelve a abrir para todo el equipo.
+  if (p === '/team/folders' && m === 'PUT') {
+    const b = await readBody(req);
+    const folder = teamFolderName(b.folder);
+    if (!Array.isArray(b.members) || b.members.length > TEAM_MAX_SEATS) throw new Fail(400, 'bad_members');
+    const inTeam = new Set(q('SELECT user FROM team_members WHERE team = ?').all(t.id).map((x) => x.user));
+    const ids = [...new Set(b.members.map(Number))];
+    if (ids.some((id) => !Number.isInteger(id) || !inTeam.has(id))) throw new Fail(400, 'bad_members', 'Every id in members has to be a member of the team');
+    const had = q('SELECT 1 FROM team_folders WHERE team = ? AND folder = ?').get(t.id, folder);
+    if (!had && q('SELECT COUNT(*) AS n FROM team_folders WHERE team = ?').get(t.id).n >= TEAM_FOLDERS_MAX) throw new Fail(400, 'too_many_folders');
+    q('INSERT INTO team_folders (team, folder, members) VALUES (?, ?, ?) ON CONFLICT (team, folder) DO UPDATE SET members = excluded.members').run(t.id, folder, JSON.stringify(ids));
+    teamLog(t, user, 'folder_access', folder, String(ids.length));
+    // Quien deja de verla no sigue recibiendo en vivo lo que pasa adentro.
+    teamCut(t.space, null, folder);
+    return after({ ok: true, folders: teamFoldersView(t) });
+  }
+  if (p === '/team/folders' && m === 'DELETE') {
+    const folder = teamFolderName(url.searchParams.get('folder'));
+    if (q('DELETE FROM team_folders WHERE team = ? AND folder = ?').run(t.id, folder).changes) teamLog(t, user, 'folder_open', folder);
+    return after({ ok: true, folders: teamFoldersView(t) });
+  }
   if (p === '/team/role' && m === 'POST') {
     const b = await readBody(req); const id = +b.id;
     if (!TEAM_ROLES.includes(b.role)) throw new Fail(400, 'bad_role');
@@ -3697,6 +3832,7 @@ function hookBody(hook, ev) {
 }
 // Deja el evento en la cola de cada webhook de esa cuenta que lo mira. text: el contenido de la nota, para los que lo
 // pidieron. Nunca corta lo que la llamó: si algo falla acá, la nota ya quedó guardada.
+const makerSees = (team, maker, p) => { const u = userById(maker); const hide = u ? teamClosed(team, u) : null; return !hide || !hide.has(topFolder(p)); };
 function autoEmit(owner, type, p, data, opt) {
   try {
     if (!owner || !type) return;
@@ -3704,7 +3840,8 @@ function autoEmit(owner, type, p, data, opt) {
     if (!hooks.length || !autoAllowed(owner)) return;
     // En el espacio de un equipo, un webhook sirve mientras quien lo creó pueda automatizar ahí (la política del equipo).
     const team = teamOfSpace(owner);
-    if (team) { hooks = hooks.filter((h) => makerMay(team, h.maker, 'automation')); if (!hooks.length) return; }
+    // Y lo de una carpeta restringida le llega solo si quien lo creó la ve.
+    if (team) { hooks = hooks.filter((h) => makerMay(team, h.maker, 'automation') && makerSees(team, h.maker, p) && (!opt || !opt.from || makerSees(team, h.maker, opt.from))); if (!hooks.length) return; }
     // Lo que está en una carpeta protegida no genera eventos.
     if (vaultOf(owner.id, p) || (opt && opt.from && vaultOf(owner.id, opt.from))) return;
     const at = now(); const ev = { id: 'evt_' + random(15), type, created: iso(at), account: autoAcct(owner.id), note: autoNoteRef(owner, p), actor: autoActor(owner), data: data || {} };
@@ -3728,15 +3865,145 @@ function autoNoteSaved(owner, p, prev, text, saved, v) {
   if (v || text.startsWith(VAULT) || (prev != null && prev.startsWith(VAULT)) || prev === text) return;
   const data = { rev: saved.rev, size: saved.size, updated: iso(saved.updated) };
   autoEmit(owner, prev == null ? 'note.created' : 'note.updated', p, data, { text });
-  if (prev == null || (!kbHas(prev) && !kbHas(text))) return;
+  if (!kbHas(text) && (prev == null || !kbHas(prev))) return;
   let events = [];
-  try { events = kbDiff(prev, text); } catch (e) { return; }
+  try { events = kbDiff(prev == null ? '' : prev, text); } catch (e) { return; }
+  try { noticeAssign(owner, p, events); } catch (e) { console.error('aviso de tarjeta asignada · ' + String(e && e.stack || e).slice(0, 600)); }
+  if (prev == null) return;
   for (const ev of events.slice(0, CARD_EVENTS_MAX)) autoEmit(owner, ev.type, p, Object.assign(ev.data, { rev: saved.rev }));
 }
 function autoNoteMoved(owner, from, to) {
   // Lo que apuntaba a esa nota (un webhook de una sola nota, una dirección de entrada) la sigue.
   try { q("UPDATE hooks SET scope_path = ? WHERE user = ? AND scope_kind = 'note' AND scope_path = ?").run(to, owner.id, from); q("UPDATE inboxes SET path = ? WHERE user = ? AND kind != 'create' AND path = ?").run(to, owner.id, from); } catch (e) { /* el evento sale igual */ }
   autoEmit(owner, 'note.moved', to, { from: (isSpace(owner) ? TEAM_PRE : '') + from, to: (isSpace(owner) ? TEAM_PRE : '') + to }, { from });
+}
+
+// ---------- Avisos por correo de los tableros del equipo ----------
+// Una tarjeta es de alguien cuando un campo de persona (owner, responsable, asignado...) lo nombra: por su nombre
+// visible, su correo o lo que va antes de la arroba. Vence según un campo de fecha (due, vence...) en AAAA-MM-DD.
+// Los mismos nombres de campo que reconoce el tablero de la app. Solo en el espacio de un equipo activo, solo a
+// quien ve la carpeta de la nota y nunca a quien hizo el cambio.
+const KB_PERSON_KEY = /^(owners?|assignees?|responsables?|asignad[oa]s?|persona|person)$/i;
+const KB_DUE_KEY = /^(due|vence|deadline|fecha-limite)$/i;
+const NOTICE_PER_HOUR = Math.max(1, +(env.NOTICE_MAIL_PER_HOUR || 20));
+const kbPeople = (v) => String(v == null ? '' : v).split(',').map((s) => s.trim().replace(/^@/, '').toLowerCase()).filter(Boolean);
+const kbPeopleOf = (attrs) => { const out = new Set(); for (const k of Object.keys(attrs || {})) if (KB_PERSON_KEY.test(k)) for (const x of kbPeople(attrs[k])) out.add(x); return out; };
+const kbDueOf = (attrs) => { for (const k of Object.keys(attrs || {})) if (KB_DUE_KEY.test(k) && /^\d{4}-\d{2}-\d{2}$/.test(String(attrs[k]).trim())) return String(attrs[k]).trim(); return null; };
+// Los miembros del equipo que pueden recibir avisos de una nota: con lo que hace falta para reconocerlos y saber si la ven.
+function noticeMembers(team, p) {
+  if (!team || team.status !== 'active') return [];
+  return q('SELECT u.id, u.email, u.name, u.mail_assign, u.mail_due, u.mail_lang, m.role FROM team_members m JOIN users u ON u.id = m.user WHERE m.team = ?').all(team.id)
+    .filter((u) => { const hide = teamClosed(team, { id: u.id, team: Object.assign({}, team, { my_role: u.role }) }); return !hide || !hide.has(topFolder(p)); })
+    .map((u) => Object.assign(u, { keys: new Set([String(u.email).toLowerCase(), String(u.email).split('@')[0].toLowerCase(), nameOf(u).toLowerCase()]) }));
+}
+const noticeWho = (members, names) => members.filter((u) => Array.from(names).some((n) => u.keys.has(n)));
+const NOTICE = {
+  en: { assignSubject: (n, t) => (n === 1 ? 'Card assigned to you: ' + t : n + ' cards assigned to you'), assignLead: (by, note) => (by ? '<b>' + by + '</b> assigned you' : 'You were assigned') + ' in <b>' + note + '</b>:',
+    dueSubject: (n) => (n === 1 ? 'A card of yours is due' : n + ' cards of yours are due'), dueLead: (team) => 'These cards assigned to you in the team <b>' + team + '</b> are due:', due: 'due', go: 'Open the board', goAll: 'Open SharpMD',
+    note: (team) => 'You get this because you are in the team ' + team + ' on SharpMD. You can turn these emails off in Settings, Plan.' },
+  es: { assignSubject: (n, t) => (n === 1 ? 'Te asignaron una tarjeta: ' + t : 'Te asignaron ' + n + ' tarjetas'), assignLead: (by, note) => (by ? '<b>' + by + '</b> te asignó' : 'Te asignaron') + ' en <b>' + note + '</b>:',
+    dueSubject: (n) => (n === 1 ? 'Vence una tarjeta tuya' : 'Vencen ' + n + ' tarjetas tuyas'), dueLead: (team) => 'Vencen estas tarjetas a tu nombre en el equipo <b>' + team + '</b>:', due: 'vence', go: 'Abrir el tablero', goAll: 'Abrir SharpMD',
+    note: (team) => 'Te llega porque estás en el equipo ' + team + ' en SharpMD. Podés apagar estos correos en Ajustes, Plan.' },
+};
+const noticeText = (lead, items, link, note) => lead.replace(/<\/?b>/g, '') + '\n\n' + items.map((it) => '- ' + it.title + (it.sub ? ' (' + it.sub + ')' : '')).join('\n') + '\n\n' + link + '\n\n' + note;
+const noticeHtml = (lead, items, go, link, note) => '<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f4f3ee;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1d2026">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">' +
+  '<table role="presentation" width="420" cellpadding="0" cellspacing="0" style="max-width:420px;width:100%;background:#ffffff;border:1px solid #dedbd2;border-radius:14px">' +
+  '<tr><td style="padding:28px 32px 8px;font-size:17px;font-weight:700;letter-spacing:-0.01em"><span style="color:#4d7c0f">#</span> SharpMD</td></tr>' +
+  '<tr><td style="padding:8px 32px 0;font-size:15px;line-height:1.5;color:#1d2026;overflow-wrap:anywhere">' + lead + '</td></tr>' +
+  '<tr><td style="padding:10px 32px 0;font-size:14.5px;line-height:1.5;overflow-wrap:anywhere"><ul style="margin:0;padding-left:18px">' +
+  items.map((it) => '<li style="margin:4px 0">' + (it.href ? '<a href="' + html(it.href) + '" style="color:#1d2026">' + html(it.title) + '</a>' : html(it.title)) + (it.sub ? ' <span style="color:#8a909c">' + html(it.sub) + '</span>' : '') + '</li>').join('') + '</ul></td></tr>' +
+  '<tr><td style="padding:18px 32px 6px"><a href="' + html(link) + '" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#4d7c0f;color:#ffffff;font-size:15px;font-weight:650;text-decoration:none">' + go + '</a></td></tr>' +
+  '<tr><td style="padding:12px 32px 28px;font-size:13.5px;line-height:1.5;color:#8a909c">' + html(note) + '</td></tr>' +
+  '</table><div style="padding-top:14px;font-size:12px;color:#8a909c">sharpmd.app</div></td></tr></table></body></html>';
+const noticeSend = (to, subject, text, htmlBody) => sendMail({ to, subject, text, html: htmlBody }).catch((e) => console.error('aviso por correo: no salió · ' + String(e && e.message || e).slice(0, 200)));
+// Te asignaron: las personas que una tarjeta suma (al crearla o al cambiarle el campo de persona) reciben un correo
+// con las tarjetas de ese guardado. Hasta NOTICE_MAIL_PER_HOUR correos por hora por persona.
+function noticeAssign(owner, p, events) {
+  const team = teamOfSpace(owner); if (!team) return;
+  const added = [];
+  for (const ev of events) {
+    const card = ev.data.card; if (card.done) continue;
+    let names = null;
+    if (ev.type === 'card.created') names = kbPeopleOf(card.attrs);
+    else if (ev.type === 'card.updated') {
+      const keys = Object.keys(ev.data.changes).filter((k) => KB_PERSON_KEY.test(k)); if (!keys.length) continue;
+      const was = new Set(); for (const k of keys) for (const x of kbPeople(ev.data.changes[k].from)) was.add(x);
+      names = new Set(Array.from(kbPeopleOf(card.attrs)).filter((x) => !was.has(x)));
+    }
+    if (names && names.size) added.push({ card, names });
+  }
+  if (!added.length) return;
+  const st = reqCtx.getStore() || {}; const actor = st.user && !st.user.teamToken ? st.user : null;
+  const members = noticeMembers(team, p); const per = new Map();
+  for (const a of added) for (const u of noticeWho(members, a.names)) {
+    if ((actor && u.id === actor.id) || u.mail_assign === 0) continue;
+    if (!per.has(u.id)) per.set(u.id, { u, cards: [] });
+    if (!per.get(u.id).cards.includes(a.card)) per.get(u.id).cards.push(a.card);
+  }
+  const link = autoUrl(owner, p); const noteName = p.split('/').pop().replace(/\.md$/i, '');
+  for (const { u, cards } of per.values()) {
+    try { rate('notice:' + u.id, NOTICE_PER_HOUR, HOUR, 'too_many'); } catch (e) { continue; }
+    const m = NOTICE[u.mail_lang === 'es' ? 'es' : 'en']; const by = actor ? nameOf(actor) : '';
+    const items = cards.slice(0, 20).map((c) => ({ title: c.title, sub: [c.column, kbDueOf(c.attrs) ? m.due + ' ' + kbDueOf(c.attrs) : ''].filter(Boolean).join(', ') }));
+    const lead = m.assignLead(html(by), html(noteName)); const note = m.note(team.name || 'Team');
+    noticeSend(u.email, m.assignSubject(cards.length, cards[0].title.slice(0, 120)), noticeText(lead, items, link, note), noticeHtml(lead, items, m.go, link, note));
+  }
+}
+// El resumen diario: a cada persona, en un solo correo, las tarjetas suyas sin terminar cuya fecha llegó desde el
+// último resumen (la primera vez, las de hoy). El día se cuenta en DIGEST_TZ (por defecto UTC) y sale a partir de
+// DIGEST_HOUR (por defecto las 9). meta.due_digest_day guarda el último día mandado: un reinicio no lo repite.
+const DIGEST_TZ = env.DIGEST_TZ || 'UTC';
+const DIGEST_HOUR = Math.min(23, Math.max(0, +(env.DIGEST_HOUR == null ? 9 : env.DIGEST_HOUR)));
+const digestDay = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: DIGEST_TZ });
+const digestHour = (t) => +new Date(t).toLocaleString('en-US', { timeZone: DIGEST_TZ, hour: '2-digit', hourCycle: 'h23' });
+async function dueDigest(today, since) {
+  let sent = 0;
+  for (const team of q("SELECT * FROM teams WHERE status = 'active'").all()) {
+    const space = userById(team.space); if (!space) continue;
+    const per = new Map();
+    for (const n of q('SELECT path, text, e FROM notes WHERE user = ?').all(space.id)) {
+      let text; try { text = unseal(n.text, n.e, 'notes.text'); } catch (e) { continue; }
+      if (typeof text !== 'string' || text.startsWith(VAULT) || !kbHas(text)) continue;
+      let members = null;
+      for (const b of kbBlocks(text).blocks) {
+        const doneCol = kbDoneColumn(b.board);
+        for (const col of b.board.columns) for (const card of col.cards) {
+          if (card.done || col === doneCol) continue;
+          const due = kbDueOf(card.attrs); if (!due || due > today || (since ? due <= since : due !== today)) continue;
+          const names = kbPeopleOf(card.attrs); if (!names.size) continue;
+          if (!members) members = noticeMembers(team, n.path);
+          for (const u of noticeWho(members, names)) {
+            if (u.mail_due === 0) continue;
+            if (!per.has(u.id)) per.set(u.id, { u, items: [] });
+            per.get(u.id).items.push({ title: card.text, due, href: autoUrl(space, n.path), note: n.path.split('/').pop().replace(/\.md$/i, '') });
+          }
+        }
+      }
+    }
+    for (const { u, items } of per.values()) {
+      const m = NOTICE[u.mail_lang === 'es' ? 'es' : 'en']; const note = m.note(team.name || 'Team'); const lead = m.dueLead(html(team.name || 'Team'));
+      items.sort((a, b) => a.due.localeCompare(b.due));
+      const list = items.slice(0, 40).map((it) => ({ title: it.title, sub: it.note + ', ' + m.due + ' ' + it.due, href: it.href }));
+      await noticeSend(u.email, m.dueSubject(items.length), noticeText(lead, list, APP_URL, note), noticeHtml(lead, list, m.goAll, APP_URL, note));
+      sent++;
+    }
+  }
+  return sent;
+}
+let digestBusy = false;
+async function dueDigestTick(force) {
+  if (digestBusy) return null;
+  const t = now(); const today = digestDay(t);
+  const row = q("SELECT value FROM meta WHERE key = 'due_digest_day'").get(); const last = row ? row.value : '';
+  if (!force && (last >= today || digestHour(t) < DIGEST_HOUR)) return null;
+  digestBusy = true;
+  try {
+    q("INSERT OR REPLACE INTO meta (key, value) VALUES ('due_digest_day', ?)").run(today);
+    // Si el servidor estuvo apagado unos días, junta lo que venció en el medio (hasta una semana).
+    const since = last && last < today ? (last > digestDay(t - 7 * DAY) ? last : digestDay(t - 7 * DAY)) : (force && last === today ? digestDay(t - DAY) : '');
+    return { day: today, sent: await dueDigest(today, since) };
+  } catch (e) { console.error('resumen de vencimientos · ' + String(e && e.stack || e).slice(0, 600)); return null; } finally { digestBusy = false; }
 }
 
 // ---------- Destinos: nada de red privada ----------
@@ -3898,7 +4165,7 @@ function autoScope(owner, raw) {
   // Un espacio de equipo protegido con contraseña está cifrado entero: no hay nada que el servidor pueda avisar.
   if (vaultOf(owner.id, 'x')) throw new Fail(409, 'vault', 'A space protected with a password cannot be automated: the server cannot read its notes');
   if (kind === 'all') return { kind, path: '' };
-  const p = cleanPath(String(raw.path || '').replace(/\/+$/, ''));
+  const p = shut(owner, cleanPath(String(raw.path || '').replace(/\/+$/, '')));
   if (vaultsOf(owner.id).some((v) => p === v.folder || inside(p, v.folder))) throw new Fail(409, 'vault', 'A protected folder cannot be automated: the server cannot read its notes');
   return { kind, path: p };
 }
@@ -3921,7 +4188,7 @@ function inboxFields(owner, b, was) {
   if (!was) out.kind = kind;
   if (b.path !== undefined || !was) {
     // 'create' apunta a una carpeta (vacío: la raíz); las otras dos, a una nota.
-    const raw = String(b.path || '').replace(/\/+$/, ''); const p = kind === 'create' && !raw ? '' : cleanPath(raw);
+    const raw = String(b.path || '').replace(/\/+$/, ''); const p = kind === 'create' && !raw ? '' : shut(owner, cleanPath(raw));
     if (vaultsOf(owner.id).some((v) => p === v.folder || inside(p || 'x', v.folder))) throw new Fail(409, 'vault', 'A protected folder cannot receive entries: its notes are encrypted in the browser');
     out.path = p;
   }
@@ -3937,7 +4204,7 @@ async function autoRoute(req, user, p, m, url) {
   const owner = autoOwner(user, m === 'GET' || m === 'DELETE' ? url.searchParams.get('o') : body.o);
   if (p === '/automations' && m === 'GET') {
     return { allowed: autoAllowed(owner), events: EVENT_TYPES, formats: HOOK_FORMATS, api_url: PUBLIC_URL + '/api/v1', inbox_url: PUBLIC_URL + '/in/', limits: { hooks: MAX_HOOKS, inboxes: MAX_INBOXES },
-      hooks: q('SELECT * FROM hooks WHERE user = ? ORDER BY id').all(owner.id).map(hookView), inboxes: q('SELECT * FROM inboxes WHERE user = ? ORDER BY id').all(owner.id).map(inboxView) };
+      hooks: q('SELECT * FROM hooks WHERE user = ? ORDER BY id').all(owner.id).filter((h) => !h.scope_path || !hiddenIn(owner, h.scope_path)).map(hookView), inboxes: q('SELECT * FROM inboxes WHERE user = ? ORDER BY id').all(owner.id).filter((i) => !i.path || !hiddenIn(owner, i.path)).map(inboxView) };
   }
   if (p === '/automations/hooks' && m === 'POST') {
     autoNeedsPlan(owner);
@@ -3951,7 +4218,7 @@ async function autoRoute(req, user, p, m, url) {
   const hm = /^\/automations\/hooks\/(\d+)(?:\/(test|secret|deliveries))?$/.exec(p);
   if (hm) {
     const hook = q('SELECT * FROM hooks WHERE id = ? AND user = ?').get(+hm[1], owner.id);
-    if (!hook) throw new Fail(404, 'not_found');
+    if (!hook || (hook.scope_path && hiddenIn(owner, hook.scope_path))) throw new Fail(404, 'not_found');
     if (!hm[2] && m === 'DELETE') { q('DELETE FROM hook_jobs WHERE hook = ?').run(hook.id); q('DELETE FROM hooks WHERE id = ?').run(hook.id); if (isSpace(owner)) teamLog(user.team, user, 'automation_remove', hook.scope_path, 'webhook ' + hook.host); return { ok: true }; }
     if (hm[2] === 'deliveries' && m === 'GET') return q('SELECT id, type, path, status, attempt, code, ms, err, created, done FROM hook_jobs WHERE hook = ? ORDER BY id DESC LIMIT ?').all(hook.id, HOOK_LOG)
       .map((j) => ({ id: j.id, type: j.type, path: j.path, status: j.status, attempts: j.attempt, code: j.code || 0, ms: j.ms || 0, error: j.err || '', created: j.created, done: j.done || null }));
@@ -3991,7 +4258,7 @@ async function autoRoute(req, user, p, m, url) {
   const im = /^\/automations\/inboxes\/(\d+)(?:\/(secret))?$/.exec(p);
   if (im) {
     const row = q('SELECT * FROM inboxes WHERE id = ? AND user = ?').get(+im[1], owner.id);
-    if (!row) throw new Fail(404, 'not_found');
+    if (!row || (row.path && hiddenIn(owner, row.path))) throw new Fail(404, 'not_found');
     if (!im[2] && m === 'DELETE') { q('DELETE FROM inboxes WHERE id = ?').run(row.id); if (isSpace(owner)) teamLog(user.team, user, 'automation_remove', row.path, 'inbound ' + row.kind); return { ok: true }; }
     autoNeedsPlan(owner);
     if (!im[2] && m === 'PUT') { const n = Object.assign({}, row, inboxFields(owner, body, row)); q('UPDATE inboxes SET name = ?, path = ?, tpl = ?, col = ?, allow_get = ?, tz = ? WHERE id = ?').run(n.name, n.path, n.tpl, n.col, n.allow_get, n.tz, row.id); return { inbox: inboxView(q('SELECT * FROM inboxes WHERE id = ?').get(row.id)) }; }
@@ -4325,7 +4592,9 @@ function agentTool(name, args, k) {
   };
   // Un token limitado a una carpeta ve los agentes que anotó él y los que trabajan dentro de su carpeta: de los
   // demás no se entera, ni por su tarea ni por la ruta de su nota.
-  const reach = (r) => !user.scope || (r.token != null && r.token === user.tokenId) || (!!r.note_path && within(user, fullOf(r)));
+  // Ni los que trabajan en una carpeta del equipo que quien llama no ve.
+  const unseen = (r) => { if (!r.note_path || (r.note_owner === owner && !user.hide)) return false; try { k.at(fullOf(r)); return false; } catch (e) { return e.code === 'not_found'; } };
+  const reach = (r) => !unseen(r) && (!user.scope || (r.token != null && r.token === user.tokenId) || (!!r.note_path && within(user, fullOf(r))));
   const all = () => q('SELECT * FROM agents WHERE owner = ? ORDER BY created, rowid').all(owner).filter(reach).map(agentOpen);
   const one = (id) => { const r = q('SELECT * FROM agents WHERE id = ? AND owner = ?').get(typeof id === 'string' ? id : '', owner); if (!r || r.status === 'lost' || !reach(r)) throw new Fail(404, 'agent_not_found', AGENT_GONE()); return agentOpen(r); };
   // Dónde trabaja: una nota que existe y, si se dio, una tarjeta de su tablero. El campo agent de esa tarjeta pasa a
@@ -4404,7 +4673,8 @@ function agentTool(name, args, k) {
 function agentsFor(user) {
   const t = now(); const owners = [user.id].concat(user.team && user.team.space ? [user.team.space] : []);
   const rows = [];
-  for (const o of owners) { agentsSweep(o); for (const r of q('SELECT * FROM agents WHERE owner = ? ORDER BY created, rowid').all(o)) rows.push(agentOpen(r)); }
+  const hide = user.team ? teamClosed(user.team, user) : null;
+  for (const o of owners) { agentsSweep(o); for (const r of q('SELECT * FROM agents WHERE owner = ? ORDER BY created, rowid').all(o)) if (!(hide && r.note_path && r.note_owner === user.team.space && hide.has(topFolder(r.note_path)))) rows.push(agentOpen(r)); }
   const tokens = new Map(); const tokenOf = (id) => { if (id == null) return ''; if (!tokens.has(id)) { const x = q('SELECT name FROM tokens WHERE id = ?').get(id); tokens.set(id, x ? x.name : ''); } return tokens.get(id); };
   const view = (r) => ({ id: r.id, name: r.name, task: r.task, status: agentState(r, t), needs: r.needs, result: r.result, parent: r.parent, path: !r.note_path ? '' : r.note_owner === user.id ? r.note_path : '~' + r.note_owner + '/' + r.note_path, card: r.card,
     // El nombre del token se muestra a quien es su dueño; de los del equipo, solo el cliente que se conectó.
@@ -4657,7 +4927,7 @@ async function apiRoute(req, url, p, m) {
   if (r === '/shares' && m === 'GET') return ok(call('list_shares', { path: qs.get('path') || undefined }));
   if (r === '/shares' && m === 'POST') return ok({ message: call('share_note', { path: body.path, email: body.email, role: body.role }) });
   if (r === '/shares' && m === 'DELETE') return ok({ message: call('unshare_note', { path: qs.get('path'), email: qs.get('email') }) });
-  if (r === '/links' && m === 'POST') return ok(call('create_public_link', { path: body.path, password: body.password }));
+  if (r === '/links' && m === 'POST') return ok(call('create_public_link', { path: body.path, password: body.password, expires: body.expires }));
   if (r === '/links' && m === 'DELETE') return ok({ message: call('revoke_public_link', { id: num(qs.get('id')), path: qs.get('path') || undefined }) });
   throw new Fail(404, 'no_route');
 }
@@ -5020,7 +5290,8 @@ function siteView(site, user, full) {
 // Los sitios que alcanza una cuenta: los suyos y los del espacio de su equipo.
 function sitesOf(user) {
   const rows = q('SELECT * FROM sites WHERE owner = ? OR owner = ? ORDER BY id').all(user.id, user.team ? user.team.space : user.id);
-  return rows.map((s) => siteLapse(s, s.owner === user.id ? user : userById(s.owner)));
+  const hide = user.team ? teamClosed(user.team, user) : null;
+  return rows.filter((s) => s.owner === user.id || !hide || !hide.has(topFolder(s.folder))).map((s) => siteLapse(s, s.owner === user.id ? user : userById(s.owner)));
 }
 // Va en GET /account: si el servidor publica sitios, cuántos entran y los que hay. La app lee de acá si el sitio
 // está suspendido o por despublicarse, sin pedir nada más.
@@ -5039,7 +5310,7 @@ function siteOwner(user, o) {
   if (!teamAllows(t, user, 'write')) throw new Fail(403, 'read_only');
   if (!teamAllows(t, user, 'publish')) throw new Fail(403, 'team_policy', 'The administrator of the team has not allowed members to publish sites');
   if (teamVault(t)) throw new Fail(409, 'vault', 'A team space protected with a password cannot be published');
-  return { owner: userById(t.space), team: t };
+  return { owner: teamSpaceFor(user), team: t };
 }
 function siteFor(user, id, need) {
   const site = q('SELECT * FROM sites WHERE id = ?').get(+id);
@@ -5048,7 +5319,7 @@ function siteFor(user, id, need) {
   const t = user.team;
   if (!t || site.owner !== t.space) throw new Fail(404, 'not_found');
   if (need !== 'see') { if (!teamAllows(t, user, 'write')) throw new Fail(403, 'read_only'); if (!teamAllows(t, user, 'publish')) throw new Fail(403, 'team_policy', 'The administrator of the team has not allowed members to publish sites'); }
-  const owner = userById(t.space);
+  const owner = teamSpaceFor(user); shut(owner, site.folder);
   return { site: siteLapse(site, owner), owner, team: t };
 }
 const siteNeedsPlan = (owner) => { if (!owner || owner.plan !== 'pro') throw new Fail(402, 'site_needs_plan', 'Publishing a site is part of the paid plan'); };
@@ -5302,7 +5573,7 @@ function siteCreate(user, b) {
   const { owner, team } = siteOwner(user, b.o);
   siteNeedsPlan(owner);
   if (q('SELECT COUNT(*) AS n FROM sites WHERE owner = ?').get(owner.id).n >= PAGES_PER_ACCOUNT) throw new Fail(409, 'site_limit', 'This plan includes ' + PAGES_PER_ACCOUNT + ' published site' + (PAGES_PER_ACCOUNT === 1 ? '' : 's'));
-  const folder = cleanPath(String(b.folder == null ? '' : b.folder).replace(/\/+$/, ''));
+  const folder = shut(owner, cleanPath(String(b.folder == null ? '' : b.folder).replace(/\/+$/, '')));
   if (siteVaulted(owner.id, folder)) throw new Fail(409, 'vault', 'A folder protected with a password cannot be published');
   const site = { id: 0, owner: owner.id, folder, slug: '', conf: '{}' };
   if (!siteFolderNotes(site).length) throw new Fail(404, 'no_notes', 'That folder has no notes to publish');
@@ -6229,7 +6500,7 @@ async function filesApi(req, url, r, m, user) {
       team = user.team;
       if (!team || !teamAllows(team, user, 'tokens')) throw new Fail(403, 'no_access', 'This token does not reach the team space');
       if (write && !teamAllows(team, user, 'write')) throw new Fail(403, 'read_only', 'This account can only read the team space');
-      owner = userById(team.space);
+      owner = teamSpaceFor(user);
     } else if (url.searchParams.has('space') && url.searchParams.get('space') !== 'me') throw new Fail(400, 'bad_space', 'space is "team", or nothing for your own');
   } catch (e) { if (write) await fileDrain(req); throw e; }
   if (m === 'GET') {
@@ -6426,7 +6697,7 @@ async function route(req, url) {
   if (p === '/paddle/webhook' && m === 'POST') return paddleWebhook(req);
   if (p === '/play/notifications' && m === 'POST') return playNotify(req);
   if (p === '/feedback' && m === 'POST') return feedback(req, await readBody(req));
-  if (((p === '/admin/plan' || p === '/admin/team') && m === 'POST') || p === '/admin/gallery' || p === '/admin/sites' || p === '/admin/subdomains' || ((p === '/admin/landing' || p === '/admin/funnel' || p === '/admin/feedback') && m === 'GET')) {
+  if (((p === '/admin/plan' || p === '/admin/team') && m === 'POST') || p === '/admin/gallery' || p === '/admin/sites' || p === '/admin/subdomains' || ((p === '/admin/landing' || p === '/admin/funnel' || p === '/admin/feedback') && m === 'GET') || (p === '/admin/due-digest' && m === 'POST')) {
     // La misma respuesta sin clave configurada, sin clave en el pedido o con una equivocada. Diez fallos por hora por IP.
     const ip = 'admin:' + clientIp(req);
     limit(ip, 10, HOUR, 'too_many');
@@ -6437,6 +6708,7 @@ async function route(req, url) {
     if (p === '/admin/landing') return landingAdmin(url);
     if (p === '/admin/funnel') return funnelAdmin(url);
     if (p === '/admin/feedback') return feedbackAdmin(url);
+    if (p === '/admin/due-digest') return (await dueDigestTick(true)) || { ok: false, busy: true };
     const b = await readBody(req);
     if (p === '/admin/team') {
       // Un equipo armado a mano, sin cobro: para quien aloja su propio servidor. seats: 0 lo deja sin plan pago.
@@ -6468,6 +6740,7 @@ async function route(req, url) {
   if (copied) {
     const link = copied[1] === 'template' ? templateByName(dec(copied[2]), req) : q("SELECT * FROM links WHERE hash = ? AND kind = 'folder'").get(sha(dec(copied[2])));
     if (!link) throw new Fail(404, 'not_found');
+    if (copied[1] === 'public') linkGate(link, req.headers['x-password']);
     return folderCopied(link, req);
   }
   if (p.startsWith('/template/') && m === 'GET') return folderPublic(templateByName(dec(p.slice(10)), req), req, url);
@@ -6483,7 +6756,7 @@ async function route(req, url) {
     // De quién es la nota: propia, o del espacio del equipo de quien llama (o). Un miembro ve la sesión y dice en
     // qué bloque está; la maneja quien la abrió y quien administra el equipo.
     const owner = spaceOf(user, m === 'POST' ? body.o : url.searchParams.get('o')); const team = owner.id !== user.id ? user.team : null;
-    let row = liveRow(owner.id, cleanPath(m === 'POST' ? body.path : url.searchParams.get('path')));
+    let row = liveRow(owner.id, shut(owner, cleanPath(m === 'POST' ? body.path : url.searchParams.get('path'))));
     if (row && team && !liveCan(row)) { liveEnd(row, 'closed'); row = null; }
     if (p === '/live' && m === 'GET') return row ? liveView(row, user) : { open: false };
     if (!row) throw new Fail(404, 'live_gone');
@@ -6511,14 +6784,16 @@ async function route(req, url) {
   if (p === '/shares' && m === 'GET') return sharesOf(shareOwner(user, url.searchParams.get('o'), 'see'), url.searchParams.get('path'));
   if (p.startsWith('/shares/') && m === 'DELETE') {
     const owner = shareOwner(user, url.searchParams.get('o'), 'share'); const row = q('SELECT path FROM shares WHERE id = ? AND owner = ?').get(+p.slice(8), owner.id);
+    if (row) shut(owner, row.path);
     q('DELETE FROM shares WHERE id = ? AND owner = ?').run(+p.slice(8), owner.id);
     if (row && owner !== user) teamLog(user.team, user, 'unshare', row.path);
     return { ok: true };
   }
   if (p === '/links' && m === 'POST') { const b = await readBody(req); const owner = shareOwner(user, b.o, 'links'); if (owner === user) return addLink(user, b); const r = teamLink(user.team, user, owner, b); statOnce(user.id, STAT_BIT.shared, 'shared'); return r; }
-  if (p.startsWith('/links/') && m === 'PUT') { const b = await readBody(req); return setFolderLink(shareOwner(user, b.o, 'links'), +p.slice(7), b); }
+  if (p.startsWith('/links/') && m === 'PUT') { const b = await readBody(req); return setLink(shareOwner(user, b.o, 'links'), +p.slice(7), b); }
   if (p.startsWith('/links/') && m === 'DELETE') {
     const owner = shareOwner(user, url.searchParams.get('o'), 'links'); const row = q('SELECT path FROM links WHERE id = ? AND owner = ?').get(+p.slice(7), owner.id);
+    if (row) shut(owner, row.path);
     q('DELETE FROM links WHERE id = ? AND owner = ?').run(+p.slice(7), owner.id);
     if (row && owner !== user) teamLog(user.team, user, 'unlink', row.path);
     return { ok: true };
@@ -6527,6 +6802,7 @@ async function route(req, url) {
   if (p === '/play/verify' && m === 'POST') return playVerify(user, await readBody(req));
   if (p === '/account' && m === 'PUT') return accountName(user, await readBody(req));
   if (p === '/account/protect-seen' && m === 'POST') return protectSeenSet(user);
+  if (p === '/account/mail' && m === 'PUT') return accountMail(user, await readBody(req));
   if (p === '/account' && m === 'DELETE') return accountDelete(req, user, await readBody(req));
   if (p === '/trash' || p.startsWith('/trash/')) return trashRoute(user, p, m, url, m === 'POST' ? await readBody(req) : {});
   if (p === '/vaults' && m === 'GET') return vaultsOf(user.id).map(vaultView);
@@ -6571,7 +6847,7 @@ async function route(req, url) {
   if (p === '/notes' && m === 'GET') {
     const oid = +(url.searchParams.get('o') || user.id);
     if (oid === user.id) return listNotes(user).map((n) => (n.v ? n : { path: n.path, updated: n.updated, size: n.size }));
-    if (user.team && oid === user.team.space) return listNotes({ id: oid }).map((n) => (n.v ? { path: n.path, updated: n.updated, size: n.size, v: 1 } : { path: n.path, updated: n.updated, size: n.size }));
+    if (user.team && oid === user.team.space) return listNotes(teamSpaceFor(user)).map((n) => (n.v ? { path: n.path, updated: n.updated, size: n.size, v: 1 } : { path: n.path, updated: n.updated, size: n.size }));
     return sharedWith(user).filter((n) => n.owner === oid).map((n) => ({ path: n.path, updated: n.updated, size: n.size }));
   }
   // Con o, estas cuatro trabajan sobre el espacio del equipo de quien llama. Cualquier otro o se rechaza.
@@ -6596,10 +6872,11 @@ async function route(req, url) {
     if (m === 'DELETE') { const t = target(user, url, clean, 'owner'); const r = deleteNote(t.owner, clean, url.searchParams.get('forever') === '1'); if (t.role === 'team') teamLog(user.team, user, 'delete', clean); return r; }
   }
   // El historial del espacio de un equipo dura más (TEAM_HISTORY_DAYS): su lista trae más versiones.
-  if (p.startsWith('/versions/') && m === 'GET') { const owner = spaceOf(user, url.searchParams.get('o')); return q('SELECT id, saved, size, by FROM versions WHERE user = ? AND path = ? ORDER BY saved DESC LIMIT ?').all(owner.id, cleanPath(dec(p.slice(10))), owner === user ? 100 : 500).map((v) => ({ id: v.id, saved: v.saved, size: v.size, edited: editedBy(v.by, false) })); }
+  if (p.startsWith('/versions/') && m === 'GET') { const owner = spaceOf(user, url.searchParams.get('o')); return q('SELECT id, saved, size, by FROM versions WHERE user = ? AND path = ? ORDER BY saved DESC LIMIT ?').all(owner.id, shut(owner, cleanPath(dec(p.slice(10)))), owner === user ? 100 : 500).map((v) => ({ id: v.id, saved: v.saved, size: v.size, edited: editedBy(v.by, false) })); }
   if (p.startsWith('/version/') && m === 'GET') {
-    const v = q('SELECT id, path, text, saved, e, aad FROM versions WHERE id = ? AND user = ?').get(+p.slice(9), spaceOf(user, url.searchParams.get('o')).id);
-    if (!v) throw new Fail(404, 'not_found');
+    const vo = spaceOf(user, url.searchParams.get('o'));
+    const v = q('SELECT id, path, text, saved, e, aad FROM versions WHERE id = ? AND user = ?').get(+p.slice(9), vo.id);
+    if (!v || hiddenIn(vo, v.path)) throw new Fail(404, 'not_found');
     // aad: en una versión cifrada desde el navegador, la ruta con la que se cifró (la nota pudo cambiar de nombre).
     return Object.assign({ id: v.id, path: v.path, text: unseal(v.text, v.e, 'versions.text'), saved: v.saved }, v.aad ? { aad: v.aad } : {});
   }
@@ -6653,6 +6930,7 @@ const PERSON_TEXT = {
 // Frases propias de una ruta para personas: una imagen adjunta que ya no está.
 const PERSON_KIND = {
   file: ['Image not found', 'This image is not here', 'The link may be mistyped, or the image was deleted from its note.'],
+  link_expired: ['Link expired', 'This link expired', 'The person who shared it gave it an end date, and that date passed. Ask them for a new link.'],
 };
 const PERSON_LOGO = '<svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#14161a"/><g fill="#f3f5f8"><rect x="14.5" y="17" width="6" height="30" rx="1.3"/><rect x="26.5" y="17" width="6" height="30" rx="1.3"/><rect x="8.5" y="23.25" width="30" height="6" rx="1.3"/><rect x="8.5" y="34.75" width="30" height="6" rx="1.3"/></g><rect x="43.5" y="15" width="11" height="34" rx="2.4" fill="#c5f467"/></svg>';
 const PERSON_CSS = ':root{color-scheme:light dark;--bg:#fbfaf7;--soft:#f1efe9;--fg:#1d2026;--muted:#5c6370;--line:#dedbd2;--fill:#4d7c0f;--on:#fff}' +
@@ -6711,7 +6989,7 @@ const server = http.createServer(async (req, res) => {
     if (status >= 500) console.error(status === 500 ? 'error 500 en ' + req.method + ' ' + String(req.url).split('?')[0].slice(0, 80) + ' · ' + String(e && e.stack || e).slice(0, 1500) : 'error ' + status + ' ' + (e.code || '') + ' en ' + req.method + ' ' + String(req.url).split('?')[0].slice(0, 80));
     if (res.headersSent) { res.end(); return; }
     // Una persona navegando: la página, con el mismo código. La portada del servidor dice qué es esto.
-    if (wantsPage(req)) { personSend(req, res, status, String(req.url).split('?')[0] === '/' ? 'root' : '', e instanceof Fail && e.extra && e.extra.retry_after ? { 'retry-after': String(e.extra.retry_after) } : null); return; }
+    if (wantsPage(req)) { personSend(req, res, status, String(req.url).split('?')[0] === '/' ? 'root' : e instanceof Fail && PERSON_KIND[e.code] ? e.code : '',e instanceof Fail && e.extra && e.extra.retry_after ? { 'retry-after': String(e.extra.retry_after) } : null); return; }
     const body = JSON.stringify(String(req.url).startsWith('/api/v1/') ? apiError(e) : e instanceof Fail ? Object.assign({ error: e.code, message: e.message || '' }, e.extra) : { error: 'server_error', message: '' });
     if (e instanceof Fail && e.extra && e.extra.retry_after) res.setHeader('retry-after', String(e.extra.retry_after));
     // Un cuerpo pasado de tamaño: se avisa y recién ahí se corta, para no seguir recibiendo.
@@ -6738,6 +7016,8 @@ setInterval(() => {
   trashSweep(); feedbackSweep();
   q('DELETE FROM sessions WHERE seen < ?').run(now() - SESSION_DAYS * DAY);
 }, 6 * HOUR).unref();
+// El resumen diario de vencimientos: se fija cada diez minutos si ya toca.
+setInterval(() => { dueDigestTick(false); }, +(env.DIGEST_CHECK_MS || 600000)).unref();
 setInterval(() => { for (const k of marks.keys()) if (!recent(k, DAY).length) marks.delete(k); for (const [k, w] of windows) if (now() - w.t > HOUR) windows.delete(k); }, 600000).unref();
 // Sesiones en vivo: los invitados que se fueron sin avisar dejan su lugar, y la sesión sin nadie conectado vence.
 setInterval(() => {

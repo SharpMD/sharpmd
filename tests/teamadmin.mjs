@@ -336,6 +336,20 @@ try {
   const p1 = await pols();
   check('los ajustes del equipo se guardan desde Plan: compartir, historial, carpeta y plantilla de las notas nuevas', p1.share === true && p1.links === false && p1.history_days === 90 && p1.folder === 'notas' && p1.template === '# Título\n\n## Contexto\n', p1);
   check('y la plantilla figura como puesta', /Template for new notes\s+Set/.test(await olga.page.innerText('.lmd-team [data-team=policies]')));
+  // Carpetas restringidas: se cierran desde Plan y quien administra marca qué miembros las ven.
+  await olga.page.fill('.lmd-team [data-t=fold-name]', 'Clientes');
+  await does(olga.page, () => olga.page.click('.lmd-team [data-t=fold-add]'), 'Folder restricted. Check who can see it.');
+  await olga.page.waitForSelector('.lmd-team [data-team=folders] [data-t=fold-m][data-id="' + P.id + '"]');
+  const foldUi = await olga.page.evaluate(() => [...document.querySelectorAll('.lmd-team [data-team=folders] [data-t=fold-m]')].map((x) => x.dataset.id));
+  check('Plan lista la carpeta restringida con una casilla por miembro que no administra', foldUi.length === 2 && !foldUi.includes(String(U.id)), foldUi);
+  await does(olga.page, () => olga.page.check('.lmd-team [data-team=folders] [data-t=fold-m][data-id="' + P.id + '"]'), 'Setting saved.');
+  const fold1 = (await api('GET', '/team/folders', undefined, U.s)).json.folders;
+  check('marcar a un miembro lo suma a la carpeta', JSON.stringify(fold1) === JSON.stringify([{ folder: 'Clientes', members: [P.id] }]), fold1);
+  await olga.page.waitForSelector('.lmd-team [data-team=folders] [data-t=fold-open]');
+  await olga.page.click('.lmd-team [data-team=folders] [data-t=fold-open]'); await olga.page.waitForSelector('.lmd-dlg');
+  await does(olga.page, () => olga.page.click('.lmd-dlg [data-dlg=ok]'), 'Setting saved.');
+  check('abrirla a todo el equipo la quita de la lista', (await api('GET', '/team/folders', undefined, U.s)).json.folders.length === 0);
+
   // Tokens del equipo.
   // Las opciones del token (nombre, carpeta, permisos) aparecen recién al pedir uno, en el lugar del botón.
   const tokIdle = await olga.page.evaluate(() => document.querySelectorAll('.lmd-team .lmd-tokform, .lmd-team [data-t=tok-name], .lmd-team [data-t=tok-folder], .lmd-team [data-t=tok-write], .lmd-team [data-t=tok-share]').length);

@@ -61,7 +61,7 @@ const doc = {
       delete: { tags: ['Sharing'], operationId: 'unshare', summary: 'Stop sharing', parameters: [PATH, qp('email', 'Address it was shared with', true)], responses: res(ok(ref('Message'))) },
     },
     '/api/v1/links': {
-      post: { tags: ['Sharing'], operationId: 'createLink', summary: 'Create a read-only public link', description: 'The URL is returned once.', requestBody: body(['path'], { path: str(), password: str('Optional password the reader must type') }), responses: res(ok({ type: 'object', properties: { path: str(), url: str(), id: { type: 'integer' }, protected: { type: 'boolean' } } })) },
+      post: { tags: ['Sharing'], operationId: 'createLink', summary: 'Create a read-only public link', description: 'The URL is returned once.', requestBody: body(['path'], { path: str(), password: str('Optional password the reader must type'), expires: str('Optional end date, YYYY-MM-DD (the link stops working when that day ends, UTC) or an ISO date and time. An expired link answers 410.') }), responses: res(ok({ type: 'object', properties: { path: str(), url: str(), id: { type: 'integer' }, protected: { type: 'boolean' }, expires: str('When the link stops working, if it has an end date') } })) },
       delete: { tags: ['Sharing'], operationId: 'revokeLink', summary: 'Revoke a public link by id, or every link of a note', parameters: [qp('id', 'Id of the link', false, { type: 'integer' }), qp('path', 'Or the path of the note')], responses: res(ok(ref('Message'))) },
     },
     '/api/v1/files': {

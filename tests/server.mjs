@@ -941,6 +941,171 @@ try {
     check('portada: hay un tope por IP, y otra IP sigue entrando', last.status === 429 && after === 2 + 60 && (await beat({ v: 'b', e: 'view' }, '203.0.113.10')).status === 204, [last.status, after]);
   }
 
+  // Enlaces públicos con fecha de vencimiento, y carpetas con contraseña.
+  console.log('Enlaces: vencimiento y contraseña de carpeta');
+  {
+    const enc = encodeURIComponent;
+    const linkDb = (sql, ...args) => { const db = new DatabaseSync(path.join(data, 'mdtools.db')); db.exec('PRAGMA busy_timeout = 3000'); db.prepare(sql).run(...args); db.close(); };
+    const page = (p) => new Promise((resolve) => { const r = http.request(base + p, { headers: { accept: 'text/html', 'x-forwarded-for': '203.0.113.90' } }, (res) => { let body = ''; res.on('data', (d) => { body += d; }); res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'] || '', body })); }); r.end(); });
+    const past = await call('POST', '/links', { path: 'ia/resumen.md', expires: '2020-01-01' }, s);
+    const far = await call('POST', '/links', { path: 'ia/resumen.md', expires: Date.now() + 20 * 365 * 864e5 }, s);
+    check('un vencimiento en el pasado, o a más de diez años, se rechaza', past.status === 400 && past.json.error === 'bad_expires' && far.status === 400, [past.json, far.json]);
+    const soon = await call('POST', '/links', { path: 'ia/resumen.md', expires: Date.now() + 3600000 }, s);
+    check('un enlace con vencimiento futuro abre', soon.status === 200 && soon.json.expires > Date.now() && (await call('GET', '/public/' + soon.json.token)).status === 200, soon.json);
+    const byDate = await call('POST', '/links', { path: 'ia/resumen.md', expires: new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10) }, s);
+    check('una fecha sola vence al terminar ese día (UTC)', byDate.status === 200 && new Date(byDate.json.expires).toISOString().endsWith('T23:59:59.999Z'), byDate.json);
+    const listed = (await call('GET', '/shares?path=' + enc('ia/resumen.md'), undefined, s)).json.links.find((l) => l.id === soon.json.id);
+    check('la lista de enlaces dice cuándo vence', listed && listed.expires === soon.json.expires && listed.expired === false, listed);
+    linkDb('UPDATE links SET expires = ? WHERE id = ?', Date.now() - 1000, soon.json.id);
+    const gone = await call('GET', '/public/' + soon.json.token);
+    check('un enlace vencido responde 410 link_expired, sin el texto', gone.status === 410 && gone.json.error === 'link_expired' && !('text' in gone.json), gone.json);
+    const gonePage = await page('/public/' + enc(soon.json.token));
+    check('a una persona, el vencido le llega como página clara con 410', gonePage.status === 410 && /^text\/html/.test(gonePage.type) && /This link expired/.test(gonePage.body) && /end date/.test(gonePage.body), [gonePage.status, gonePage.body.slice(0, 120)]);
+    check('y la lista lo marca vencido', (await call('GET', '/shares?path=' + enc('ia/resumen.md'), undefined, s)).json.links.find((l) => l.id === soon.json.id).expired === true);
+    const put = await call('PUT', '/links/' + soon.json.id, { expires: null }, s);
+    check('quitarle el vencimiento lo vuelve a abrir', put.status === 200 && put.json.expires === 0 && (await call('GET', '/public/' + soon.json.token)).status === 200, put.json);
+    const putPass = await call('PUT', '/links/' + soon.json.id, { password: 'uva-3' }, s);
+    check('y se le puede poner contraseña después', putPass.json.protected === true && (await call('GET', '/public/' + soon.json.token)).status === 401 && (await call('GET', '/public/' + soon.json.token, undefined, undefined, { 'x-password': 'uva-3' })).status === 200, putPass.json);
+    check('otra cuenta no cambia un enlace ajeno', (await call('PUT', '/links/' + soon.json.id, { expires: null }, b)).status === 404);
+
+    const fpw = await call('POST', '/links', { path: 'ideas', kind: 'folder', password: 'kiwi-7' }, s);
+    check('un enlace de carpeta acepta contraseña', fpw.status === 200 && fpw.json.protected === true && fpw.json.kind === 'folder', fpw.json);
+    const pw = { 'x-password': 'kiwi-7' };
+    const fNo = await call('GET', '/public/' + fpw.json.token); const fNote = await call('GET', '/public/' + fpw.json.token + '?note=uno.md');
+    const fBad = await call('GET', '/public/' + fpw.json.token + '?note=uno.md', undefined, undefined, { 'x-password': 'pera' });
+    const fOk = await call('GET', '/public/' + fpw.json.token, undefined, undefined, pw); const fNoteOk = await call('GET', '/public/' + fpw.json.token + '?note=uno.md', undefined, undefined, pw);
+    check('sin la contraseña no muestra la lista ni una nota; con una equivocada tampoco; con la correcta sí', fNo.status === 401 && fNo.json.error === 'need_password' && !fNo.json.notes && fNote.status === 401 && fBad.status === 403
+      && fOk.status === 200 && fOk.json.kind === 'folder' && fOk.json.notes.some((n) => n.path === 'uno.md') && fNoteOk.status === 200 && typeof fNoteOk.json.text === 'string', [fNo.json, fNote.json, fBad.json, fOk.json]);
+    const tplPw = await call('POST', '/links', { path: 'ideas', kind: 'folder', template: true, password: 'kiwi-7' }, s);
+    const toTpl = await call('PUT', '/links/' + fpw.json.id, { template: true }, s);
+    check('una plantilla no lleva contraseña, ni al crearla ni al convertirla', tplPw.status === 400 && tplPw.json.error === 'template_password' && toTpl.status === 400 && toTpl.json.error === 'template_password', [tplPw.json, toTpl.json]);
+    check('avisar una copia de una carpeta con contraseña también la pide', (await call('POST', '/public/' + fpw.json.token + '/copied')).status === 401);
+    linkDb('UPDATE links SET expires = ? WHERE id = ?', Date.now() - 1000, fpw.json.id);
+    const fGone = await call('GET', '/public/' + fpw.json.token + '?note=uno.md', undefined, undefined, pw);
+    check('una carpeta vencida responde 410 aunque la contraseña sea la correcta', fGone.status === 410 && fGone.json.error === 'link_expired', fGone.json);
+    const tpl = await call('POST', '/links', { path: 'ideas', kind: 'folder', template: true, name: 'ideas-vence', expires: Date.now() + 3600000 }, s);
+    linkDb('UPDATE links SET expires = ? WHERE id = ?', Date.now() - 1000, tpl.json.id);
+    const tGone = await call('GET', '/template/ideas-vence');
+    check('una plantilla vencida, abierta por su nombre, también responde 410 link_expired', tpl.status === 200 && tGone.status === 410 && tGone.json.error === 'link_expired', [tpl.json, tGone.json]);
+    for (const id of [soon.json.id, byDate.json.id, fpw.json.id, tpl.json.id]) await call('DELETE', '/links/' + id, undefined, s);
+  }
+
+  // ---------- Equipos: carpetas restringidas ----------
+  // Una carpeta de arriba de @team/ cerrada a algunos miembros: para los demás no existe, ni por su nombre.
+  {
+    const fDir = tmp(); const fs1 = await boot(fDir, { WEBHOOK_ALLOW_PRIVATE: '1' }); const J = (v) => JSON.stringify(v);
+    const A = await fs1.enter('jefa-carpetas@ejemplo.test', true); const B = await fs1.enter('beto-carpetas@ejemplo.test'); const C = await fs1.enter('caro-carpetas@ejemplo.test');
+    await fs1.ask('POST', '/admin/team', { email: 'jefa-carpetas@ejemplo.test', seats: 5 }, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    const acct = async (who) => (await fs1.ask('GET', '/account', undefined, who)).json;
+    for (const [who, mail] of [[B, 'beto-carpetas@ejemplo.test'], [C, 'caro-carpetas@ejemplo.test']]) { await fs1.ask('POST', '/team/invite', { email: mail, role: 'editor' }, A); await fs1.ask('POST', '/team/accept', { id: (await acct(who)).team.invites[0].id }, who); }
+    const mine = (await acct(A)).team.mine; const space = mine.space; const idOf = (mail) => mine.members.find((x) => x.email === mail).id;
+    const cId = idOf('caro-carpetas@ejemplo.test');
+    const put = (who, p, text) => fs1.ask('PUT', '/notes/' + encodeURIComponent(p) + '?o=' + space, { text }, who);
+    await put(A, 'Clientes/acme.md', '# Acme\n\nsecreto-acme'); await put(A, 'General/hola.md', '# Hola\n\nabierto');
+    const bTok = (await fs1.ask('POST', '/tokens', { name: 'IA de Beto' }, B)).json.token;
+    const tTok = (await fs1.ask('POST', '/team/tokens', { name: 'bot', write: true }, A)).json.token;
+    const close = await fs1.ask('PUT', '/team/folders', { folder: 'Clientes', members: [cId] }, A);
+    check('carpetas: la administradora cierra una carpeta a una lista de miembros', close.status === 200 && J(close.json.folders) === J([{ folder: 'Clientes', members: [cId] }]), close.json);
+    const tool = async (tok, name, args) => { const r = await fs1.ask('POST', '/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args || {} } }, tok); const res = (r.json && r.json.result) || {}; return { err: !!res.isError || !!(r.json && r.json.error), text: J(r.json) }; };
+    const leaks = (x) => /Clientes|acme/.test(typeof x === 'string' ? x : J(x));
+    const bList = (await fs1.ask('GET', '/notes?o=' + space, undefined, B)).json;
+    const missing = await fs1.ask('GET', '/notes/' + encodeURIComponent('General/no-existe.md') + '?o=' + space, undefined, B);
+    const hidden = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    check('carpetas: un miembro sin acceso no ve ni el nombre de la carpeta en la lista', bList.some((n) => n.path === 'General/hola.md') && !leaks(bList), bList);
+    check('carpetas: abrir una nota de la carpeta responde igual que una nota que no existe', hidden.status === missing.status && hidden.status === 404 && J(hidden.json) === J(missing.json), [hidden.json, missing.json]);
+    const bSearch = await fs1.ask('GET', '/search?o=' + space + '&q=secreto', undefined, B);
+    const bWrite = await put(B, 'Clientes/nueva.md', 'x'); const bMove = await fs1.ask('POST', '/rename', { o: space, from: 'General/hola.md', to: 'Clientes/hola.md' }, B);
+    const bDel = await fs1.ask('DELETE', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    const bVer = await fs1.ask('GET', '/versions/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    const bShares = await fs1.ask('GET', '/shares?o=' + space, undefined, B);
+    check('carpetas: sin acceso no la encuentra, no escribe, no mueve adentro, no borra ni ve versiones', !leaks(bSearch.json) && bWrite.status === 404 && bMove.status === 404 && bDel.status === 404 && bVer.status === 404 && !leaks(bShares.json), [bSearch.json, bWrite.status, bMove.status, bDel.status, bVer.status, bShares.json]);
+    const mList = await tool(bTok, 'list_notes'); const mFold = await tool(bTok, 'list_folders'); const mSearch = await tool(bTok, 'search_notes', { query: 'secreto' }); const mRead = await tool(bTok, 'read_note', { path: '@team/Clientes/acme.md' });
+    check('carpetas: por MCP su IA tampoco la lista, la encuentra ni la lee', /General/.test(mList.text) && !leaks(mList.text) && !leaks(mFold.text) && !leaks(mSearch.text) && mRead.err && !/secreto-acme/.test(mRead.text), [mList.text, mFold.text, mSearch.text, mRead.text]);
+    const api = [await fs1.ask('GET', '/api/v1/notes', undefined, bTok), await fs1.ask('GET', '/api/v1/search?q=secreto', undefined, bTok), await fs1.ask('GET', '/api/v1/note?path=' + encodeURIComponent('@team/Clientes/acme.md'), undefined, bTok)];
+    check('carpetas: por la API tampoco', api.every((r) => !leaks(r.json)) && api[2].status >= 400, api.map((r) => [r.status, r.json]));
+    const tList = await tool(tTok, 'list_notes'); const tRead = await tool(tTok, 'read_note', { path: 'Clientes/acme.md' });
+    check('carpetas: un token del equipo no entra a una carpeta cerrada', /General/.test(tList.text) && !leaks(tList.text) && tRead.err && !/secreto-acme/.test(tRead.text), [tList.text, tRead.text]);
+    const cRead = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, C);
+    const aRead = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, A);
+    check('carpetas: quien está en la lista y la administradora sí la ven', cRead.status === 200 && /secreto-acme/.test(cRead.json.text) && aRead.status === 200, [cRead.status, aRead.status]);
+    const bPut = await fs1.ask('PUT', '/team/folders', { folder: 'General', members: [] }, B); const bad = await fs1.ask('PUT', '/team/folders', { folder: 'a/b', members: [] }, A); const stranger = await fs1.ask('PUT', '/team/folders', { folder: 'General', members: [999999] }, A); const bGet = await fs1.ask('GET', '/team/folders', undefined, B);
+    check('carpetas: solo la administradora las cierra, con un nombre de arriba y miembros del equipo', bPut.status === 403 && bGet.status === 403 && bad.status === 400 && stranger.status === 400, [bPut.status, bGet.status, bad.json, stranger.json]);
+    const open = await fs1.ask('DELETE', '/team/folders?folder=Clientes', undefined, A);
+    const bAgain = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    check('carpetas: al abrirla de nuevo todos la ven', open.status === 200 && open.json.folders.length === 0 && bAgain.status === 200, [open.json, bAgain.status]);
+    // Sacar a alguien corta en el mismo paso lo que conectó al equipo: los tokens del equipo que creó, sus webhooks y
+    // sus entradas del espacio, y su lugar en las carpetas restringidas. Su token personal ya no llega al equipo.
+    const bId = idOf('beto-carpetas@ejemplo.test');
+    await fs1.ask('POST', '/team/role', { id: bId, role: 'admin' }, A);
+    await fs1.ask('PUT', '/team/policies', { automation: true }, A);
+    await fs1.ask('PUT', '/team/folders', { folder: 'Clientes', members: [cId, bId] }, A);
+    const bTeam = (await fs1.ask('POST', '/team/tokens', { name: 'bot de Beto', write: true }, B)).json.token;
+    const keep = (await fs1.ask('POST', '/team/tokens', { name: 'bot de la jefa', write: true }, A)).json.token;
+    const bHook = await fs1.ask('POST', '/automations/hooks', { o: space, url: 'http://127.0.0.1:9/x', events: ['note.created'] }, B);
+    const bIn = await fs1.ask('POST', '/automations/inboxes', { o: space, name: 'x', kind: 'append', path: 'General/hola.md' }, B);
+    const before = [(await tool(bTeam, 'list_notes')).err, (await tool(bTok, 'read_note', { path: '@team/General/hola.md' })).err];
+    const gone = await fs1.ask('POST', '/team/remove', { id: bId }, A);
+    const after = [await tool(bTeam, 'list_notes'), await tool(bTok, 'read_note', { path: '@team/General/hola.md' }), await tool(keep, 'list_notes')];
+    const autos = (await fs1.ask('GET', '/automations?o=' + space, undefined, A)).json;
+    const foldersAfter = (await fs1.ask('GET', '/team/folders', undefined, A)).json.folders;
+    const logRows = (await fs1.ask('GET', '/team/log', undefined, A)).json.entries;
+    check('salida: al sacar a alguien se revocan sus tokens del equipo, webhooks y entradas, en un paso', bHook.status === 200 && bIn.status === 200 && before.every((x) => x === false) && gone.status === 200 && J(gone.json.revoked) === J({ tokens: 1, webhooks: 1, inbound: 1 }) && after[0].err && after[1].err && !/abierto/.test(after[1].text) && !after[2].err && J(autos.hooks) === '[]' && J(autos.inboxes) === '[]', [bHook.json, bIn.json, before, gone.json, after.map((x) => x.text.slice(0, 200)), autos]);
+    check('salida: deja de figurar en las carpetas restringidas y el registro lo anota', J(foldersAfter) === J([{ folder: 'Clientes', members: [cId] }]) && logRows.some((e) => e.action === 'token_revoke' && /bot de Beto/.test(J(e))) && logRows.filter((e) => e.action === 'automation_remove').length === 2, [foldersAfter, logRows.slice(0, 6)]);
+
+    await fs1.stop(); wipe(fDir);
+  }
+
+  // ---------- Equipos: avisos por correo de los tableros ----------
+  // Te asignan una tarjeta: te llega un correo. Una vez por día, otro con las tuyas que vencen. Los dos se apagan.
+  {
+    const mails = []; const box = http.createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { mails.push(JSON.parse(b)); res.writeHead(200); res.end('{}'); }); });
+    await new Promise((r) => box.listen(0, '127.0.0.1', r));
+    const nDir = tmp(); const ns = await boot(nDir, { MAIL_WEBHOOK: 'http://127.0.0.1:' + box.address().port }); const J = (v) => JSON.stringify(v);
+    const A = await ns.enter('jefa-avisos@ejemplo.test', true); const B = await ns.enter('beto-avisos@ejemplo.test'); const C = await ns.enter('caro-avisos@ejemplo.test');
+    await ns.ask('POST', '/admin/team', { email: 'jefa-avisos@ejemplo.test', seats: 5 }, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    const acct = async (who) => (await ns.ask('GET', '/account', undefined, who)).json;
+    for (const [who, mail] of [[B, 'beto-avisos@ejemplo.test'], [C, 'caro-avisos@ejemplo.test']]) { await ns.ask('POST', '/team/invite', { email: mail, role: 'editor' }, A); await ns.ask('POST', '/team/accept', { id: (await acct(who)).team.invites[0].id }, who); }
+    const space = (await acct(A)).team.mine.space;
+    const put = (who, p, text) => ns.ask('PUT', '/notes/' + encodeURIComponent(p) + '?o=' + space, { text }, who);
+    const wait = async (n) => { for (let i = 0; i < 50 && mails.filter((m) => !/code|código/i.test(m.subject)).length < n; i++) await new Promise((r) => setTimeout(r, 40)); return mails.filter((m) => !/code|código/i.test(m.subject)); };
+    const board = (cards) => '# Tablero\n\n```kanban\n## To do\n' + cards.join('\n') + '\n## Done\n- [x] Vieja {owner=beto-avisos due=2020-01-01}\n```\n';
+    const prefs = (await acct(B)).mail;
+    check('avisos: vienen prendidos y la cuenta los muestra', J(prefs) === J({ assign: true, due: true }), prefs);
+    mails.length = 0;
+    await put(A, 'Proyectos/tablero.md', board(['- [ ] Diseñar logo {owner=beto-avisos}', '- [ ] Llamar al cliente {owner="Jefa-avisos, caro-avisos@ejemplo.test"}']));
+    let got = await wait(2);
+    const toB = got.filter((m) => m.to === 'beto-avisos@ejemplo.test'); const toC = got.filter((m) => m.to === 'caro-avisos@ejemplo.test');
+    check('avisos: a quien le asignan una tarjeta le llega un correo, y no a quien la asignó', toB.length === 1 && /Diseñar logo/.test(toB[0].subject + toB[0].text) && toC.length === 1 && /Llamar al cliente/.test(toC[0].text) && !got.some((m) => m.to === 'jefa-avisos@ejemplo.test') && /jefa-avisos/.test(toB[0].text) && /Settings/.test(toB[0].text), got.map((m) => [m.to, m.subject]));
+    mails.length = 0;
+    const off = await ns.ask('PUT', '/account/mail', { assign: false, lang: 'es' }, C);
+    const badPrefs = await ns.ask('PUT', '/account/mail', { assign: 'no' }, C);
+    await put(A, 'Proyectos/tablero.md', board(['- [ ] Diseñar logo {owner=beto-avisos}', '- [ ] Llamar al cliente {owner="Jefa-avisos, caro-avisos@ejemplo.test"}', '- [ ] Presupuesto {owner="caro-avisos, beto-avisos" due=2099-01-01}']));
+    got = await wait(1); await new Promise((r) => setTimeout(r, 200)); got = mails.filter((m) => !/code|código/i.test(m.subject));
+    check('avisos: solo avisa a quien se suma, y quien los apagó en Ajustes no recibe nada', off.status === 200 && J(off.json.mail) === J({ assign: false, due: true }) && badPrefs.status === 400 && got.length === 1 && got[0].to === 'beto-avisos@ejemplo.test' && /Presupuesto/.test(got[0].text) && !/Diseñar logo/.test(got[0].text), [off.json.mail, badPrefs.status, got.map((m) => [m.to, m.subject])]);
+    // Vence hoy: el resumen junta en un correo por persona las tarjetas suyas sin terminar cuya fecha llegó.
+    const today = new Date().toISOString().slice(0, 10);
+    await put(A, 'Proyectos/tablero.md', board(['- [ ] Diseñar logo {owner=beto-avisos due=' + today + '}', '- [ ] Cerrar factura {owner=beto-avisos vence=' + today + '}', '- [ ] Mañana {owner=beto-avisos due=2099-12-31}', '- [ ] Revisar contrato {owner=caro-avisos due=' + today + '}']));
+    await new Promise((r) => setTimeout(r, 200)); mails.length = 0;
+    const noKey = await ns.ask('POST', '/admin/due-digest', {});
+    const run = await ns.ask('POST', '/admin/due-digest', {}, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    got = await wait(2);
+    const dB = got.filter((m) => m.to === 'beto-avisos@ejemplo.test'); const dC = got.filter((m) => m.to === 'caro-avisos@ejemplo.test');
+    check('avisos: el resumen diario manda un solo correo por persona con lo que le vence', noKey.status === 403 && run.status === 200 && run.json.sent === 2 && dB.length === 1 && /Diseñar logo/.test(dB[0].text) && /Cerrar factura/.test(dB[0].text) && !/Mañana|Vieja/.test(dB[0].text) && dC.length === 1 && /Vencen|Vence/.test(dC[0].subject), [run.json, got.map((m) => [m.to, m.subject, m.text.slice(0, 300)])]);
+    await ns.ask('PUT', '/account/mail', { due: false }, B); mails.length = 0;
+    const run2 = await ns.ask('POST', '/admin/due-digest', {}, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    got = await wait(1); await new Promise((r) => setTimeout(r, 150)); got = mails.filter((m) => !/code|código/i.test(m.subject));
+    check('avisos: quien apagó el resumen no lo recibe', run2.json.sent === 1 && got.length === 1 && got[0].to === 'caro-avisos@ejemplo.test', [run2.json, got.map((m) => m.to)]);
+    // Una carpeta cerrada: quien no la ve no recibe avisos de lo que pasa adentro.
+    await ns.ask('PUT', '/account/mail', { assign: true }, C); mails.length = 0;
+    const cId = (await acct(A)).team.mine.members.find((x) => x.email === 'caro-avisos@ejemplo.test').id;
+    await ns.ask('PUT', '/team/folders', { folder: 'Clientes', members: [cId] }, A);
+    await put(A, 'Clientes/acme.md', board(['- [ ] Secreto {owner="beto-avisos, caro-avisos"}']));
+    got = await wait(1); await new Promise((r) => setTimeout(r, 150)); got = mails.filter((m) => !/code|código/i.test(m.subject));
+    check('avisos: no le avisa a quien no ve la carpeta', got.length === 1 && got[0].to === 'caro-avisos@ejemplo.test', got.map((m) => [m.to, m.subject]));
+    await ns.stop(); box.close(); wipe(nDir);
+  }
+
+
   // Una persona que abre una dirección del servidor en el navegador ve una página propia, con el mismo código.
   // Un cliente de la API recibe el JSON de siempre. (tests/security.mjs, "Páginas para personas", lo recorre entero.)
   console.log('Páginas para personas');

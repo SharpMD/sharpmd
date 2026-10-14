@@ -2044,6 +2044,10 @@
                   "password": {
                     "type": "string",
                     "description": "Optional password the reader must type"
+                  },
+                  "expires": {
+                    "type": "string",
+                    "description": "Optional end date, YYYY-MM-DD (the link stops working when that day ends, UTC) or an ISO date and time. An expired link answers 410."
                   }
                 }
               }
@@ -2080,6 +2084,10 @@
                         },
                         "protected": {
                           "type": "boolean"
+                        },
+                        "expires": {
+                          "type": "string",
+                          "description": "When the link stops working, if it has an end date"
                         }
                       }
                     }

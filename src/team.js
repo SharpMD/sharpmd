@@ -25,7 +25,7 @@
     team_busy: 'Se están cambiando los lugares. Probá en un momento.', mail_failed: 'No se pudo mandar el correo. Probá de nuevo.',
     too_many: 'Demasiados cambios seguidos. Probá más tarde.', not_found: 'Esa invitación ya no está.',
     not_admin: 'Lo administra quien administra el equipo', not_owner: 'Eso lo decide quien paga el equipo.', owner_stays: 'Quien paga el equipo es siempre administrador.',
-    bad_name: 'Escribí un nombre.', bad_path: 'Esa carpeta no sirve.', bad_policy: 'Ese valor no sirve.', vault: 'Con el espacio protegido no hay plantilla.',
+    bad_name: 'Escribí un nombre.', bad_path: 'Esa carpeta no sirve.', bad_folder: 'Esa carpeta no sirve.', bad_members: 'Solo podés elegir miembros del equipo.', too_many_folders: 'Hay demasiadas carpetas restringidas.', bad_policy: 'Ese valor no sirve.', vault: 'Con el espacio protegido no hay plantilla.',
     bad_subdomain: 'Usá de 3 a 32 letras minúsculas, números o guiones.', subdomain_reserved: 'Ese nombre está reservado.', subdomain_taken: 'Ese nombre no está disponible.',
     subdomain_changes: 'Demasiados cambios de subdominio. Volvé a un nombre anterior o probá más adelante.',
   };
@@ -169,9 +169,34 @@
   }
   const tokenForm = () => LMD.kit.tokenForm({ a: 'data-t', name: ['tok-name', T('nombre del token')], folder: ['tok-folder', null],
     checks: [['tok-write', T('Puede escribir'), true], ['tok-share', T('Puede compartir y crear enlaces'), false]], ok: 'tok-new', no: 'tok-no' });
-  // Lo que se pide aparte después de dibujar: la lista de tokens del equipo.
+  // Carpetas con acceso restringido: una carpeta de arriba del espacio que ven solo algunos miembros. Quien administra
+  // entra siempre, y los tokens del equipo no entran. Para los demás la carpeta no existe, ni su nombre.
+  function folderBlock(mine) {
+    return '<h4>' + T('Carpetas con acceso restringido') + '</h4><p class="lmd-hint">' + T('Solo las ven los miembros que marques. Quien administra entra siempre.') + '</p>' +
+      '<ul class="lmd-tokens lmd-team-list" data-team="folders"></ul>' +
+      (mine.active ? '<div class="lmd-share-row lmd-team-invite"><input type="text" data-t="fold-name" spellcheck="false" autocomplete="off" placeholder="' + T('carpeta') + '" aria-label="' + T('carpeta') + '">' +
+        '<button type="button" class="lmd-btn" data-t="fold-add">' + T('Restringir') + '</button></div>' : '');
+  }
+  const folderRow = (f, members) => '<li data-folder="' + esc(f.folder) + '"><span><b>' + esc(f.folder) + '/</b></span><span class="lmd-team-acts">' +
+    members.map((m) => '<label class="lmd-check"><input type="checkbox" data-t="fold-m" data-f="' + esc(f.folder) + '" data-id="' + m.id + '"' + (f.members.includes(m.id) ? ' checked' : '') + '><span>' + esc(m.email) + '</span></label>').join('') +
+    '<button type="button" data-t="fold-open" data-f="' + esc(f.folder) + '">' + T('Abrir a todo el equipo') + '</button></span></li>';
+  // Lo que se pide aparte después de dibujar: la lista de tokens del equipo y la de carpetas restringidas.
+  // Avisos por correo de los tableros del equipo: cada miembro prende o apaga los suyos.
+  function mailBlock(a) {
+    const p = (a && a.mail) || { assign: true, due: true };
+    const box = (k, label) => '<label class="lmd-check"><input type="checkbox" data-t="mail" data-k="' + k + '"' + (p[k] ? ' checked' : '') + '><span>' + label + '</span></label>';
+    return '<h4>' + T('Avisos por correo') + '</h4><div data-team="mail">' + box('assign', T('Cuando me asignan una tarjeta')) + box('due', T('Un resumen diario de mis tarjetas que vencen')) + '</div>';
+  }
   async function mount(box, a) {
     subMount(box, a && a.team && a.team.mine);
+    const folders = box.querySelector('[data-team=folders]');
+    if (folders) {
+      const people = a.team.mine.members.filter((m) => (m.role || (m.admin ? 'admin' : 'editor')) !== 'admin');
+      LMD.cloud.team.folders().then((r) => {
+        if (!folders.isConnected) return;
+        folders.innerHTML = r.folders.length ? r.folders.map((f) => folderRow(f, people)).join('') : '<li><span>' + T('Todas las carpetas las ve todo el equipo.') + '</span></li>';
+      }, () => {});
+    }
     const list = box.querySelector('[data-team=tokens]'); if (!list) return;
     let rows = [];
     try { rows = await LMD.cloud.team.tokens(); } catch (e) { return; }
@@ -222,11 +247,12 @@
           '<button type="button" class="lmd-btn lmd-btn-fill" data-t="seats"' + (want === mine.seats ? ' disabled' : '') + '>' + T('Cambiar lugares') + '</button></div>' +
           '<p class="lmd-hint lmd-price" data-team="price">' + perSeat(t) + '</p>';
     }
+    out += mailBlock(a);
     out += policyBlock(mine, admin);
     out += subBlock(mine, admin);
     out += vaultBlock(mine, owner);
     if (admin) {
-      out += tokenBlock(mine) +
+      out += folderBlock(mine) + tokenBlock(mine) +
         '<h4>' + T('Registro de actividad') + '</h4><p class="lmd-hint">' + T('Quién hizo qué en el espacio del equipo, sin el contenido de las notas. Se guarda {n} días.', { n: mine.log_days || 90 }) + '</p>' +
         '<div class="lmd-acct-actions"><button type="button" class="lmd-btn" data-t="log">' + T('Ver el registro') + '</button></div>';
     }
@@ -331,10 +357,16 @@
   const owns = (e, box) => { const b = e.target.closest && e.target.closest('[data-t]'); return !!b && box.contains(b) && !!b.closest('.lmd-team'); };
   // Lo que se cambia sin botón: el papel de alguien y los ajustes del equipo. redraw vuelve a dibujar el panel.
   async function change(e, box, a, redraw) {
-    const sel = e.target.closest && e.target.closest('.lmd-team [data-t=role], .lmd-team [data-p]'); if (!sel || !box.contains(sel)) return false;
+    const sel = e.target.closest && e.target.closest('.lmd-team [data-t=role], .lmd-team [data-t=fold-m], .lmd-team [data-t=mail], .lmd-team [data-p]'); if (!sel || !box.contains(sel)) return false;
     const C = LMD.cloud.team; const say = (text) => { const m = box.querySelector('.lmd-team-msg'); if (m) { m.hidden = false; m.textContent = text; } };
     try {
       if (sel.dataset.t === 'role') { await C.role(+sel.dataset.id, sel.value); said = T('Papel cambiado.'); }
+      else if (sel.dataset.t === 'fold-m') {
+        const row = sel.closest('[data-folder]');
+        const ids = [...row.querySelectorAll('[data-t=fold-m]')].filter((x) => x.checked).map((x) => +x.dataset.id);
+        await C.folderSet(sel.dataset.f, ids); said = T('Ajuste guardado.');
+      }
+      else if (sel.dataset.t === 'mail') { await LMD.cloud.setMail({ [sel.dataset.k]: sel.checked, lang: LMD.lang() }); said = T('Ajuste guardado.'); }
       else {
         const k = sel.dataset.p;
         await C.policies({ [k]: sel.type === 'checkbox' ? sel.checked : k === 'history_days' ? +sel.value : sel.value.trim() });
@@ -360,7 +392,7 @@
       return true;
     }
     // Campos y listas: se leen al confirmar, o los atiende change.
-    if (['n', 'email', 'role', 'invite-role', 'tok-name', 'tok-folder', 'tok-write', 'tok-share', 'tok-new', 'tok-no', 'sub-name'].includes(kind)) return true;
+    if (['n', 'email', 'role', 'invite-role', 'tok-name', 'tok-folder', 'tok-write', 'tok-share', 'tok-new', 'tok-no', 'sub-name', 'fold-name', 'fold-m', 'mail'].includes(kind)) return true;
     // Un token nuevo: el formulario se abre en el lugar del botón, y crea al confirmar (kit.js atiende sus botones).
     if (kind === 'tok-open') {
       LMD.kit.tokenAsk(b.closest('[data-tok-new]'), tokenForm(), async (form) => {
@@ -395,9 +427,18 @@
         b.disabled = true;
         await C.invite(mail, (box.querySelector('[data-t=invite-role]') || {}).value || 'editor'); said = T('Invitación enviada.');
       } else if (kind === 'uninvite') await C.uninvite(b.dataset.id);
+      else if (kind === 'fold-add') {
+        const input = box.querySelector('[data-t=fold-name]'); const name = input.value.trim().replace(/^\/+|\/+$/g, '');
+        if (!name || name.includes('/')) { say(T('Esa carpeta no sirve.')); input.focus(); return true; }
+        b.disabled = true;
+        await C.folderSet(name, []); said = T('Carpeta restringida. Marcá quién la ve.');
+      } else if (kind === 'fold-open') {
+        if (!(await LMD.dialog.confirm({ title: T('¿Abrir {a} a todo el equipo?', { a: b.dataset.f + '/' }), text: T('Todos los miembros la van a ver.'), ok: T('Abrir a todo el equipo') }))) return true;
+        await C.folderOpen(b.dataset.f); said = T('Ajuste guardado.');
+      }
       else if (kind === 'remove') {
-        if (!(await LMD.dialog.confirm({ title: T('¿Sacar a {a} del equipo?', { a: b.dataset.mail }), text: T('Conserva sus notas. Las del equipo quedan en el equipo.'), ok: T('Sacar'), danger: true }))) return true;
-        await C.remove(+b.dataset.id);
+        if (!(await LMD.dialog.confirm({ title: T('¿Sacar a {a} del equipo?', { a: b.dataset.mail }), text: T('Conserva sus notas. Las del equipo quedan en el equipo.') + ' ' + T('En el mismo paso se revocan los tokens del equipo que creó, y sus webhooks y direcciones de entrada del espacio.'), ok: T('Sacar'), danger: true }))) return true;
+        await C.remove(+b.dataset.id); said = T('Lo sacaste del equipo y se revocó lo que había conectado.');
       } else if (kind === 'seats') {
         if (!(await LMD.dialog.confirm({ title: T('¿Pasar a {n} lugares?', { n: want }), text: T(mine.trial_until ? 'Quedan USD {a} por mes. Se cobra cuando termina la prueba gratis.' : 'Quedan USD {a} por mes. La diferencia se cobra o se acredita ahora.', { a: cost(want) }), ok: T('Cambiar lugares') }))) return true;
         b.disabled = true;
