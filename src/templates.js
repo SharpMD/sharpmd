@@ -4,7 +4,7 @@
   'use strict';
 
   const GROUPS = [
-    ['day', 'Día a día'], ['project', 'Proyectos'], ['team', 'Equipo'], ['product', 'Producto y desarrollo'], ['personal', 'Personal'],
+    ['day', 'Día a día'], ['project', 'Proyectos'], ['team', 'Equipo'], ['agency', 'Agencias y equipos'], ['product', 'Producto y desarrollo'], ['personal', 'Personal'],
   ];
 
   // [id, grupo, nombre es, nombre en, archivo, cuerpo es, cuerpo en]
@@ -1091,6 +1091,378 @@ What it does, in one sentence.
 |---|---|---|---|---|---|---|---|
 |  |  |  |  |  |  |  |  |
 |  |  |  |  |  |  |  |  |
+`],
+    ['ag-brief', 'agency', 'Brief de cliente', 'Client brief', 'client-brief',
+`# Brief de cliente: nombre
+
+Fecha: {{date}}
+Responsable de la cuenta:
+
+## Quién es el cliente
+-
+
+## Qué quiere lograr
+Objetivo en una frase, con el número que lo mide.
+
+## Qué entregamos
+-
+
+## Qué queda afuera
+-
+
+## Público y tono
+-
+
+## Fechas
+| Hito | Fecha | Quién aprueba |
+|---|---|---|
+| Primera entrega |  |  |
+| Entrega final |  |  |
+
+## Presupuesto y condiciones
+-
+
+## Materiales que el cliente tiene que mandar
+- [ ]
+- [ ]
+
+## Dudas abiertas
+- [ ]
+`,
+`# Client brief: name
+
+Date: {{date}}
+Account owner:
+
+## Who the client is
+-
+
+## What they want to achieve
+Goal in one sentence, with the number that measures it.
+
+## What we deliver
+-
+
+## What is out of scope
+-
+
+## Audience and tone
+-
+
+## Dates
+| Milestone | Date | Who approves |
+|---|---|---|
+| First delivery |  |  |
+| Final delivery |  |  |
+
+## Budget and terms
+-
+
+## What the client has to send
+- [ ]
+- [ ]
+
+## Open questions
+- [ ]
+`],
+    ['ag-report', 'agency', 'Informe mensual al cliente', 'Monthly client report', 'monthly-report-{{date}}',
+`# Informe de mes: cliente
+
+Período: {{date}}
+
+## En una línea
+Cómo fue el mes, con el resultado principal.
+
+## Números
+| Métrica | Mes anterior | Este mes | Meta |
+|---|---|---|---|
+|  |  |  |  |
+|  |  |  |  |
+|  |  |  |  |
+
+## Lo que hicimos
+-
+
+## Lo que funcionó
+-
+
+## Lo que no funcionó y qué cambiamos
+-
+
+## Próximo mes
+| Qué | Responsable | Para cuándo |
+|---|---|---|
+|  |  |  |
+
+## Lo que necesitamos del cliente
+- [ ]
+`,
+`# Monthly report: client
+
+Period: {{date}}
+
+## In one line
+How the month went, with the main result.
+
+## Numbers
+| Metric | Last month | This month | Goal |
+|---|---|---|---|
+|  |  |  |  |
+|  |  |  |  |
+|  |  |  |  |
+
+## What we did
+-
+
+## What worked
+-
+
+## What did not work and what we changed
+-
+
+## Next month
+| What | Owner | By when |
+|---|---|---|
+|  |  |  |
+
+## What we need from the client
+- [ ]
+`],
+    ['ag-postmortem', 'agency', 'Post-mortem', 'Post-mortem', 'post-mortem-{{date}}',
+`# Post-mortem: proyecto o evento
+
+Fecha: {{date}}
+Participantes:
+
+## Qué pasó
+Los hechos, en orden y sin culpar a nadie.
+
+## Cronología
+| Cuándo | Qué pasó |
+|---|---|
+|  |  |
+
+## Impacto
+Para el cliente, para el equipo y en horas o plata.
+
+## Por qué pasó
+1.
+2.
+3.
+
+## Qué anduvo bien
+-
+
+## Qué cambiamos
+| Acción | Responsable | Para cuándo |
+|---|---|---|
+|  |  |  |
+
+## Cómo vamos a saber que alcanzó
+-
+`,
+`# Post-mortem: project or event
+
+Date: {{date}}
+Participants:
+
+## What happened
+The facts, in order, without blaming anyone.
+
+## Timeline
+| When | What happened |
+|---|---|
+|  |  |
+
+## Impact
+For the client, for the team, and in hours or money.
+
+## Why it happened
+1.
+2.
+3.
+
+## What went well
+-
+
+## What we change
+| Action | Owner | By when |
+|---|---|---|
+|  |  |  |
+
+## How we will know it was enough
+-
+`],
+    ['ag-minutes', 'agency', 'Acta de reunión', 'Meeting minutes', 'minutes-{{date}}',
+`# Acta del {{date}}
+
+**Reunión:**
+**Asistentes:**
+**Ausentes:**
+
+## Decisiones
+1.
+
+## Acuerdos con responsable
+- [ ] Qué, quién, para cuándo
+- [ ] Qué, quién, para cuándo
+
+## Temas que quedaron abiertos
+-
+
+## Resumen para quien no estuvo
+-
+
+## Próxima reunión
+Fecha:
+`,
+`# Minutes of {{date}}
+
+**Meeting:**
+**Attendees:**
+**Absent:**
+
+## Decisions
+1.
+
+## Agreements with an owner
+- [ ] What, who, by when
+- [ ] What, who, by when
+
+## Topics left open
+-
+
+## Summary for whoever was not there
+-
+
+## Next meeting
+Date:
+`],
+    ['ag-proposal', 'agency', 'Propuesta comercial', 'Business proposal', 'proposal',
+`# Propuesta para cliente
+
+Fecha: {{date}}
+Válida hasta:
+
+## Lo que entendimos
+El problema del cliente, con sus palabras.
+
+## Lo que proponemos
+-
+
+## Entregables
+| Entregable | Descripción | Fecha |
+|---|---|---|
+|  |  |  |
+
+## Cómo trabajamos
+Etapas, revisiones incluidas y quién aprueba cada una.
+
+## Inversión
+| Concepto | Monto |
+|---|---|
+|  | 0 |
+| Total | =sum |
+
+## Condiciones
+Forma de pago, qué no incluye y qué pasa si cambia el alcance.
+
+## Próximo paso
+-
+`,
+`# Proposal for client
+
+Date: {{date}}
+Valid until:
+
+## What we understood
+The client's problem, in their words.
+
+## What we propose
+-
+
+## Deliverables
+| Deliverable | Description | Date |
+|---|---|---|
+|  |  |  |
+
+## How we work
+Stages, included rounds of review and who signs off on each one.
+
+## Investment
+| Item | Amount |
+|---|---|
+|  | 0 |
+| Total | =sum |
+
+## Terms
+Payment, what is not included and what happens if the scope changes.
+
+## Next step
+-
+`],
+    ['ag-onboard', 'agency', 'Onboarding de un miembro nuevo', 'New team member onboarding', 'new-member-onboarding',
+`# Onboarding de nombre
+
+Entra el: {{date}}
+Persona de referencia:
+
+## Antes de que llegue
+- [ ] Accesos a las herramientas
+- [ ] Equipo y cuentas
+- [ ] Avisar al equipo y a los clientes con los que va a trabajar
+
+## Primer día
+- [ ] Bienvenida y recorrido
+- [ ] Cómo trabajamos: horarios, reuniones, dónde se avisa qué
+- [ ] Leer los briefs de sus cuentas
+
+## Primera semana
+- [ ] Acompañar una reunión de cliente
+- [ ] Primera tarea chica, revisada por su referente
+- [ ] Conocer a cada persona del equipo
+
+## Primer mes
+- [ ] Primera entrega a cargo suyo
+- [ ] Conversación de cómo viene, con lo que cambiaría del proceso
+
+## Dónde está cada cosa
+| Qué | Dónde |
+|---|---|
+| Cuentas de clientes |  |
+| Plantillas |  |
+| Facturación |  |
+`,
+`# Onboarding for name
+
+Starts on: {{date}}
+Buddy:
+
+## Before they arrive
+- [ ] Access to the tools
+- [ ] Equipment and accounts
+- [ ] Tell the team and the clients they will work with
+
+## Day one
+- [ ] Welcome and walkthrough
+- [ ] How we work: hours, meetings, where things are announced
+- [ ] Read the briefs of their accounts
+
+## First week
+- [ ] Join a client meeting
+- [ ] First small task, reviewed by their buddy
+- [ ] Meet every person on the team
+
+## First month
+- [ ] First delivery in their charge
+- [ ] Check-in on how it is going, and what they would change in the process
+
+## Where things live
+| What | Where |
+|---|---|
+| Client accounts |  |
+| Templates |  |
+| Billing |  |
 `],
   ];
 
