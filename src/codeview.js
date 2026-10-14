@@ -124,7 +124,12 @@
 
   const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
     woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', vtt: 'text/vtt' };
-  const mimeOf = (url) => MIME[(/\.([A-Za-z0-9]+)$/.exec(String(url).split(/[?#]/)[0]) || [0, ''])[1].toLowerCase()] || 'application/octet-stream';
+  const extOf = (url) => (/\.([A-Za-z0-9]+)$/.exec(String(url).split(/[?#]/)[0]) || [0, ''])[1].toLowerCase();
+  const mimeOf = (url) => MIME[extOf(url)] || 'application/octet-stream';
+  // Lo que la vista previa trae de la carpeta es lo que una página usa: hojas de estilo, scripts, imágenes, tipografías,
+  // audio y video, cada uno por su extensión. Una nota, un .env o cualquier otro archivo de la carpeta no entra aunque
+  // el HTML lo nombre como hoja de estilos, script o imagen: con scripts andando la página lo leería y podría sacarlo.
+  const resOk = (url, kind) => { const x = extOf(url); return kind === 'css' ? x === 'css' : kind === 'js' ? x === 'js' || x === 'mjs' : Object.prototype.hasOwnProperty.call(MIME, x); };
 
   // Cuánto sangra Tab en este texto: con tabulaciones si el archivo las usa, si no con dos o cuatro espacios.
   const unitOf = (text) => (/^\t/m.test(text) ? '\t' : /^ {4}\S/m.test(text) && !/^ {2}\S/m.test(text) ? '    ' : '  ');
@@ -142,7 +147,7 @@
     return { from: a, to: b, text: out, s: ns, e: s === e ? ns : Math.max(ns, e + d) };
   }
 
-  const pure = { splitLines, outlineOf, resolveRel, policy, mimeOf, indentBlock, decode };
+  const pure = { splitLines, outlineOf, resolveRel, policy, mimeOf, resOk, indentBlock, decode };
   if (typeof LMD === 'undefined' || !LMD.kit) { if (typeof module !== 'undefined') module.exports = pure; return; }
 
   // ================= En la app =================
@@ -338,9 +343,12 @@
   let cache = new Map(); let cacheFor = ''; let used = 0; let files = 0;
   const dataUri = (file, type) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(r.error); r.readAsDataURL(new Blob([file], { type })); });
   // Un archivo de la carpeta, como texto o como data:. Cada uno se lee una vez por documento, hasta "Actualizar".
-  function load(url, asText) {
+  // kind: 'css' o 'js' (entran como texto) o 'data' (entra como data:).
+  function load(url, kind) {
+    const asText = kind !== 'data';
     const k = (asText ? 't:' : 'd:') + url; if (cache.has(k)) return cache.get(k);
     const p = (async () => {
+      if (!resOk(url, kind)) return null;
       if (files >= RES_MAX) return null; files++;
       const f = await core.res(url); if (!f || f.size > ONE_MAX || used + f.size > ALL_MAX) return null;
       used += f.size;
@@ -362,15 +370,52 @@
   async function cssIn(css, base, root, depth) {
     if (!root || (css.indexOf('url(') === -1 && css.indexOf('@import') === -1)) return css;
     const withImports = await swap(css, /@import\s+(?:url\(\s*)?(?:"([^"]*)"|'([^']*)'|([^'")\s;]+))\s*\)?([^;]*);/gi, async (m) => {
-      const u = depth < CSS_DEPTH ? resolveRel(m[1] || m[2] || m[3], base, root) : ''; const t = u ? await load(u, true) : null;
+      const u = depth < CSS_DEPTH ? resolveRel(m[1] || m[2] || m[3], base, root) : ''; const t = u ? await load(u, 'css') : null;
       if (t == null) return null;
       const inner = await cssIn(t, u, root, depth + 1); const media = m[4].trim();
       return media ? '@media ' + media + ' {' + inner + '}' : inner;
     });
     return swap(withImports, /url\(\s*(?:"([^"]*)"|'([^']*)'|([^'")\s]+))\s*\)/gi, async (m) => {
-      const u = resolveRel(m[1] || m[2] || m[3], base, root); const d = u ? await load(u, false) : null;
+      const u = resolveRel(m[1] || m[2] || m[3], base, root); const d = u ? await load(u, 'data') : null;
       return d ? 'url("' + d + '")' : null;
     });
+  }
+  // Lo que no puede quedar en el documento que va al marco. Devuelve cuántas cosas tuvo que sacar o cambiar.
+  function strip(doc, run) {
+    let n = 0; const all = (sel) => Array.from(doc.querySelectorAll(sel));
+    const cut = (node, name) => { if (node.hasAttribute(name)) { node.removeAttribute(name); n++; } };
+    // Un <template shadowrootmode> queda inerte para un DOMParser, pero el marco lo convierte en un árbol aparte con
+    // lo de adentro sin revisar (un marco con dirección ahí abre una conexión, aun sin scripts). Queda como plantilla común.
+    all('template').forEach((t) => { cut(t, 'shadowrootmode'); cut(t, 'shadowroot'); });
+    // Las hojas de estilos de la carpeta ya son un <style>. Cualquier <link> que quede se va, con o sin scripts: los
+    // preconnect, dns-prefetch, prefetch, preload y modulepreload abren conexiones sin pedir nada, y un ícono o una
+    // hoja de otro servidor no cargarían igual.
+    all('base, link').forEach((x) => { x.remove(); n++; });
+    all('meta[http-equiv]').forEach((x) => { if (/^\s*refresh\s*$/i.test(x.getAttribute('http-equiv'))) { x.remove(); n++; } });
+    // Un marco, un <object> o un <embed> no cargan nada acá adentro (la política no deja). Se les saca la dirección
+    // igual: el navegador empieza a conectarse con el sitio de un marco antes de preguntarle a la política. Y un
+    // marco con su contenido escrito (srcdoc) podría traer otro marco adentro: tampoco va.
+    all('iframe, frame, embed').forEach((x) => { cut(x, 'src'); cut(x, 'srcdoc'); }); all('object').forEach((x) => cut(x, 'data'));
+    // Los enlaces no llevan a ningún lado: quedan con su aspecto, apuntando a una página en blanco que el marco no
+    // puede abrir. Así el navegador tampoco se adelanta a conectarse con el sitio al que iban cuando se les hace
+    // clic. Con scripts, los que se mueven dentro de la página (#ancla, javascript:) siguen andando.
+    all('a, area').forEach((x) => ['href', 'xlink:href'].forEach((name) => {
+      if (!x.hasAttribute(name)) return;
+      const h = (x.getAttribute(name) || '').trim();
+      if (run && (h[0] === '#' || /^javascript:/i.test(h))) { if (x.getAttribute('target') !== '_self') { x.setAttribute('target', '_self'); n++; } return; }
+      if (h === 'about:blank' && x.getAttribute('target') === '_blank') return;
+      if (!x.hasAttribute('title') && h && h[0] !== '#' && !/^javascript:/i.test(h)) x.setAttribute('title', h.slice(0, 300));
+      x.setAttribute(name, 'about:blank'); x.setAttribute('target', '_blank'); x.setAttribute('rel', 'noopener noreferrer'); n++;
+    }));
+    return n;
+  }
+  // El texto que va al marco: la política adelante de todo, y después el <base> que manda los enlaces a otra pestaña.
+  function sealDoc(doc, run) {
+    const head = doc.head || doc.documentElement.insertBefore(doc.createElement('head'), doc.documentElement.firstChild);
+    const base = doc.createElement('base'); base.setAttribute('target', '_blank');
+    const meta = doc.createElement('meta'); meta.setAttribute('http-equiv', 'Content-Security-Policy'); meta.setAttribute('content', policy(run));
+    head.insertBefore(base, head.firstChild); head.insertBefore(meta, head.firstChild);
+    return (doc.doctype ? new XMLSerializer().serializeToString(doc.doctype) : '') + doc.documentElement.outerHTML;
   }
   // El HTML del archivo, listo para el marco: la política adelante de todo, lo de su carpeta ya adentro y los
   // enlaces sin destino.
@@ -381,15 +426,11 @@
     const all = (sel) => Array.from(doc.querySelectorAll(sel)); const jobs = [];
     const rel = (v) => (root ? resolveRel(v, here, root) : '');
     const safeCss = (t) => t.replace(/<\/style/gi, '<\\/style');
-    all('base').forEach((n) => n.remove());
-    all('meta[http-equiv]').forEach((n) => { if (/^\s*refresh\s*$/i.test(n.getAttribute('http-equiv'))) n.remove(); });
-    // Una hoja de estilos de la carpeta pasa a ser un <style>. Cualquier otro <link> se va, con o sin scripts: los
-    // preconnect, dns-prefetch, prefetch, preload y modulepreload abren conexiones sin pedir nada, y un ícono o una
-    // hoja de otro servidor no cargarían igual.
+    // Una hoja de estilos de la carpeta pasa a ser un <style>. Cualquier otro <link> se va (strip).
     all('link').forEach((n) => {
       const u = /(^|\s)stylesheet(\s|$)/i.test(n.getAttribute('rel') || '') ? rel(n.getAttribute('href')) : '';
       if (!u) { n.remove(); return; }
-      jobs.push(load(u, true).then(async (t) => {
+      jobs.push(load(u, 'css').then(async (t) => {
         if (t == null) { n.remove(); return; }
         const st = doc.createElement('style'); const media = n.getAttribute('media'); if (media) st.setAttribute('media', media);
         st.textContent = safeCss(await cssIn(t, u, root, 1)); n.replaceWith(st);
@@ -397,35 +438,32 @@
     });
     all('style').forEach((n) => { const t = n.textContent; jobs.push(cssIn(t, here, root, 0).then((v) => { if (v !== t) n.textContent = safeCss(v); })); });
     all('[style]').forEach((n) => { const t = n.getAttribute('style'); if (t.indexOf('url(') !== -1) jobs.push(cssIn(t, here, root, 0).then((v) => { if (v !== t) n.setAttribute('style', v); })); });
-    const attr = (sel, name) => all(sel).forEach((n) => { const u = rel(n.getAttribute(name)); if (u) jobs.push(load(u, false).then((d) => { if (d) n.setAttribute(name, d); })); });
+    const attr = (sel, name) => all(sel).forEach((n) => { const u = rel(n.getAttribute(name)); if (u) jobs.push(load(u, 'data').then((d) => { if (d) n.setAttribute(name, d); })); });
     attr('img[src], source[src], video[src], audio[src], track[src], input[src]', 'src'); attr('video[poster]', 'poster');
-    all('image, feImage').forEach((n) => ['href', 'xlink:href'].forEach((name) => { const u = n.hasAttribute(name) ? rel(n.getAttribute(name)) : ''; if (u) jobs.push(load(u, false).then((d) => { if (d) n.setAttribute(name, d); })); }));
+    all('image, feImage').forEach((n) => ['href', 'xlink:href'].forEach((name) => { const u = n.hasAttribute(name) ? rel(n.getAttribute(name)) : ''; if (u) jobs.push(load(u, 'data').then((d) => { if (d) n.setAttribute(name, d); })); }));
     all('img[srcset], source[srcset]').forEach((n) => {
       const list = n.getAttribute('srcset').split(/,\s+|,$/).map((c) => c.trim()).filter(Boolean).map((c) => { const i = c.search(/\s/); return i < 0 ? [c, ''] : [c.slice(0, i), c.slice(i)]; });
-      jobs.push(Promise.all(list.map((c) => { const u = rel(c[0]); return u ? load(u, false) : null; })).then((got) => { n.setAttribute('srcset', list.map((c, i) => (got[i] || c[0]) + c[1]).join(', ')); }));
+      jobs.push(Promise.all(list.map((c) => { const u = rel(c[0]); return u ? load(u, 'data') : null; })).then((got) => { n.setAttribute('srcset', list.map((c, i) => (got[i] || c[0]) + c[1]).join(', ')); }));
     });
-    // Un marco, un <object> o un <embed> no cargan nada acá adentro (la política no deja). Se les saca la dirección
-    // igual: el navegador empieza a conectarse con el sitio de un marco antes de preguntarle a la política. Y un
-    // marco con su contenido escrito (srcdoc) podría traer otro marco adentro: tampoco va.
-    all('iframe, frame, embed').forEach((n) => { n.removeAttribute('src'); n.removeAttribute('srcdoc'); }); all('object[data]').forEach((n) => n.removeAttribute('data'));
     // Los scripts de la carpeta entran como texto, y solo si la persona habilitó correrlos.
-    if (run) all('script[src]').forEach((n) => { const u = rel(n.getAttribute('src')); if (u) jobs.push(load(u, true).then((t) => { if (t == null) return; n.removeAttribute('src'); n.textContent = t.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--'); })); });
-    // Los enlaces no llevan a ningún lado: quedan con su aspecto, apuntando a una página en blanco que el marco no
-    // puede abrir. Así el navegador tampoco se adelanta a conectarse con el sitio al que iban cuando se les hace
-    // clic. Con scripts, los que se mueven dentro de la página (#ancla, javascript:) siguen andando.
-    all('a, area').forEach((n) => {
-      const name = n.hasAttribute('href') ? 'href' : n.hasAttribute('xlink:href') ? 'xlink:href' : ''; if (!name) return;
-      const h = (n.getAttribute(name) || '').trim();
-      if (run && (h[0] === '#' || /^javascript:/i.test(h))) { n.setAttribute('target', '_self'); return; }
-      if (!n.hasAttribute('title') && h && h[0] !== '#' && !/^javascript:/i.test(h)) n.setAttribute('title', h.slice(0, 300));
-      n.setAttribute(name, 'about:blank'); n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener noreferrer');
-    });
+    if (run) all('script[src]').forEach((n) => { const u = rel(n.getAttribute('src')); if (u) jobs.push(load(u, 'js').then((t) => { if (t == null) return; n.removeAttribute('src'); n.textContent = t.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--'); })); });
     await Promise.all(jobs);
-    const head = doc.head || doc.documentElement.insertBefore(doc.createElement('head'), doc.documentElement.firstChild);
-    const base = doc.createElement('base'); base.setAttribute('target', '_blank');
-    const meta = doc.createElement('meta'); meta.setAttribute('http-equiv', 'Content-Security-Policy'); meta.setAttribute('content', policy(run));
-    head.insertBefore(base, head.firstChild); head.insertBefore(meta, head.firstChild);
-    return (doc.doctype ? new XMLSerializer().serializeToString(doc.doctype) : '') + doc.documentElement.outerHTML;
+    strip(doc, run);
+    let html = sealDoc(doc, run);
+    // El marco no recibe este árbol sino su texto, y hay HTML que escrito y vuelto a leer da otro árbol (un <style>
+    // dentro de MathML, por ejemplo, deja de ser texto): lo que acá era letra muerta allá sería un marco o un <link>
+    // sin revisar. Por eso el texto se vuelve a leer como lo va a leer el marco, y solo sale cuando esa lectura no
+    // encuentra nada que sacar y la política sigue adelante de todo. Si no se estabiliza, va una página vacía.
+    for (let i = 0; i < 6; i++) {
+      const again = new DOMParser().parseFromString(html, 'text/html');
+      const m = again.head && again.head.firstElementChild; const b = m && m.nextElementSibling;
+      const mine = !!m && m.tagName === 'META' && /^content-security-policy$/i.test(m.getAttribute('http-equiv') || '') && m.getAttribute('content') === policy(run)
+        && !!b && b.tagName === 'BASE' && b.attributes.length === 1 && b.getAttribute('target') === '_blank';
+      if (mine) { m.remove(); b.remove(); }
+      if (!strip(again, run) && mine) return html;
+      html = sealDoc(again, run);
+    }
+    return sealDoc(new DOMParser().parseFromString('', 'text/html'), run);
   }
   function dropFrame() {
     if (onReady) { window.removeEventListener('message', onReady); onReady = null; }

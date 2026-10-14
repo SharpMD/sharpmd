@@ -97,12 +97,17 @@
   }
 
   // ---------- Un ZIP ----------
+  // Una carpeta de la nube guarda archivos con cualquier nombre. En el ZIP, uno que el sistema ejecuta al abrirlo con
+  // doble clic (un .bat, un .js, un acceso .url) sale con .txt al final, y ningún nombre lleva marcas que lo muestren
+  // dado vuelta: lo que se descarga de una plantilla ajena se lee, no se corre.
+  const RUNS = /\.(?:bat|cmd|com|exe|scr|pif|msi|msp|cpl|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|reg|lnk|url|scf|inf|jar|py|pyw|application|appref-ms|desktop|command)[. ]*$/i;
+  const zipName = (p) => { const v = p.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ''); return RUNS.test(v) ? v + '.txt' : v; };
   async function toZip(k, given) {
     const list = given || await fetchAll(k); if (!list) return;
     if (!(await core.ensure('docx')) || !LMD.docx) { say({ code: 'zip' }); return; }
     const folder = folderOf(k); const enc = new TextEncoder();
     let bytes = null;
-    try { bytes = await LMD.docx.zip(list.slice().sort((a, b) => nat(a.path, b.path)).map((n) => ({ name: folder + '/' + n.path, data: enc.encode(n.text) }))); } catch (e) { say({ code: 'zip' }); return; }
+    try { bytes = await LMD.docx.zip(list.slice().sort((a, b) => nat(a.path, b.path)).map((n) => ({ name: folder + '/' + zipName(n.path), data: enc.encode(n.text) }))); } catch (e) { say({ code: 'zip' }); return; }
     const how = LMD.kit.saveFile(new Blob([bytes], { type: 'application/zip' }), folder + '.zip');
     counted(k); close();
     if (how === 'download') LMD.send.notice(T('Se descargó "{a}". El original no cambia.', { a: folder + '.zip' }));
