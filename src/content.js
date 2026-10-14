@@ -662,6 +662,17 @@
   // navegador, sale en su idioma y no se puede cambiar. Si la persona dice que no, todo sigue abierto en solo lectura.
   const diskRec = (url) => { if (!APP) return null; const r = url ? rootOf(url) : appRoot; return r && r.root && r.handle && (r.kind === 'dir' || r.kind === 'file') ? r : null; };
   async function askWrite(rec) {
+    // Con un toque recién hecho (editar, guardar, renombrar) el pedido va directo al navegador: un aviso propio antes
+    // era preguntar dos veces lo mismo. El aviso de abajo queda para cuando no hay toque (un guardado automático):
+    // ahí el navegador no muestra su cuadro y hace falta un botón que lo pida.
+    if (navigator.userActivation && navigator.userActivation.isActive) {
+      let got = ''; try { got = await rec.handle.requestPermission({ mode: 'readwrite' }); } catch (e) { got = ''; }
+      if (got) {
+        paintWrite(); if (ui.paneFiles && ui.paneFiles.dataset.loaded) loadTree(true);
+        if (got !== 'granted') flash(T('Sin permiso para guardar: sigue en solo lectura.'), 'warn');
+        return got === 'granted';
+      }
+    }
     const ok = await LMD.dialog.confirm({ title: T('Guardar en "{a}"', { a: rec.name }), ok: T('Permitir guardar'), cancel: T('Seguir en solo lectura'),
       text: T(rec.kind === 'dir' ? 'Para guardar en esta carpeta, el navegador te va a pedir permiso. El cuadro es del navegador y sale en su idioma: elegí la opción de guardar los cambios.' : 'Para guardar en este archivo, el navegador te va a pedir permiso. El cuadro es del navegador y sale en su idioma: elegí la opción de guardar los cambios.'),
       // El pedido sale del clic sobre el botón: el navegador lo exige.

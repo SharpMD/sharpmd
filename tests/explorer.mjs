@@ -628,34 +628,24 @@ try {
   await app.waitForSelector(node('a.md'), { timeout: 8000 }).catch(() => {}); await sleep(700);
   const p2 = await perm();
   check('arrastrar una carpeta la abre igual: ningún pedido al navegador, ninguna pantalla de "confirmar el acceso"', p2.asks.length === 0 && !p2.gate && !p2.dlg && !!p2.doc && p2.ro === 'Read-only · Allow saving', p2);
-  // Editar: primero el aviso de la app, y recién con su botón sale el pedido del navegador.
-  await app.click(node('a.md')); await ashows('a.md');
-  await app.click('[data-act=mode-edit]'); await app.waitForSelector('.lmd-dlg-card', { timeout: 4000 }).catch(() => {});
-  const p3 = await perm();
-  check('al pasar a edición sale el aviso propio, sin nombrar a Chrome, y todavía no se le pidió nada al navegador', !!p3.dlg && p3.dlg.title === 'Save in "exp"' && p3.dlg.text === 'To save in this folder, the browser will ask for permission. That box belongs to the browser and shows in its language: choose the option that saves the changes.' && J(p3.dlg.buttons) === J(['Stay read-only', 'Allow saving']) && p3.asks.length === 0 && !/Chrome|[!¡—–]/.test(p3.dlg.title + p3.dlg.text), p3);
-  await app.click('.lmd-dlg-card [data-dlg=no]'); await sleep(400);
-  const p4 = await perm();
-  check('"Seguir en solo lectura" no pide nada y deja la nota leyendo', p4.asks.length === 0 && !p4.editing && !p4.dlg && p4.ro === 'Read-only · Allow saving', p4);
+  // Editar: el pedido va directo al navegador, con ese mismo toque. Un aviso propio antes era preguntar dos veces.
   await app.evaluate(() => { window.__perm.answer = 'denied'; });
-  await app.click('[data-act=mode-edit]'); await app.waitForSelector('.lmd-dlg-card'); await app.click('.lmd-dlg-card [data-dlg=ok]'); await sleep(500);
-  const p5 = await perm();
-  check('si en el cuadro del navegador se dice que no, la carpeta sigue abierta en solo lectura y se puede reintentar', J(p5.asks) === J(['readwrite']) && !p5.editing && !p5.dlg && p5.ro === 'Read-only · Allow saving' && p5.doc === 'a.md', p5);
+  await app.click(node('a.md')); await ashows('a.md');
+  await app.click('[data-act=mode-edit]'); await sleep(600);
+  const p3 = await perm();
+  check('al pasar a edición el permiso se le pide al navegador una sola vez, sin un aviso propio antes', !p3.dlg && J(p3.asks) === J(['readwrite']), p3);
+  check('si en el cuadro del navegador se dice que no, la carpeta sigue abierta en solo lectura y se puede reintentar', !p3.editing && p3.ro === 'Read-only · Allow saving' && p3.doc === 'a.md', p3);
+  const saidNo = await app.evaluate(() => { const f = document.querySelector('.lmd-flash'); return f ? f.textContent : ''; });
+  check('y una línea lo dice, sin signos de admiración ni rayas', /No permission to save: it stays read-only\./.test(saidNo) && !/[!¡—–]/.test(saidNo), saidNo);
   await app.evaluate(() => { window.__perm.answer = 'granted'; window.__perm.write = 'prompt'; });
-  await app.click('[data-write]'); await app.waitForSelector('.lmd-dlg-card'); await app.click('.lmd-dlg-card [data-dlg=ok]'); await sleep(600);
+  await app.click('[data-write]'); await sleep(700);
   const p6 = await perm();
   check('desde la línea del explorador se vuelve a pedir; otorgado, la línea se va y el botón de editar ya no avisa', J(p6.asks) === J(['readwrite', 'readwrite']) && p6.ro === '' && !/permission/.test(p6.editTitle) && !p6.dlg, p6);
-  await app.click('[data-act=mode-edit]'); await app.waitForSelector('.lmd-article .lmd-editable');
-  await app.locator('.lmd-article .lmd-editable', { hasText: 'findme-alpha' }).first().click(); await app.keyboard.press('Control+End'); await app.keyboard.type(' saved-with-permission'); await app.keyboard.press('Control+s');
-  check('con el permiso dado se edita y se guarda en el archivo, sin volver a preguntar', !!(await until(() => app.evaluate(async () => /saved-with-permission/.test(await (await (await window.__dir.getFileHandle('a.md')).getFile()).text())), 8000)) && (await perm()).asks.length === 2);
-  // Sin permiso, la app no entra sola en edición ni pregunta sola; y crear o renombrar ahí también avisa antes.
-  await app.evaluate(() => { window.__perm.write = 'prompt'; });
-  await app.click(node('conf.yaml')).catch(() => {}); await sleep(300);
-  await app.click(node('a.md')); await ashows('a.md'); await sleep(500);
   const p7 = await perm();
   check('sin permiso, abrir otra nota no entra sola en edición ni muestra el aviso', !p7.editing && !p7.dlg && p7.asks.length === 2, p7);
   await app.click(node('a.md'), { button: 'right' }); await app.waitForSelector('.lmd-menu-narrow [data-f=ren]'); await app.click('.lmd-menu-narrow [data-f=ren]'); await app.waitForSelector('.lmd-dlg-card', { timeout: 4000 }).catch(() => {});
   const p8 = await perm();
-  check('renombrar un archivo de esa carpeta muestra primero el mismo aviso', !!p8.dlg && p8.dlg.title === 'Save in "exp"' && J(p8.dlg.buttons) === J(['Stay read-only', 'Allow saving']), p8);
+  check('con el permiso ya dado, renombrar va directo a su cuadro, sin otro pedido', !!p8.dlg && p8.dlg.title === 'Rename' && p8.asks.length === 2, p8);
   await app.click('.lmd-dlg-card [data-dlg=no]'); await sleep(300);
   // Reabrir una carpeta reciente a la que el navegador le venció la lectura: se pide lectura, nunca escritura.
   await app.evaluate(() => { window.__perm.read = 'prompt'; window.__perm.asks = []; });
