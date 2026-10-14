@@ -2346,6 +2346,16 @@
       "contraseña nueva (opcional)": "new password (optional)",
       "con contraseña": "with a password",
       "Una plantilla no lleva contraseña. Quitá el enlace y crealo de nuevo sin contraseña.": "A template has no password. Remove the link and create it again without one.",
+      "Carpetas con acceso restringido": "Folders with restricted access",
+      "Solo las ven los miembros que marques. Quien administra entra siempre.": "Only the members you check can see them. Admins always have access.",
+      "Restringir": "Restrict",
+      "Abrir a todo el equipo": "Open to the whole team",
+      "Todas las carpetas las ve todo el equipo.": "The whole team sees every folder.",
+      "Carpeta restringida. Marcá quién la ve.": "Folder restricted. Check who can see it.",
+      "¿Abrir {a} a todo el equipo?": "Open {a} to the whole team?",
+      "Todos los miembros la van a ver.": "Every member will see it.",
+      "Solo podés elegir miembros del equipo.": "You can only choose team members.",
+      "Hay demasiadas carpetas restringidas.": "There are too many restricted folders.",
   };
   let current = 'es';
   function setLang(pref) {

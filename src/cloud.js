@@ -861,6 +861,10 @@
       newToken: (body) => api('POST', '/team/tokens', body),
       revoke: (id) => api('DELETE', '/team/tokens/' + id),
       regenerate: (id) => api('POST', '/team/tokens/' + id + '/regenerate'),
+      // Carpetas de arriba del espacio cerradas a algunos miembros. Quien administra entra siempre.
+      folders: () => api('GET', '/team/folders'),
+      folderSet: (folder, members) => api('PUT', '/team/folders', { folder, members }),
+      folderOpen: (folder) => api('DELETE', '/team/folders?folder=' + encodeURIComponent(folder)),
       uninvite: (id) => api('DELETE', '/team/invites/' + id),
       accept: (id) => api('POST', '/team/accept', { id }),
       decline: (id) => api('POST', '/team/decline', { id }),

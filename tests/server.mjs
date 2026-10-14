@@ -989,6 +989,52 @@ try {
     for (const id of [soon.json.id, byDate.json.id, fpw.json.id, tpl.json.id]) await call('DELETE', '/links/' + id, undefined, s);
   }
 
+  // ---------- Equipos: carpetas restringidas ----------
+  // Una carpeta de arriba de @team/ cerrada a algunos miembros: para los demás no existe, ni por su nombre.
+  {
+    const fDir = tmp(); const fs1 = await boot(fDir, {}); const J = (v) => JSON.stringify(v);
+    const A = await fs1.enter('jefa-carpetas@ejemplo.test', true); const B = await fs1.enter('beto-carpetas@ejemplo.test'); const C = await fs1.enter('caro-carpetas@ejemplo.test');
+    await fs1.ask('POST', '/admin/team', { email: 'jefa-carpetas@ejemplo.test', seats: 5 }, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    const acct = async (who) => (await fs1.ask('GET', '/account', undefined, who)).json;
+    for (const [who, mail] of [[B, 'beto-carpetas@ejemplo.test'], [C, 'caro-carpetas@ejemplo.test']]) { await fs1.ask('POST', '/team/invite', { email: mail, role: 'editor' }, A); await fs1.ask('POST', '/team/accept', { id: (await acct(who)).team.invites[0].id }, who); }
+    const mine = (await acct(A)).team.mine; const space = mine.space; const idOf = (mail) => mine.members.find((x) => x.email === mail).id;
+    const cId = idOf('caro-carpetas@ejemplo.test');
+    const put = (who, p, text) => fs1.ask('PUT', '/notes/' + encodeURIComponent(p) + '?o=' + space, { text }, who);
+    await put(A, 'Clientes/acme.md', '# Acme\n\nsecreto-acme'); await put(A, 'General/hola.md', '# Hola\n\nabierto');
+    const bTok = (await fs1.ask('POST', '/tokens', { name: 'IA de Beto' }, B)).json.token;
+    const tTok = (await fs1.ask('POST', '/team/tokens', { name: 'bot', write: true }, A)).json.token;
+    const close = await fs1.ask('PUT', '/team/folders', { folder: 'Clientes', members: [cId] }, A);
+    check('carpetas: la administradora cierra una carpeta a una lista de miembros', close.status === 200 && J(close.json.folders) === J([{ folder: 'Clientes', members: [cId] }]), close.json);
+    const tool = async (tok, name, args) => { const r = await fs1.ask('POST', '/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args || {} } }, tok); const res = (r.json && r.json.result) || {}; return { err: !!res.isError || !!(r.json && r.json.error), text: J(r.json) }; };
+    const leaks = (x) => /Clientes|acme/.test(typeof x === 'string' ? x : J(x));
+    const bList = (await fs1.ask('GET', '/notes?o=' + space, undefined, B)).json;
+    const missing = await fs1.ask('GET', '/notes/' + encodeURIComponent('General/no-existe.md') + '?o=' + space, undefined, B);
+    const hidden = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    check('carpetas: un miembro sin acceso no ve ni el nombre de la carpeta en la lista', bList.some((n) => n.path === 'General/hola.md') && !leaks(bList), bList);
+    check('carpetas: abrir una nota de la carpeta responde igual que una nota que no existe', hidden.status === missing.status && hidden.status === 404 && J(hidden.json) === J(missing.json), [hidden.json, missing.json]);
+    const bSearch = await fs1.ask('GET', '/search?o=' + space + '&q=secreto', undefined, B);
+    const bWrite = await put(B, 'Clientes/nueva.md', 'x'); const bMove = await fs1.ask('POST', '/rename', { o: space, from: 'General/hola.md', to: 'Clientes/hola.md' }, B);
+    const bDel = await fs1.ask('DELETE', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    const bVer = await fs1.ask('GET', '/versions/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    const bShares = await fs1.ask('GET', '/shares?o=' + space, undefined, B);
+    check('carpetas: sin acceso no la encuentra, no escribe, no mueve adentro, no borra ni ve versiones', !leaks(bSearch.json) && bWrite.status === 404 && bMove.status === 404 && bDel.status === 404 && bVer.status === 404 && !leaks(bShares.json), [bSearch.json, bWrite.status, bMove.status, bDel.status, bVer.status, bShares.json]);
+    const mList = await tool(bTok, 'list_notes'); const mFold = await tool(bTok, 'list_folders'); const mSearch = await tool(bTok, 'search_notes', { query: 'secreto' }); const mRead = await tool(bTok, 'read_note', { path: '@team/Clientes/acme.md' });
+    check('carpetas: por MCP su IA tampoco la lista, la encuentra ni la lee', /General/.test(mList.text) && !leaks(mList.text) && !leaks(mFold.text) && !leaks(mSearch.text) && mRead.err && !/secreto-acme/.test(mRead.text), [mList.text, mFold.text, mSearch.text, mRead.text]);
+    const api = [await fs1.ask('GET', '/api/v1/notes', undefined, bTok), await fs1.ask('GET', '/api/v1/search?q=secreto', undefined, bTok), await fs1.ask('GET', '/api/v1/note?path=' + encodeURIComponent('@team/Clientes/acme.md'), undefined, bTok)];
+    check('carpetas: por la API tampoco', api.every((r) => !leaks(r.json)) && api[2].status >= 400, api.map((r) => [r.status, r.json]));
+    const tList = await tool(tTok, 'list_notes'); const tRead = await tool(tTok, 'read_note', { path: 'Clientes/acme.md' });
+    check('carpetas: un token del equipo no entra a una carpeta cerrada', /General/.test(tList.text) && !leaks(tList.text) && tRead.err && !/secreto-acme/.test(tRead.text), [tList.text, tRead.text]);
+    const cRead = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, C);
+    const aRead = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, A);
+    check('carpetas: quien está en la lista y la administradora sí la ven', cRead.status === 200 && /secreto-acme/.test(cRead.json.text) && aRead.status === 200, [cRead.status, aRead.status]);
+    const bPut = await fs1.ask('PUT', '/team/folders', { folder: 'General', members: [] }, B); const bad = await fs1.ask('PUT', '/team/folders', { folder: 'a/b', members: [] }, A); const stranger = await fs1.ask('PUT', '/team/folders', { folder: 'General', members: [999999] }, A); const bGet = await fs1.ask('GET', '/team/folders', undefined, B);
+    check('carpetas: solo la administradora las cierra, con un nombre de arriba y miembros del equipo', bPut.status === 403 && bGet.status === 403 && bad.status === 400 && stranger.status === 400, [bPut.status, bGet.status, bad.json, stranger.json]);
+    const open = await fs1.ask('DELETE', '/team/folders?folder=Clientes', undefined, A);
+    const bAgain = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
+    check('carpetas: al abrirla de nuevo todos la ven', open.status === 200 && open.json.folders.length === 0 && bAgain.status === 200, [open.json, bAgain.status]);
+    await fs1.stop(); wipe(fDir);
+  }
+
   // Una persona que abre una dirección del servidor en el navegador ve una página propia, con el mismo código.
   // Un cliente de la API recibe el JSON de siempre. (tests/security.mjs, "Páginas para personas", lo recorre entero.)
   console.log('Páginas para personas');
