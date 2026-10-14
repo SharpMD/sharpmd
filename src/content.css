@@ -782,6 +782,9 @@ pre.lmd-mermaid-error { border-color: #dc2626; }
 .lmd-home-cloud-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .lmd-home-cloud-row .lmd-btn { padding: 6px 13px; font-size: 13px; border-radius: 999px; }
 .lmd-home-cloud-err { color: #dc2626; }
+/* Qué cifra la nube común, en una línea debajo del correo al crear la cuenta. */
+.lmd-signin-e2e { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; }
+.lmd-signin-e2e .lmd-link { padding: 0; font-size: inherit; text-decoration: underline; }
 
 /* ---------- Íconos del menú, imágenes, color del código, forma de los diagramas ---------- */
 .lmd-menu button { display: flex; align-items: center; gap: 9px; }

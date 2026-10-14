@@ -55,14 +55,18 @@
   const BAD_NAME = 'Ese nombre tiene caracteres que no se pueden usar';
   const badName = (v) => (/[\\/:*?"<>|]/.test(v) || /^\.\.?$/.test(v) ? T(BAD_NAME) : '');
   const badPath = (v) => (cloudName(v) ? '' : T(BAD_NAME));
-  const askName = (title, value, validate, ok, label) => LMD.dialog.prompt({ title: T(title), value, validate, ok: T(ok), label: label ? T(label) : '', stem: true });
+  const askName = (title, value, validate, ok, label, text) => LMD.dialog.prompt({ title: T(title), value, validate, ok: T(ok), label: label ? T(label) : '', text: text || '', stem: true });
+  // Al nombrar algo dentro de una carpeta protegida se avisa que el nombre no se cifra: el servidor lo ve.
+  const NAME_SEEN = 'Esta carpeta está protegida, pero los nombres de las carpetas y de las notas no se cifran: el servidor los ve.';
+  const sealedName = (path) => (LMD.vault && LMD.vault.of && LMD.vault.of(path) ? T(NAME_SEEN) : '');
   // Lo del disco no tiene papelera en SharpMD: se borra del disco y no pasa por la del sistema. Se dice ahí mismo.
   const askDelete = (name, disk) => LMD.dialog.confirm({ title: T('¿Eliminar "{a}"?', { a: name }), text: T(disk ? 'Se borra del disco, sin pasar por la papelera. No se puede deshacer.' : 'No se puede deshacer.'), ok: T('Eliminar'), danger: true });
 
   const notMineTeam = (path) => LMD.cloud.isTeam(path + '/') && notMine(path);
   async function cloudNew(dirUrl, folder) {
     if (notMineTeam(core.pathOf(dirUrl))) return;
-    const typed = await askName(folder ? 'Nombre de la carpeta nueva' : 'Nombre del archivo nuevo', folder ? T('carpeta') : T('nota') + '.md', badPath, 'Crear');
+    const at = core.pathOf(dirUrl);
+    const typed = await askName(folder ? 'Nombre de la carpeta nueva' : 'Nombre del archivo nuevo', folder ? T('carpeta') : T('nota') + '.md', badPath, 'Crear', '', sealedName((at ? at + '/' : '') + 'x.md'));
     if (!typed) return;
     let name = cloudName(typed);
     // Una carpeta existe mientras tenga algo adentro: nace con su primera nota.
@@ -90,7 +94,7 @@
     const old = core.pathOf(url);
     if (notMine(old)) return;
     const pre = ownerPre(old); const inner = old.slice(pre.length);
-    const typed = given != null ? inner.slice(0, inner.lastIndexOf('/') + 1) + given : await askName('Renombrar', inner, badPath, 'Renombrar', 'Con "/" se mueve a una carpeta');
+    const typed = given != null ? inner.slice(0, inner.lastIndexOf('/') + 1) + given : await askName('Renombrar', inner, badPath, 'Renombrar', 'Con "/" se mueve a una carpeta', sealedName(isDir ? old + '/' : old));
     if (!typed || !typed.trim()) return;
     let to = cloudName(typed);
     if (!to) { core.flash(T('Ese nombre tiene caracteres que no se pueden usar'), 'error'); return; }

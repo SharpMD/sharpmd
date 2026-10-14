@@ -263,7 +263,14 @@ async function appSuite() {
   await olga.page.fill(CARD + ' [data-v=p1]', PASS); await olga.page.fill(CARD + ' [data-v=p2]', PASS); await olga.page.click(CARD + ' [data-v=ok]');
   const k1 = await keyShown(olga.page);
   check('la clave de respaldo es un paso obligado: no se sigue sin guardarla', !!k1.K && (await olga.page.isDisabled(CARD + ' [data-v=ok]')) && (await tv()) === null);
-  await olga.page.click(CARD + ' [data-v=copy]'); await olga.page.click(CARD + ' [data-v=ok]'); await gone(olga.page);
+  // Copiarla no alcanza: hay que escribir sus últimos cuatro caracteres para mostrar que se guardó.
+  await olga.page.click(CARD + ' [data-v=copy]');
+  const tail = await olga.page.evaluate((c) => [...document.querySelectorAll(c + ' .lmd-vault-key span')].pop().textContent, CARD);
+  const copiedOnly = await olga.page.isDisabled(CARD + ' [data-v=ok]');
+  await olga.page.fill(CARD + ' [data-v=tail]', tail.slice(0, 3)); const halfTail = await olga.page.isDisabled(CARD + ' [data-v=ok]');
+  await olga.page.fill(CARD + ' [data-v=tail]', tail.toLowerCase());
+  check('copiar la clave pide escribir sus últimos cuatro caracteres antes de seguir', copiedOnly && halfTail && !(await olga.page.isDisabled(CARD + ' [data-v=ok]')), [copiedOnly, halfTail]);
+  await olga.page.click(CARD + ' [data-v=ok]'); await gone(olga.page);
   const sealedAll = await until(async () => (await rows()).every((n) => n.v === 1));
   const v1 = await tv();
   check('protege y cifra en su navegador las notas que ya estaban', sealedAll && v1.state === 'on' && v1.check === k1.check && (await Z.open(k1.key, aad('docs/guia.md'), (await raw('docs/guia.md')).text)) === '# Guía\n\npomelo-guia\n', await rows());

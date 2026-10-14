@@ -68,6 +68,14 @@
     // El aviso va pegado al campo y no borra lo escrito.
     const err = el('p', { class: 'lmd-home-cloud-err', role: 'alert', hidden: '' });
     box.append(row, err);
+    // Antes de crear la cuenta, en una línea: qué cifra la nube común y qué no. En un servidor propio depende de cómo
+    // esté instalado, así que ahí no se dice.
+    if (!code && !LMD.cloud.own()) {
+      const how = el('a', { class: 'lmd-link', target: '_blank', rel: 'noopener', href: ((ctx && ctx.APP_URL) || 'https://sharpmd.app/src/app.html') + '?f=' + encodeURIComponent('guide/cloud-and-sharing.md'), text: T('Cómo se protege una carpeta') });
+      const line = el('p', { class: 'lmd-hint lmd-signin-e2e', 'data-cloud': 'e2e' });
+      line.append(T('La nube común se cifra en el servidor, pero no de extremo a extremo. Para datos sensibles, usá una carpeta protegida.') + ' ', how);
+      box.appendChild(line);
+    }
     // Si el código no llega (un correo mal escrito, o el tope de intentos), se vuelve al paso anterior sin recargar.
     if (code) {
       const back = el('button', { type: 'button', class: 'lmd-link lmd-signin-back', 'data-cloud': 'back', text: T('Cambiar el correo o pedir otro código') });

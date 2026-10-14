@@ -66,17 +66,25 @@
   const cancel = (label) => '<button type="button" class="lmd-btn" data-v="no" data-esc>' + T(label || 'Cancelar') + '</button>';
   const okBtn = (label, danger) => '<button type="button" class="lmd-btn ' + (danger ? 'lmd-btn-danger' : 'lmd-btn-fill') + '" data-v="ok">' + T(label) + '</button>';
   const meter = '<div class="lmd-vault-meter" data-v="meter" data-s="0"><i></i><i></i><i></i><span></span></div>';
-  const STRENGTH = ['Al menos 8 caracteres', 'Débil', 'Aceptable', 'Fuerte'];
-  // El indicador sigue a lo que se escribe en el campo de la contraseña nueva.
-  function watch(o, name) {
+  const STRENGTH = ['', 'Débil', 'Aceptable', 'Fuerte'];
+  // El mínimo: 12 caracteres para una carpeta nueva (NEW). Las que ya existen siguen con 8 al cambiar o recuperar la
+  // contraseña, así nadie queda afuera de lo que ya tiene; abrirlas no mira el largo.
+  const NEW = 12;
+  const SHORT = { 8: 'Al menos 8 caracteres', 12: 'Al menos 12 caracteres' };
+  const TOO_SHORT = { 8: 'La contraseña tiene que tener al menos 8 caracteres.', 12: 'La contraseña tiene que tener al menos 12 caracteres.' };
+  const level = (p, min) => (Array.from(String(p || '')).length < min ? 0 : Z.strength(p));
+  // El indicador sigue a lo que se escribe en el campo de la contraseña nueva. Desde el principio dice el mínimo.
+  function watch(o, name, min) {
+    min = min || 8;
     const input = o.q(name); const m = o.q('meter');
-    const paint = () => { const s = Z.strength(input.value); m.dataset.s = input.value ? String(s) : ''; m.querySelector('span').textContent = input.value ? T(STRENGTH[s]) : ''; };
+    const paint = () => { const s = level(input.value, min); m.dataset.s = input.value ? String(s) : ''; m.querySelector('span').textContent = T(s ? STRENGTH[s] : SHORT[min]); };
     input.addEventListener('input', paint); paint();
   }
   // Una contraseña nueva escrita dos veces. Devuelve la contraseña, o nada después de avisar qué falta.
-  function fresh(o, one, two) {
+  function fresh(o, one, two, min) {
+    min = min || 8;
     const a = o.q(one); const b = o.q(two);
-    if (Z.strength(a.value) < 1) { o.fail(T('La contraseña tiene que tener al menos 8 caracteres.'), a); return ''; }
+    if (level(a.value, min) < 1) { o.fail(T(TOO_SHORT[min]), a); return ''; }
     if (a.value !== b.value) { o.fail(T('Las dos contraseñas no coinciden.'), b); return ''; }
     return a.value;
   }
@@ -155,41 +163,50 @@
         '<li>' + T('Tu IA por MCP lee tus notas solo si las desbloqueás para ella por un rato.') + '</li>' +
         '<li>' + T('El historial anterior, la papelera y los comentarios para la IA se eliminan del servidor.') + '</li></ul>' : '') +
       '<p class="lmd-vault-warn">' + T(root ? 'Si perdés la contraseña y la clave de respaldo, tus notas no se pueden recuperar. Tampoco desde SharpMD.' : 'Sin la contraseña y sin la clave de respaldo, estas notas no se pueden recuperar. Tampoco desde SharpMD.') + '</p>' +
-      field('p1', 'Contraseña', 'new-password') + meter + field('p2', 'Repetir la contraseña', 'new-password') +
+      field('p1', 'Contraseña', 'new-password') + meter + '<p class="lmd-hint" data-v="phrase">' + T('Mejor una frase: cuatro o cinco palabras que no vayan juntas, fácil de recordar para vos.') + '</p>' +
+      field('p2', 'Repetir la contraseña', 'new-password') +
       (root ? '' : '<ul class="lmd-vault-notes"><li>' + T('Los nombres de las notas y de las carpetas no se cifran.') + '</li>' +
         '<li>' + T(team ? 'El historial anterior y la papelera del equipo se eliminan del servidor.' : 'El historial anterior de estas notas se elimina del servidor.') + '</li>' +
         '<li>' + T(team ? 'La IA lee las notas del equipo solo mientras alguien las desbloquee para ella.'
           : 'En esta carpeta no hay compartir, enlaces públicos ni comentarios para la IA. Lo que ya estaba compartido deja de estarlo.') + '</li></ul>'),
       cancel() + okBtn('Continuar'));
-    watch(o, 'p1');
+    watch(o, 'p1', NEW);
     const password = await new Promise((resolve) => {
       o.box.addEventListener('click', (e) => {
         const b = e.target.closest('[data-v]'); if (e.target === o.box || (b && b.dataset.v === 'no')) { o.close(); resolve(''); return; }
-        if (b && b.dataset.v === 'ok') { const p = fresh(o, 'p1', 'p2'); if (p) { o.close(); resolve(p); } }
+        if (b && b.dataset.v === 'ok') { const p = fresh(o, 'p1', 'p2', NEW); if (p) { o.close(); resolve(p); } }
       });
     });
     if (!password) return;
-    // Segundo paso: la clave de respaldo. No se sigue sin descargarla o copiarla.
-    const K = Z.newKey(); const key = Z.backupText(K);
+    // Segundo paso: la clave de respaldo. No se sigue sin confirmar que quedó guardada: descargarla como archivo, o
+    // copiarla y escribir su último grupo de cuatro caracteres, leído de donde se pegó.
+    const K = Z.newKey(); const key = Z.backupText(K); const tail = key.split('-').pop();
     const s = sheet(T('Guardá la clave de respaldo'),
       '<p>' + T(team ? 'Con esta clave ponés una contraseña nueva si la del equipo se olvida. Guardala fuera de este dispositivo.'
         : root ? 'Con esta clave se entra a tu nube si te olvidás la contraseña. Guardala fuera de este dispositivo: no se vuelve a mostrar.'
         : 'Con esta clave se entra a la carpeta si te olvidás la contraseña. Guardala fuera de este dispositivo: no se vuelve a mostrar.') + '</p>' +
       '<div class="lmd-vault-key" data-v="key"></div>' +
       '<div class="lmd-vault-keyacts"><button type="button" class="lmd-btn" data-v="down">' + ICON.download + '<span>' + T('Descargar') + '</span></button><button type="button" class="lmd-btn" data-v="copy">' + ICON.copy + '<span>' + T('Copiar') + '</span></button></div>' +
-      '<p class="lmd-hint" data-v="need">' + T('Descargala o copiala para seguir.') + '</p>' +
+      '<p class="lmd-hint" data-v="need">' + T('Para seguir, descargala como archivo, o copiala y escribí sus últimos cuatro caracteres.') + '</p>' +
+      '<label class="lmd-dlg-field" data-v="tailbox" hidden><span>' + T('Los últimos cuatro caracteres de la clave') + '</span><input type="text" data-v="tail" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>' +
       '<div data-v="work" hidden>' + bar('Cifrando notas: {n} de {m}') + '</div>',
       cancel() + okBtn(team ? 'Proteger el espacio' : root ? 'Proteger mi nube' : 'Proteger la carpeta'));
     // Cada grupo en su casilla: bajan de renglón enteros. Al copiar o descargar van unidos con guiones.
     s.q('key').innerHTML = key.split('-').map((g) => '<span>' + g + '</span>').join(''); s.q('ok').disabled = true;
-    const saved = () => { s.q('ok').disabled = false; s.q('need').textContent = T(team ? 'Clave guardada. Ya podés proteger el espacio.' : root ? 'Clave guardada. Ya podés proteger tu nube.' : 'Clave guardada. Ya podés proteger la carpeta.'); };
+    const saved = () => { s.q('tailbox').hidden = true; s.q('ok').disabled = false; s.q('need').textContent = T(team ? 'Clave guardada. Ya podés proteger el espacio.' : root ? 'Clave guardada. Ya podés proteger tu nube.' : 'Clave guardada. Ya podés proteger la carpeta.'); };
     let working = false;
+    s.q('tail').addEventListener('input', () => { if (s.q('tail').value.trim().toUpperCase() === tail) saved(); });
     s.box.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-v]'); if (working) return;
       if (e.target === s.box || (b && b.dataset.v === 'no')) { K.fill(0); s.close(); return; }
       if (!b) return;
       if (b.dataset.v === 'down') { backupFile(folder, key); saved(); return; }
-      if (b.dataset.v === 'copy') { await copyText(key); b.querySelector('span').textContent = T('Copiado'); saved(); return; }
+      // Copiar no alcanza: se pide el último grupo, leído de donde se pegó.
+      if (b.dataset.v === 'copy') {
+        await copyText(key); b.querySelector('span').textContent = T('Copiado');
+        if (s.q('ok').disabled) { s.q('tailbox').hidden = false; s.q('need').textContent = T('Pegala donde la vayas a guardar y escribí acá sus últimos cuatro caracteres.'); s.q('tail').focus(); }
+        return;
+      }
       if (b.dataset.v !== 'ok') return;
       working = true; s.busy(true); s.fail('');
       let vault = null;
@@ -200,7 +217,7 @@
         Z.hold({ check: d.check }, d.key);
         vault = team ? await LMD.cloud.teamVaultCreate(body) : await LMD.cloud.vaultCreate(body);
         K.fill(0);
-        s.q('key').hidden = true; s.box.querySelector('.lmd-vault-keyacts').hidden = true; s.q('need').hidden = true; s.q('work').hidden = false;
+        s.q('key').hidden = true; s.box.querySelector('.lmd-vault-keyacts').hidden = true; s.q('need').hidden = true; s.q('tailbox').hidden = true; s.q('work').hidden = false;
         await LMD.cloud.sealFolder(vault, stepper(s, 'Cifrando notas: {n} de {m}'));
         s.close();
         const here = openIn(vault);
@@ -236,7 +253,9 @@
       const o = sheet(T('Desbloquear "{a}"', { a: nameOf(vault) }),
         '<p>' + T(vault.team ? 'Las notas del equipo están protegidas con contraseña.' : isRoot(vault) ? 'Tu nube está protegida con contraseña.' : 'Esta carpeta está protegida con contraseña.') + '</p>' +
         (member ? '<p class="lmd-hint" data-v="ask">' + T('Pedile la contraseña a quien administra el equipo.') + '</p>' : '') + field('p', 'Contraseña', 'current-password') +
+        // Desmarcado siempre: recordar deja la carpeta abierta para quien use este navegador después.
         '<label class="lmd-check"><input type="checkbox" data-v="keep"><span>' + T('Recordar en este dispositivo') + '</span></label>' +
+        '<p class="lmd-hint" data-v="shared">' + T('En una computadora compartida no lo marques: quien la use después entra sin la contraseña.') + '</p>' +
         (member ? '' : '<button type="button" class="lmd-link" data-v="forgot">' + T('¿Olvidaste la contraseña?') + '</button>'),
         cancel() + okBtn('Desbloquear'));
       const done = (ok) => { o.close(); resolve(ok); };
@@ -529,13 +548,16 @@
         : isRoot(vault) ? 'Mientras esté desbloqueada, el servidor puede leer y escribir las notas de tu nube para tu IA.'
         : 'Mientras esté desbloqueada, el servidor puede leer y escribir las notas de esta carpeta para tu IA.') + '</p>' +
       '<p>' + T('La llave se guarda solo en la memoria del servidor y se olvida al vencer el plazo, al bloquear o si el servidor se reinicia.') + '</p>' +
-      '<div class="lmd-vault-time"><span>' + T('Durante') + '</span><div class="lmd-seg" data-v="time">' + TIMES.map((t) => '<button type="button" data-min="' + t[0] + '"' + (t[0] === 60 ? ' class="lmd-on"' : '') + '>' + T(t[1]) + '</button>').join('') + '</div></div>' +
+      '<div class="lmd-vault-time"><span>' + T('Durante') + '</span><div class="lmd-seg" data-v="time">' + TIMES.map((t) => '<button type="button" data-min="' + t[0] + '"' + (t[0] === 15 ? ' class="lmd-on"' : '') + '>' + T(t[1]) + '</button>').join('') + '</div></div>' +
+      // Sin plazo, la llave queda en el servidor hasta que alguien bloquee: se dice en rojo al elegirlo.
+      '<p class="lmd-vault-warn" data-v="forever" hidden>' + T(vault.team ? 'Sin plazo, el servidor puede leer las notas del equipo hasta que lo bloquees. Bloquealo apenas tu IA termine.'
+        : 'Sin plazo, el servidor puede leer estas notas hasta que las bloquees. Bloquealas apenas tu IA termine.') + '</p>' +
       field('p', 'Contraseña', 'current-password'),
       cancel() + okBtn('Desbloquear para la IA'));
-    let minutes = 60;
+    let minutes = 15;
     o.box.addEventListener('click', async (e) => {
       const seg = e.target.closest('[data-min]');
-      if (seg) { minutes = +seg.dataset.min; seg.parentNode.querySelectorAll('button').forEach((x) => x.classList.toggle('lmd-on', x === seg)); return; }
+      if (seg) { minutes = +seg.dataset.min; seg.parentNode.querySelectorAll('button').forEach((x) => x.classList.toggle('lmd-on', x === seg)); o.q('forever').hidden = minutes !== 0; return; }
       const b = e.target.closest('[data-v]');
       if (e.target === o.box || (b && b.dataset.v === 'no')) { o.close(); return; }
       if (!b || b.dataset.v !== 'ok') return;
