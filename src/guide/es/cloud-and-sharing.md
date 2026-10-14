@@ -52,6 +52,18 @@ Una carpeta de la nube se vuelve un sitio web público, con menú, buscador y te
 - Una carpeta protegida no se publica nunca.
 - Lo que cambia una IA queda sin publicar hasta que lo publiques desde la app.
 
+## En equipo
+
+Con el plan de equipo, las notas compartidas están bajo `@team/`. Quien administra invita gente y elige su papel en **Ajustes** > **Plan**.
+
+Una carpeta de arriba del equipo puede quedar para algunos miembros. En **Carpetas con acceso restringido** escribís su nombre, tocás **Restringir** y marcás quién la ve. Quien administra entra siempre. Para los demás la carpeta no existe: no la ven en el explorador, en la búsqueda, en su IA ni en la API. Los tokens del equipo tampoco entran.
+
+Cuando alguien se va del equipo:
+
+1. Sacalo desde **Ajustes** > **Plan**, con **Sacar**. En el mismo paso se revocan los tokens del equipo que creó, y sus webhooks y direcciones de entrada del espacio. Sus tokens personales dejan de llegar al equipo.
+2. Si el espacio tiene contraseña, cambiala y, si pudo guardar la llave en su dispositivo, usá **Rotar la llave**.
+3. Revisá los enlaces públicos y los sitios del equipo: siguen andando aunque quien los creó ya no esté. En **Registro de actividad** figura quién creó cada uno.
+
 ## Irte
 
 La cuenta se elimina desde **Ajustes** > **Nube**, con **Eliminar la cuenta**. Se borran sus notas y todo lo demás guardado para ella.

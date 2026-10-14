@@ -52,6 +52,18 @@ A cloud folder becomes a public website, with a menu, search and a theme. It is 
 - A protected folder is never published.
 - What an AI changes stays unpublished until you publish it from the app.
 
+## In a team
+
+With the team plan, the shared notes are under `@team/`. Whoever administers the team invites people and picks their role in **Settings** > **Plan**.
+
+A top-level folder of the team can be kept for some members. In **Folders with restricted access** you type its name, tap **Restrict** and check who can see it. Admins always have access. For everyone else the folder does not exist: they do not see it in the explorer, in search, in their AI or in the API. Team tokens do not reach it either.
+
+When someone leaves the team:
+
+1. Remove them from **Settings** > **Plan**, with **Remove**. In the same step, the team tokens they created and their webhooks and inbound addresses on the space are revoked. Their personal tokens stop reaching the team.
+2. If the space has a password, change it and, if they could have saved the key on their device, use **Rotate the key**.
+3. Check the public links and sites of the team: they keep working after the person who created them is gone. The **Activity log** shows who created each one.
+
 ## Leaving
 
 The account is deleted from **Settings** > **Cloud**, with **Delete account**. Its notes and everything else stored for it are removed.

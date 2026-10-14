@@ -2356,6 +2356,8 @@
       "Todos los miembros la van a ver.": "Every member will see it.",
       "Solo podés elegir miembros del equipo.": "You can only choose team members.",
       "Hay demasiadas carpetas restringidas.": "There are too many restricted folders.",
+      "En el mismo paso se revocan los tokens del equipo que creó, y sus webhooks y direcciones de entrada del espacio.": "In the same step, the team tokens they created and their webhooks and inbound addresses on the space are revoked.",
+      "Lo sacaste del equipo y se revocó lo que había conectado.": "They are out of the team, and what they had connected is revoked.",
   };
   let current = 'es';
   function setLang(pref) {

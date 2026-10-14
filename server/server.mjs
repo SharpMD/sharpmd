@@ -2517,6 +2517,19 @@ function teamDrop(t, userId, by) {
   const r = q('DELETE FROM team_members WHERE team = ? AND user = ?').run(t.id, userId);
   if (!r.changes) throw new Fail(404, 'not_found');
   if (by && by.id !== userId) teamLog(t, by, 'remove', '', '', userId); else teamLog(t, { id: userId }, 'leave', '');
+  // En el mismo paso se corta lo que esa persona conectó al equipo: los tokens del equipo que creó (los pudo copiar),
+  // y sus webhooks y entradas del espacio. Sus tokens personales siguen siendo suyos, pero ya no llegan al equipo.
+  const who = by || { id: userId };
+  const toks = q('SELECT id, name FROM tokens WHERE team = ? AND made_by = ?').all(t.id, userId);
+  for (const k of toks) { q('DELETE FROM tokens WHERE id = ?').run(k.id); teamLog(t, who, 'token_revoke', '', k.name, userId); }
+  const hooks = q('SELECT id, scope_path FROM hooks WHERE user = ? AND maker = ?').all(t.space, userId);
+  for (const h of hooks) { q('DELETE FROM hook_jobs WHERE hook = ?').run(h.id); q('DELETE FROM hooks WHERE id = ?').run(h.id); teamLog(t, who, 'automation_remove', h.scope_path || '', 'webhook', userId); }
+  const ins = q('SELECT id, path, kind FROM inboxes WHERE user = ? AND maker = ?').all(t.space, userId);
+  for (const r of ins) { q('DELETE FROM inboxes WHERE id = ?').run(r.id); teamLog(t, who, 'automation_remove', r.path, 'inbound ' + r.kind, userId); }
+  // Y deja de figurar en las carpetas restringidas: si vuelve a entrar, empieza sin acceso a ellas.
+  for (const row of q('SELECT folder, members FROM team_folders WHERE team = ?').all(t.id)) {
+    const ids = folderMembers(row); if (ids.includes(userId)) q('UPDATE team_folders SET members = ? WHERE team = ? AND folder = ?').run(JSON.stringify(ids.filter((i) => i !== userId)), t.id, row.folder);
+  }
   teamCut(t.space, userId);
   liveTeamSweep(t);
   teamVaultLeft(t, userId);
@@ -2524,7 +2537,7 @@ function teamDrop(t, userId, by) {
   // de lugares. El próximo aviso de Paddle trae la cantidad real.
   const paid = q("SELECT id FROM paddle_subs WHERE user = ? AND kind = 'team' AND status = 'active' ORDER BY at DESC LIMIT 1").get(userId);
   if (paid) teamOpen({ id: userId }, TEAM_MIN, paid.id);
-  return { ok: true };
+  return { ok: true, revoked: { tokens: toks.length, webhooks: hooks.length, inbound: ins.length } };
 }
 // Cambiar los lugares es cambiar la cantidad del ítem de la suscripción en Paddle, con el mismo precio que ya tiene.
 // Con prorrateo en el momento; durante la prueba gratis no hay nada que cobrar y Paddle solo acepta el cambio sin

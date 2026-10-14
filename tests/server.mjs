@@ -992,7 +992,7 @@ try {
   // ---------- Equipos: carpetas restringidas ----------
   // Una carpeta de arriba de @team/ cerrada a algunos miembros: para los demás no existe, ni por su nombre.
   {
-    const fDir = tmp(); const fs1 = await boot(fDir, {}); const J = (v) => JSON.stringify(v);
+    const fDir = tmp(); const fs1 = await boot(fDir, { WEBHOOK_ALLOW_PRIVATE: '1' }); const J = (v) => JSON.stringify(v);
     const A = await fs1.enter('jefa-carpetas@ejemplo.test', true); const B = await fs1.enter('beto-carpetas@ejemplo.test'); const C = await fs1.enter('caro-carpetas@ejemplo.test');
     await fs1.ask('POST', '/admin/team', { email: 'jefa-carpetas@ejemplo.test', seats: 5 }, undefined, { 'x-admin-key': 'clave-de-prueba' });
     const acct = async (who) => (await fs1.ask('GET', '/account', undefined, who)).json;
@@ -1032,6 +1032,25 @@ try {
     const open = await fs1.ask('DELETE', '/team/folders?folder=Clientes', undefined, A);
     const bAgain = await fs1.ask('GET', '/notes/' + encodeURIComponent('Clientes/acme.md') + '?o=' + space, undefined, B);
     check('carpetas: al abrirla de nuevo todos la ven', open.status === 200 && open.json.folders.length === 0 && bAgain.status === 200, [open.json, bAgain.status]);
+    // Sacar a alguien corta en el mismo paso lo que conectó al equipo: los tokens del equipo que creó, sus webhooks y
+    // sus entradas del espacio, y su lugar en las carpetas restringidas. Su token personal ya no llega al equipo.
+    const bId = idOf('beto-carpetas@ejemplo.test');
+    await fs1.ask('POST', '/team/role', { id: bId, role: 'admin' }, A);
+    await fs1.ask('PUT', '/team/policies', { automation: true }, A);
+    await fs1.ask('PUT', '/team/folders', { folder: 'Clientes', members: [cId, bId] }, A);
+    const bTeam = (await fs1.ask('POST', '/team/tokens', { name: 'bot de Beto', write: true }, B)).json.token;
+    const keep = (await fs1.ask('POST', '/team/tokens', { name: 'bot de la jefa', write: true }, A)).json.token;
+    const bHook = await fs1.ask('POST', '/automations/hooks', { o: space, url: 'http://127.0.0.1:9/x', events: ['note.created'] }, B);
+    const bIn = await fs1.ask('POST', '/automations/inboxes', { o: space, name: 'x', kind: 'append', path: 'General/hola.md' }, B);
+    const before = [(await tool(bTeam, 'list_notes')).err, (await tool(bTok, 'read_note', { path: '@team/General/hola.md' })).err];
+    const gone = await fs1.ask('POST', '/team/remove', { id: bId }, A);
+    const after = [await tool(bTeam, 'list_notes'), await tool(bTok, 'read_note', { path: '@team/General/hola.md' }), await tool(keep, 'list_notes')];
+    const autos = (await fs1.ask('GET', '/automations?o=' + space, undefined, A)).json;
+    const foldersAfter = (await fs1.ask('GET', '/team/folders', undefined, A)).json.folders;
+    const logRows = (await fs1.ask('GET', '/team/log', undefined, A)).json.entries;
+    check('salida: al sacar a alguien se revocan sus tokens del equipo, webhooks y entradas, en un paso', bHook.status === 200 && bIn.status === 200 && before.every((x) => x === false) && gone.status === 200 && J(gone.json.revoked) === J({ tokens: 1, webhooks: 1, inbound: 1 }) && after[0].err && after[1].err && !/abierto/.test(after[1].text) && !after[2].err && J(autos.hooks) === '[]' && J(autos.inboxes) === '[]', [bHook.json, bIn.json, before, gone.json, after.map((x) => x.text.slice(0, 200)), autos]);
+    check('salida: deja de figurar en las carpetas restringidas y el registro lo anota', J(foldersAfter) === J([{ folder: 'Clientes', members: [cId] }]) && logRows.some((e) => e.action === 'token_revoke' && /bot de Beto/.test(J(e))) && logRows.filter((e) => e.action === 'automation_remove').length === 2, [foldersAfter, logRows.slice(0, 6)]);
+
     await fs1.stop(); wipe(fDir);
   }
 

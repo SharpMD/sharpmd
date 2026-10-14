@@ -429,8 +429,8 @@
         await C.folderOpen(b.dataset.f); said = T('Ajuste guardado.');
       }
       else if (kind === 'remove') {
-        if (!(await LMD.dialog.confirm({ title: T('¿Sacar a {a} del equipo?', { a: b.dataset.mail }), text: T('Conserva sus notas. Las del equipo quedan en el equipo.'), ok: T('Sacar'), danger: true }))) return true;
-        await C.remove(+b.dataset.id);
+        if (!(await LMD.dialog.confirm({ title: T('¿Sacar a {a} del equipo?', { a: b.dataset.mail }), text: T('Conserva sus notas. Las del equipo quedan en el equipo.') + ' ' + T('En el mismo paso se revocan los tokens del equipo que creó, y sus webhooks y direcciones de entrada del espacio.'), ok: T('Sacar'), danger: true }))) return true;
+        await C.remove(+b.dataset.id); said = T('Lo sacaste del equipo y se revocó lo que había conectado.');
       } else if (kind === 'seats') {
         if (!(await LMD.dialog.confirm({ title: T('¿Pasar a {n} lugares?', { n: want }), text: T(mine.trial_until ? 'Quedan USD {a} por mes. Se cobra cuando termina la prueba gratis.' : 'Quedan USD {a} por mes. La diferencia se cobra o se acredita ahora.', { a: cost(want) }), ok: T('Cambiar lugares') }))) return true;
         b.disabled = true;
