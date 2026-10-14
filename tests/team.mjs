@@ -489,7 +489,7 @@ try {
 
   // Eliminar la cuenta con el cobro del equipo activo: no se borra, y dice qué hacer antes.
   await olga.page.evaluate(() => document.querySelector('[data-act=settings]').click()); await olga.page.waitForSelector('.lmd-panel-card'); await olga.page.click('[data-ptab=cloud]');
-  await olga.page.waitForSelector('[data-acct=cloud] [data-c=delete]'); await olga.page.click('[data-acct=cloud] [data-c=delete]'); await olga.page.waitForSelector('.lmd-dlg input');
+  await olga.page.waitForSelector('[data-acct=cloud] [data-c=delete]'); await olga.page.click('[data-acct=cloud] [data-c=delete]'); await olga.page.waitForSelector('.lmd-dlg [data-dlg=alt]'); await olga.page.click('.lmd-dlg [data-dlg=alt]'); await olga.page.waitForSelector('.lmd-dlg input');
   const askDel = await olga.page.evaluate(() => document.querySelector('.lmd-dlg').innerText);
   await olga.page.fill('.lmd-dlg input', O.email); await olga.page.keyboard.press('Enter');
   await olga.page.waitForSelector('.lmd-dlg .lmd-dlg-link a');

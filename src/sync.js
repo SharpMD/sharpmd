@@ -366,6 +366,7 @@
         box.innerHTML = card({ id: 'account', title: T('Cuenta'),
           action: '<button type="button" class="lmd-btn lmd-btn-fill" data-c="open">' + T('Abrir la carpeta Nube') + '</button>',
           body: kv(T('Correo'), esc(a.email), '<button type="button" class="lmd-link" data-c="out">' + T('Salir') + '</button>', 'lmd-acct-row') + nameRow(a) + acctRow(T('Plan'), T(a.plan === 'pro' ? 'Pago' : 'Gratis')) + acctRow(T('Notas en la nube'), quota(a)) +
+            kv(T('Copia de tus notas'), T('Un ZIP con todo lo de la nube.'), '<button type="button" class="lmd-link" data-c="export">' + T('Descargar todas mis notas') + '</button>', 'lmd-acct-row') +
             // El almacenamiento lo pinta images.js en esta fila; sin adjuntos ni lugar para subirlos, no aparece.
             '<div class="lmd-kv lmd-st-slot" data-files-pane hidden></div>' +
             '<div data-two></div><p class="lmd-hint lmd-acct-msg" role="status" hidden></p>' }) +
@@ -411,6 +412,7 @@
       else if (b.dataset.c === 'login') { if (host.direct) host.login(); else askLogin(); }
       else if (b.dataset.c === 'open') openCloud(Object.assign({ say: (t) => { const m = box.querySelector('.lmd-acct-msg'); if (m) { m.hidden = false; m.textContent = t; } } }, host));
       else if (b.dataset.c === 'out') { await signOut(host); cloudPane(box, host); }
+      else if (b.dataset.c === 'export') exportAll();
       else if (b.dataset.c === 'delete') { if (await deleteAccount()) cloudPane(box, host); }
       else if (b.dataset.c === 'site' || b.dataset.c === 'site-new') publish('', b.dataset.id ? +b.dataset.id : 0, () => { if (box.isConnected) cloudPane(box, host); });
       else if (b.dataset.c === 'name') editName(box, host);
@@ -430,7 +432,17 @@
     team_billing_active: ['Primero cancelá la suscripción del equipo', 'Administrás un equipo con una suscripción activa. Cancelala y después eliminá la cuenta.'],
     team_has_members: ['Tu equipo todavía tiene miembros', 'Sacalos del equipo desde Ajustes, en Plan, y después eliminá la cuenta.'],
   };
+  // Descargar todas mis notas (exportall.js, que se pide acá). Devuelve lo que se descargó, o null.
+  async function exportAll(opts) {
+    if (!(await core.ensure('exportall')) || !LMD.exportall) { core.flash(T('No se pudo completar. Probá de nuevo.'), 'error'); return null; }
+    return LMD.exportall.run(core, opts);
+  }
   async function deleteAccount() {
+    // Primer paso: la oferta de llevarse todo antes. Las notas del equipo no se borran con la cuenta, así que no entran.
+    const keep = await LMD.dialog.confirm({ title: T('Antes de eliminar la cuenta'), text: T('Se borran tus notas de la nube y no se pueden recuperar. Descargá una copia ahora si la querés.'),
+      ok: T('Descargar todas mis notas'), alt: T('Seguir sin descargar') });
+    if (!keep) return false;
+    if (keep === true && !(await exportAll({ team: false }))) return false;
     const mail = LMD.cloud.email(); let stop = null;
     const typed = await LMD.dialog.prompt({
       title: T('Eliminar la cuenta'), danger: true, ok: T('Eliminar la cuenta'), label: T('Para confirmar, escribí tu correo'), empty: T('Escribí tu correo.'),

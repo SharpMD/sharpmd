@@ -521,6 +521,7 @@ try {
   await app.goto(cloudUrl('mia.md')); await opened();
   await app.evaluate(() => { window.__manual = true; });
   await app.click('[data-act=settings]'); await app.waitForSelector('.lmd-panel-card'); await app.click('[data-ptab=cloud]'); await app.waitForSelector('[data-acct=cloud] [data-c=delete]'); await app.click('[data-acct=cloud] [data-c=delete]');
+  await app.waitForSelector('.lmd-dlg [data-dlg=alt]'); await app.click('.lmd-dlg [data-dlg=alt]');
   await app.waitForSelector('.lmd-dlg input');
   o.borrarCuenta = [await app.textContent('.lmd-dlg h3'), await app.textContent('.lmd-dlg .lmd-dlg-text'), await app.evaluate(() => document.querySelector('.lmd-dlg [data-dlg=ok]').classList.contains('lmd-btn-danger'))];
   await app.fill('.lmd-dlg input', 'otra@ejemplo.test'); await app.keyboard.press('Enter'); await app.waitForSelector('.lmd-dlg-err:not([hidden])');

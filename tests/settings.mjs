@@ -218,7 +218,7 @@ try {
   check('ninguna pestaña necesita scroll a 800 px de alto, salvo Nube (plan gratis)', over.length === 0, over);
   await tab('cloud');
   const freeCloud = await app.evaluate(() => [...document.querySelectorAll('[data-acct=cloud] .lmd-acct-row')].map((r) => r.children[0].textContent + '=' + r.children[1].textContent).join('|') + ' / ' + [...document.querySelectorAll('[data-acct=cloud] button')].map((b) => b.textContent).join('|'));
-  check('Nube: la cuenta, el plan y cuántas notas, con abrir la carpeta, salir y eliminar la cuenta', freeCloud === 'Correo=' + mail + '|Nombre visible=' + mail.split('@')[0] + '|Plan=Gratis|Notas en la nube=1 de 25 / Abrir la carpeta Nube|Salir|Cambiar|Proteger toda mi nube|Proteger una carpeta|Prender en Herramientas|Eliminar la cuenta', freeCloud);
+  check('Nube: la cuenta, el plan y cuántas notas, con abrir la carpeta, salir y eliminar la cuenta', freeCloud === 'Correo=' + mail + '|Nombre visible=' + mail.split('@')[0] + '|Plan=Gratis|Notas en la nube=1 de 25|Copia de tus notas=Un ZIP con todo lo de la nube. / Abrir la carpeta Nube|Salir|Cambiar|Descargar todas mis notas|Proteger toda mi nube|Proteger una carpeta|Prender en Herramientas|Eliminar la cuenta', freeCloud);
   // Tres tarjetas con su título, cada una una región con ese nombre; un solo botón relleno en toda la pestaña, y cada acción en la fila o la tarjeta de lo que afecta.
   const cloudCards = await app.evaluate(() => { const box = document.querySelector('[data-acct=cloud]'); const of = (sel) => { const n = box.querySelector(sel); const c = n && n.closest('[data-blk]'); return c ? c.dataset.blk : ''; };
     return { cards: [...box.querySelectorAll('.lmd-blk')].map((c) => c.dataset.blk + ':' + c.querySelector('.lmd-blk-head h4').textContent + ':' + (c.getAttribute('role') === 'region' && document.getElementById(c.getAttribute('aria-labelledby')) === c.querySelector('h4'))),
@@ -525,7 +525,7 @@ try {
   check('ninguna pestaña necesita scroll a 800 px de alto, salvo Nube (plan pago)', over.length === 0, over);
   await tab('cloud');
   const paidCloud = await app.evaluate(() => [...document.querySelectorAll('[data-acct=cloud] .lmd-acct-row')].map((r) => r.children[0].textContent + '=' + r.children[1].textContent).join('|'));
-  check('Nube con plan pago: el número de notas y "sin límite"', paidCloud === 'Correo=' + mail + '|Nombre visible=' + mail.split('@')[0] + '|Plan=Pago|Notas en la nube=4, sin límite', paidCloud);
+  check('Nube con plan pago: el número de notas y "sin límite"', paidCloud === 'Correo=' + mail + '|Nombre visible=' + mail.split('@')[0] + '|Plan=Pago|Notas en la nube=4, sin límite|Copia de tus notas=Un ZIP con todo lo de la nube.', paidCloud);
   // El almacenamiento es una fila más de la tarjeta Cuenta, con el mismo estilo que las demás: ya no flota junto al título.
   await app.waitForFunction(() => { const s = document.querySelector('[data-acct=cloud] [data-files-pane]'); return !LMD.images || (s && !s.hidden); }, null, { timeout: 8000 }).catch(() => {});
   const storage = await app.evaluate(() => { const s = document.querySelector('[data-acct=cloud] [data-files-pane]'); const rows = [...document.querySelectorAll('[data-acct=cloud] [data-blk=account] .lmd-kv:not([hidden])')]; const last = rows[rows.length - 1].getBoundingClientRect(); const first = rows[0].getBoundingClientRect();

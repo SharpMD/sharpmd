@@ -19,6 +19,14 @@ Con la herramienta **Exportar a Word** prendida, el menú suma Word (.docx). El 
 
 En el explorador, el clic derecho sobre una carpeta ofrece **Exportar la carpeta…**. Junta todas sus notas en un solo documento, una después de la otra: PDF, HTML, Word o un único Markdown. Los enlaces entre las notas pasan a ser internos, y podés sumar una tapa y un índice.
 
+## Toda tu nube
+
+En **Ajustes** > **Nube**, el botón **Descargar todas mis notas** arma en tu navegador un ZIP con todo lo que tenés en la nube, con las mismas carpetas. Los tableros viajan dentro de sus notas, y las imágenes van en una carpeta `_images/` con las direcciones ya apuntando ahí.
+
+Las carpetas protegidas con contraseña salen descifradas, pero solo si están desbloqueadas: la descifra tu navegador y la llave nunca sale de él. Si alguna sigue bloqueada, el botón te ofrece desbloquearla o seguir sin ella; lo que queda afuera se lista en `_not-included.txt` dentro del ZIP. Si tenés un equipo, podés sumar sus notas en una subcarpeta `@team/`.
+
+Al eliminar la cuenta, el primer paso ofrece esta misma descarga.
+
 ## Traer otros formatos
 
 La herramienta **Importar a Markdown** convierte un archivo en una nota:
