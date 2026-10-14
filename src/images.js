@@ -247,6 +247,15 @@
     return new Blob([body.subarray(1)], { type });
   }
 
+  // Fuera de una carpeta protegida la imagen queda en /f/<id> sin sesión: quien tenga el enlace la ve. Se avisa
+  // una sola vez por navegador, sin frenar la subida.
+  const PUBLIC_SEEN = 'lmd-image-public-seen';
+  function warnPublic() {
+    try { if (localStorage.getItem(PUBLIC_SEEN)) return; localStorage.setItem(PUBLIC_SEEN, '1'); } catch (e) { return; }
+    if (!LMD.dialog || !LMD.dialog.confirm) return;
+    LMD.dialog.confirm({ title: T('Las imágenes no son privadas'), text: T('Una imagen en una nota de la nube común queda en una dirección pública: la ve cualquiera que tenga el enlace. Para que no, ponela en una carpeta protegida.'), ok: T('Entendido'), cancel: false });
+  }
+
   // Sube una imagen ya reducida al espacio de esa nota. Devuelve { src, view }: lo que va en el Markdown y lo que
   // se muestra ahora. Errores con code: file_too_large, storage_full, bad_image, vault_locked, offline, too_many.
   async function upload(r, path) {
@@ -269,7 +278,7 @@
       out = await LMD.cloud.binary('POST', withSpace('/files', space, vk ? 'enc=1' : ''), body, vk ? 'application/octet-stream' : r.type);
     } catch (e) { throw fail(e.code || 'failed', Object.assign({ size: r.blob.size }, e.body || {})); }
     if (lim && typeof out.used === 'number') lim.used = out.used;
-    if (!vk) return { src: out.url, view: out.url };
+    if (!vk) { warnPublic(); return { src: out.url, view: out.url }; }
     const view = URL.createObjectURL(r.blob); opened.set(out.id, view); remember(out.id, r.blob);
     return { src: out.url, view };
   }

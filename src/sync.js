@@ -453,7 +453,8 @@
     const mail = LMD.cloud.email(); let stop = null;
     const typed = await LMD.dialog.prompt({
       title: T('Eliminar la cuenta'), danger: true, ok: T('Eliminar la cuenta'), label: T('Para confirmar, escribí tu correo'), empty: T('Escribí tu correo.'),
-      text: T('Se borran tus notas de la nube, su historial, la papelera, lo compartido, los enlaces públicos y los tokens. No se puede deshacer.'),
+      text: T('Se borran tus notas de la nube, su historial, la papelera, lo compartido, los enlaces públicos y los tokens. No se puede deshacer.') + ' ' +
+        T('En este navegador también se borran las copias y las claves recordadas. En otros dispositivos quedan hasta que cierres la sesión ahí o borres los datos del sitio: hacelo antes de eliminarla.'),
       validate: async (v) => {
         if (v.toLowerCase() !== mail) return T('Ese no es el correo de esta cuenta.');
         try { await LMD.cloud.deleteAccount(v); return ''; }
