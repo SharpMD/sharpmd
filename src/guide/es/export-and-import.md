@@ -13,11 +13,13 @@ El botón **Exportar** de la barra de arriba ofrece:
 
 El botón **Copiar** copia la nota como **Markdown**, **Texto con formato** o **HTML**. El texto con formato se pega bien en un correo o en un documento.
 
-Con la herramienta **Exportar a Word** prendida, el menú suma Word (.docx). El archivo se arma en tu navegador, con los títulos, las listas, las tablas, el código y las imágenes. Las fórmulas van como texto en LaTeX.
+Word (.docx) está siempre en el menú Exportar, sin prender nada. El archivo se arma en tu navegador, con los títulos, las listas, las tablas, el código y las imágenes. Las fórmulas van como ecuaciones de Word que se pueden editar, y los diagramas, como imágenes.
 
 ## Una carpeta entera
 
-En el explorador, el clic derecho sobre una carpeta ofrece **Exportar la carpeta…**. Junta todas sus notas en un solo documento, una después de la otra: PDF, HTML, Word o un único Markdown. Los enlaces entre las notas pasan a ser internos, y podés sumar una tapa y un índice.
+En el explorador, el clic derecho sobre una carpeta ofrece **Exportar la carpeta…**. Junta todas sus notas en un solo documento, una después de la otra: PDF, HTML, Word, un libro EPUB o un único Markdown. Los enlaces entre las notas pasan a ser internos, y podés sumar una tapa y un índice. En el EPUB cada nota es un capítulo, en el orden de la carpeta, con índice, título y autor (se toma del encabezado de las notas o lo escribís vos) y las imágenes adentro. Si Word o el EPUB no se pueden armar, te lo avisa en vez de entregar otro formato.
+
+El clic derecho sobre una carpeta también ofrece **Palabras de la carpeta…**: el total, las palabras de cada nota y una meta opcional con su barra de avance. La meta queda guardada en este navegador.
 
 ## Toda tu nube
 

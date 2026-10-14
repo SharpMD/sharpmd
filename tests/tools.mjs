@@ -369,10 +369,10 @@ const wellFormed = (page, parts) => page.evaluate((list) => list.filter((p) => {
 async function download(page, act) { const [d] = await Promise.all([page.waitForEvent('download'), act()]); const file = path.join(os.tmpdir(), 'docx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)); await d.saveAs(file); const buf = fs.readFileSync(file); fs.rmSync(file, { force: true }); return { name: d.suggestedFilename(), buf }; }
 
 await suite('docx', async () => {
-  await step('Word: apagada no deja nada', async () => {
+  await step('Word: siempre en el menú, sin cargar su archivo hasta usarlo', async () => {
     const { ctx, page } = await open();
     await note(page, 'informe.md', WORD_MD);
-    check('apagada: Exportar no la ofrece y su archivo no se cargó', !(await menuItems(page, 'export')).includes('export-docx') && await page.evaluate(() => !LMD.docx) && await scripts(page, 'docx.js') === 0);
+    check('con la herramienta apagada, Exportar ofrece Word y su archivo no se cargó', (await menuItems(page, 'export')).includes('export-docx') && await page.evaluate(() => !LMD.docx) && await scripts(page, 'docx.js') === 0);
     await toolsTab(page);
     check('su tarjeta está en Herramientas, apagada', await page.evaluate(() => { const c = document.querySelector('.lmd-tl-card[data-tool=docx]'); return !!c && c.querySelector('b').textContent === 'Export to Word' && !c.querySelector('input').checked; }));
     await flip(page, 'docx'); await until(() => page.evaluate(() => !!LMD.docx));
@@ -380,9 +380,9 @@ await suite('docx', async () => {
     check('los textos no llevan signos de admiración ni rayas', (await texts(page)).length === 0, await texts(page));
     await closePanel(page);
     const items = await menuItems(page, 'export');
-    check('prendida: "Word (.docx)" en el menú Exportar', items.includes('export-docx') && await scripts(page, 'docx.js') === 1, items);
+    check('prendida: "Word (.docx)" sigue en el menú Exportar', items.includes('export-docx') && await scripts(page, 'docx.js') === 1, items);
     await toolsTab(page); await flip(page, 'docx'); await closePanel(page);
-    check('apagarla saca la opción', !(await menuItems(page, 'export')).includes('export-docx'));
+    check('apagarla no saca la opción: Word queda siempre', (await menuItems(page, 'export')).includes('export-docx'));
     await ctx.close();
   });
 

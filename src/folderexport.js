@@ -1,5 +1,5 @@
 // Exportar una carpeta entera como un solo documento: todas sus notas, una detrás de otra, en los mismos formatos
-// que una nota sola (PDF por impresión, un archivo HTML, Word si la herramienta está prendida, o un Markdown único).
+// que una nota sola (PDF por impresión, un archivo HTML, Word, un libro EPUB o un Markdown único).
 // Pensado para un libro con un archivo por capítulo.
 //
 // Cada nota se lee y se dibuja de a una, fuera de la página (core.drawOff, el mismo camino que publicar un sitio).
@@ -38,14 +38,14 @@
   // ---------- Opciones ----------
   // Carta donde se usa Carta; en el resto, A4.
   const paperHere = () => (/-(US|CA|MX|CO|CL|VE|PH|PR|GT|CR|PA|DO)\b/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'letter' : 'a4');
-  const defaults = () => ({ format: 'pdf', deep: true, cover: true, title: '', toc: true, numbers: true, breaks: 'half', paper: paperHere(), off: [], order: null });
+  const defaults = () => ({ format: 'pdf', deep: true, cover: true, title: '', author: '', toc: true, numbers: true, breaks: 'half', paper: paperHere(), off: [], order: null });
   function clean(o) {
     const d = defaults(); o = o && typeof o === 'object' ? o : {};
     const pick = (k, list) => (list.includes(o[k]) ? o[k] : d[k]);
     return {
-      format: pick('format', ['pdf', 'html', 'docx', 'md']), breaks: pick('breaks', ['half', 'three', 'always', 'never']), paper: pick('paper', ['a4', 'letter']),
+      format: pick('format', ['pdf', 'html', 'docx', 'epub', 'md']), breaks: pick('breaks', ['half', 'three', 'always', 'never']), paper: pick('paper', ['a4', 'letter']),
       deep: o.deep !== false, cover: o.cover !== false, toc: o.toc !== false, numbers: o.numbers !== false,
-      title: typeof o.title === 'string' ? o.title.slice(0, 200) : '',
+      title: typeof o.title === 'string' ? o.title.slice(0, 200) : '', author: typeof o.author === 'string' ? o.author.slice(0, 200) : '',
       off: Array.isArray(o.off) ? o.off.filter((x) => typeof x === 'string').slice(0, MAX_FILES) : [],
       order: Array.isArray(o.order) ? o.order.filter((x) => typeof x === 'string').slice(0, MAX_FILES) : null,
     };
@@ -168,7 +168,7 @@
         shown.forEach(([k, v]) => { dl.appendChild(el('dt', { text: k })); dl.appendChild(el('dd', { text: String(v).replace(/^(["'])(.*)\1$/, '$2') })); });
         box.insertBefore(dl, box.firstChild);
       }
-      docs.push({ rel: f.rel, name: f.name, url: f.url, title, box });
+      docs.push({ rel: f.rel, name: f.name, url: f.url, title, box, rows });
       await pause(); // la pestaña sigue atendiendo entre nota y nota
     }
     if (step) step(files.length, files.length, '');
@@ -189,7 +189,7 @@
     return a.ids.has(frag) ? frag : a.gh.has(low) ? a.gh.get(low) : a.ids.has(low) ? low : '';
   };
   const unwrap = (a) => { const s = el('span'); while (a.firstChild) s.appendChild(a.firstChild); a.replaceWith(s); };
-  // target: 'print' (la hoja de impresión), 'html' (un archivo) o 'docx'. dirUrl es la carpeta que se exporta.
+  // target: 'print' (la hoja de impresión), 'html' (un archivo), 'docx' o 'epub'. dirUrl es la carpeta que se exporta.
   // blobs junta las direcciones temporales de las imágenes leídas de la carpeta, para soltarlas al terminar.
   async function join(docs, dirUrl, target, blobs) {
     docs.forEach((d, i) => { d.n = i + 1; d.pre = 'd' + (i + 1) + '-'; d.anchors = anchorsOf(d); });
@@ -410,6 +410,99 @@
     } finally { st.done(); }
   }
 
+  // ---------- EPUB ----------
+  // Un libro EPUB 3 (epub.js): un capítulo por nota, en el orden de la carpeta, con el índice de navegación, el título y el
+  // autor. Las imágenes (y los diagramas, dibujados) van dentro del archivo; las fórmulas, como MathML.
+  const CLEAN = '.lmd-anchor, .lmd-code-copy, .lmd-code-lang, .lmd-dgm-tools, .lmd-front, .lmd-cl-bar, .lmd-cl-add, .lmd-cl-grip, .lmd-board-edit, .lmd-add, .lmd-draft, .lmd-draft-li, .lmd-xp-bar, .lmd-xp-card, .lmd-col-n, .footnote-backref, .lmd-err-note, script, style, button, select, textarea';
+  // El autor: lo escrito en el diálogo o, si no, el campo author (o autor) del encabezado de la primera nota que lo traiga.
+  function authorOf(o, docs) {
+    if ((o.author || '').trim()) return o.author.trim();
+    for (const d of docs) {
+      const r = (d.rows || []).find((x) => /^(author|autor)$/i.test(String(x[0])));
+      if (r && String(r[1]).trim()) return String(r[1]).replace(/^(["'])(.*)\1$/, '$2').trim();
+    }
+    return '';
+  }
+  // Una nota ya dibujada a un capítulo: limpia lo que es de la app, baja las imágenes a archivos y deja XHTML bien formado.
+  async function chapterOf(sec, doc, images, known, chapterOfId) {
+    sec.querySelectorAll(CLEAN).forEach((n) => n.remove());
+    const take = (pic) => {
+      const file = 'images/img' + (images.length + 1) + '.' + pic.ext;
+      images.push({ file, type: 'image/' + pic.ext, data: pic.bytes });
+      return file;
+    };
+    for (const d of Array.from(sec.querySelectorAll('.lmd-diagram'))) {
+      const svg = d.querySelector('svg'); let pic = null;
+      try { pic = svg ? await LMD.docx.diagram(svg, '#ffffff') : null; } catch (e) { pic = null; }
+      let rep;
+      if (pic) { rep = el('p'); const im = el('img'); im.setAttribute('src', take(pic)); im.setAttribute('alt', T('Diagrama')); rep.appendChild(im); }
+      else { rep = el('pre'); rep.textContent = d.getAttribute('data-code') || d.textContent; }
+      d.replaceWith(rep);
+    }
+    let math = false;
+    sec.querySelectorAll('.lmd-math').forEach((m) => {
+      const ml = m.querySelector('.katex-mathml math');
+      const block = m.classList.contains('lmd-math-block');
+      let rep;
+      if (ml) { rep = ml.cloneNode(true); if (block) rep.setAttribute('display', 'block'); math = true; if (block) { const p = el('p'); p.appendChild(rep); rep = p; } }
+      else { rep = el('code'); rep.textContent = m.getAttribute('data-tex') || m.textContent; }
+      m.replaceWith(rep);
+    });
+    for (const img of Array.from(sec.querySelectorAll('img'))) {
+      const src = img.currentSrc || img.src || '';
+      let file = known.get(src);
+      if (!file && src) {
+        let pic = null;
+        try { pic = await LMD.docx.image(img); } catch (e) { pic = null; }
+        if (pic) { file = take(pic); known.set(src, file); }
+      }
+      const alt = img.getAttribute('alt') || '';
+      if (file) { const fresh = el('img'); fresh.setAttribute('src', file); fresh.setAttribute('alt', alt); img.replaceWith(fresh); }
+      else img.replaceWith(alt ? el('em', { text: '[' + alt + ']' }) : document.createTextNode(''));
+    }
+    sec.querySelectorAll('input').forEach((i) => { i.replaceWith(document.createTextNode(i.type === 'checkbox' ? (i.checked ? '☑ ' : '☐ ') : '')); });
+    // Enlaces: entre notas del libro apuntan al archivo de su capítulo; afuera, solo la web y el correo.
+    sec.querySelectorAll('a').forEach((a) => {
+      const href = a.getAttribute('href') || '';
+      const m = /^#d(\d+)(-.*)?$/.exec(href);
+      if (m && chapterOfId.has('d' + m[1])) a.setAttribute('href', chapterOfId.get('d' + m[1]) + (m[2] ? '#d' + m[1] + m[2] : ''));
+      else if (!/^(https?:|mailto:)/i.test(href)) { unwrap(a); return; }
+      a.removeAttribute('target'); a.removeAttribute('rel');
+    });
+    // Solo atributos que XHTML conoce: sin eventos ni marcas de edición.
+    sec.querySelectorAll('*').forEach((n) => {
+      Array.from(n.attributes).forEach((at) => { if (/^(on|contenteditable|draggable|tabindex|spellcheck|aria-|role$|hidden$)/i.test(at.name) || /[^\w:.-]/.test(at.name)) n.removeAttribute(at.name); });
+    });
+    // Cada capítulo abre con su título: si la nota no trae uno de nivel 1, se lo pone.
+    if (!sec.querySelector('h1')) sec.insertBefore(el('h1', { text: doc.title }), sec.firstChild);
+    sec.removeAttribute('data-rel');
+    const body = new XMLSerializer().serializeToString(sec).replace(/[^\x09\x0A\x0D\x20-퟿-�\uD800-\uDFFF]/g, '');
+    return { title: doc.title, body, math, svg: /<svg[\s>]/.test(body) };
+  }
+  async function epub(dirUrl, opt, job, step) {
+    const o = withTitle(clean(opt), dirUrl);
+    if (!(await core.ensure('docx')) || !LMD.docx || !(await core.ensure('epub')) || !LMD.epub) throw Object.assign(new Error('epub'), { code: 'epub' });
+    const g = await gather(dirUrl, o, job, step, 'epub');
+    const a = assemble(g.docs, Object.assign({}, o, { cover: false, toc: false }), 'never');
+    if (job && job.cancelled) throw CANCEL;
+    const st = stageUp(a.out, o, g.blobs);
+    try {
+      await settle(a.out);
+      if ((job && job.cancelled) || staged !== st) throw CANCEL;
+      const ids = new Map(a.secs.map((s, i) => [s.id, 'chapter' + (i + 1) + '.xhtml']));
+      const images = []; const known = new Map(); const chapters = [];
+      for (let i = 0; i < a.secs.length; i++) {
+        if (job && job.cancelled) throw CANCEL;
+        if (step) step(i, a.secs.length, g.docs[i].rel);
+        chapters.push(await chapterOf(a.secs[i], g.docs[i], images, known, ids));
+        await pause();
+      }
+      const lang = LMD.lang() === 'en' ? 'en' : 'es';
+      const data = await LMD.epub.build({ title: o.title, author: authorOf(o, g.docs), lang, id: LMD.epub.uuid(), indexTitle: lang === 'en' ? 'Contents' : 'Índice', chapters, images }, LMD.docx.zip);
+      return report(g, { name: fileBase(o) + '.epub', type: 'application/epub+zip', data });
+    } finally { st.done(); }
+  }
+
   // Un solo Markdown: los textos como están, uno detrás de otro. La cabecera de cada nota no viaja (en el medio de un
   // archivo se leería como un separador), las etiquetas de las notas al pie llevan el prefijo del documento y las
   // imágenes de una subcarpeta, su ruta desde la carpeta. Los enlaces entre notas quedan como se escribieron.
@@ -454,7 +547,6 @@
   // El número de página va en el margen de la hoja, por CSS (@page con @bottom-center). Donde el navegador no lo
   // entiende, la casilla no se ofrece.
   const canNumber = (() => { try { const s = new CSSStyleSheet(); s.replaceSync('@page { @bottom-center { content: "1"; } }'); return /bottom-center/.test(s.cssRules[0].cssText); } catch (e) { return false; } })();
-  const docxOn = () => !!(LMD.tools && LMD.tools.isOn('docx'));
   const GRIP = '<svg viewBox="0 0 24 24"><path d="M9 6.500v.010M15 6.500v.010M9 12v.010M15 12v.010M9 17.500v.010M15 17.500v.010"/></svg>';
   const UP = '<svg viewBox="0 0 24 24"><path d="m6.500 14.500 5.500-5.500 5.500 5.500"/></svg>';
   const DOWN = '<svg viewBox="0 0 24 24"><path d="m6.500 9.500 5.500 5.500 5.500-5.500"/></svg>';
@@ -469,7 +561,6 @@
     if (!found.files.length) { core.flash(T('En esta carpeta no hay notas para exportar.'), 'warn'); return false; }
     if (dialog) return false;
     const o = recall(dirUrl);
-    if (o.format === 'docx' && !docxOn()) o.format = 'pdf';
     const nested = found.files.some((f) => f.rel.indexOf('/') >= 0);
     const opt = (v, text, on) => '<option value="' + v + '"' + (on ? ' selected' : '') + '>' + esc(T(text)) + '</option>';
     const check = (k, text, on) => '<label class="lmd-check" data-fx-row="' + k + '"><input type="checkbox" data-fx="' + k + '"' + (on ? ' checked' : '') + '><span>' + esc(T(text)) + '</span></label>';
@@ -477,9 +568,10 @@
     box.innerHTML = '<div class="lmd-ask-card lmd-fx-card" role="dialog" aria-modal="true"><h3></h3><div class="lmd-fx-body">' +
       '<div class="lmd-fx-grid">' +
       '<label class="lmd-dlg-field"><span>' + esc(T('Formato')) + '</span><select data-fx="format">' + opt('pdf', 'PDF', o.format === 'pdf') + opt('html', 'Archivo HTML', o.format === 'html') +
-      (docxOn() ? opt('docx', 'Word (.docx)', o.format === 'docx') : '') + opt('md', 'Un solo Markdown (.md)', o.format === 'md') + '</select></label>' +
+      opt('docx', 'Word (.docx)', o.format === 'docx') + opt('epub', 'Libro EPUB (.epub)', o.format === 'epub') + opt('md', 'Un solo Markdown (.md)', o.format === 'md') + '</select></label>' +
       '<label class="lmd-dlg-field" data-fx-row="paper"><span>' + esc(T('Hoja')) + '</span><select data-fx="paper">' + opt('a4', 'A4', o.paper === 'a4') + opt('letter', 'Carta', o.paper === 'letter') + '</select></label>' +
       '<label class="lmd-dlg-field lmd-fx-wide"><span>' + esc(T('Título')) + '</span><input type="text" data-fx="title" spellcheck="false" autocomplete="off"></label>' +
+      '<label class="lmd-dlg-field lmd-fx-wide" data-fx-row="author"><span>' + esc(T('Autor')) + '</span><input type="text" data-fx="author" spellcheck="false" autocomplete="off"></label>' +
       '<label class="lmd-dlg-field lmd-fx-wide" data-fx-row="breaks"><span>' + esc(T('Cada documento en página nueva')) + '</span><select data-fx="breaks"></select></label>' +
       '</div><div class="lmd-fx-checks">' + check('cover', 'Portada con el título', o.cover) + check('toc', 'Índice con los títulos', o.toc) + check('numbers', 'Numerar las páginas', o.numbers) + (nested ? check('deep', 'Incluir subcarpetas', o.deep) : '') + '</div>' +
       '<p class="lmd-fx-count" data-fx-count></p><ul class="lmd-fx-list" data-fx-list></ul>' +
@@ -491,13 +583,14 @@
     const card = q('.lmd-fx-card'); const title = T('Exportar la carpeta');
     card.setAttribute('aria-label', title); q('h3').textContent = title;
     const input = q('[data-fx=title]'); input.value = o.title || folderName(dirUrl); input.placeholder = folderName(dirUrl);
+    const authorIn = q('[data-fx=author]'); authorIn.value = o.author || ''; authorIn.placeholder = T('Si no lo ponés, se toma del encabezado de las notas');
     const list = q('[data-fx-list]'); const status = q('[data-fx-status]'); const go = q('[data-fx-do=go]'); const no = q('[data-fx-do=no]');
     let order = chosen(found.files, Object.assign({}, o, { deep: true })).map((f) => f.rel);
     const off = new Set(o.off.filter((rel) => found.files.some((f) => f.rel === rel)));
     let moved = !!(o.order && o.order.length); let job = null; let ready = null;
     const byRel = new Map(found.files.map((f) => [f.rel, f]));
     const read = () => ({
-      format: q('[data-fx=format]').value, title: input.value.trim(), breaks: breaksKept, paper: q('[data-fx=paper]').value,
+      format: q('[data-fx=format]').value, title: input.value.trim(), author: authorIn.value.trim(), breaks: breaksKept, paper: q('[data-fx=paper]').value,
       cover: q('[data-fx=cover]').checked, toc: q('[data-fx=toc]').checked, numbers: q('[data-fx=numbers]').checked,
       deep: nested ? q('[data-fx=deep]').checked : true, off: Array.from(off), order: moved ? order.slice() : null,
     });
@@ -509,7 +602,9 @@
       sel.innerHTML = (pdf ? opt('half', 'Solo si la página quedó llena al menos hasta la mitad', want === 'half') + opt('three', 'Solo si quedó llena hasta tres cuartos', want === 'three') : '') +
         opt('always', 'Siempre', want === 'always') + opt('never', 'Nunca', want === 'never');
       q('[data-fx-row=breaks] span').textContent = T(f === 'md' ? 'Separador entre documentos' : 'Cada documento en página nueva');
-      q('[data-fx-row=paper]').hidden = !pdf; q('[data-fx-row=numbers]').hidden = !pdf || !canNumber; q('[data-fx-row=toc]').hidden = f === 'md';
+      const book = f === 'epub';
+      q('[data-fx-row=paper]').hidden = !pdf; q('[data-fx-row=numbers]').hidden = !pdf || !canNumber; q('[data-fx-row=toc]').hidden = f === 'md' || book;
+      q('[data-fx-row=cover]').hidden = book; q('[data-fx-row=breaks]').hidden = book; q('[data-fx-row=author]').hidden = !book;
     }
     function paint() {
       const deep = nested ? q('[data-fx=deep]').checked : true;
@@ -551,7 +646,7 @@
       if (r.blank && r.blank.length) lines.push(T('Vacías, no suman página: {a}.', { a: r.blank.join(', ') }));
       if (lines.length) LMD.dialog.confirm({ title: T('Algunas notas quedaron afuera'), text: lines.join(' '), cancel: false, ok: T('Entendido') });
     }
-    const WHY = { empty: 'No hay notas para exportar.', locked: 'La carpeta sigue bloqueada: no se exporta.', docx: 'No se pudo armar el documento de Word.' };
+    const WHY = { empty: 'No hay notas para exportar.', locked: 'La carpeta sigue bloqueada: no se exporta.', docx: 'No se pudo armar el documento de Word.', epub: 'No se pudo armar el libro EPUB.' };
     async function run() {
       // Con el archivo ya armado (iPhone y iPad): guardarlo tiene que salir de este clic.
       if (ready) { const r = ready; close(); deliver(r); return; }
@@ -560,7 +655,7 @@
       job = { cancelled: false }; const mine = job;
       card.classList.add('lmd-fx-busy'); go.disabled = true; say(T('Preparando…'));
       try {
-        const make = { pdf: stagePdf, html, docx, md: markdown }[now.format];
+        const make = { pdf: stagePdf, html, docx, epub, md: markdown }[now.format];
         const r = await make(dirUrl, now, mine, step);
         if (mine.cancelled) return;
         if (now.format === 'pdf') { close(); print(); tell(r); return; }
@@ -623,6 +718,101 @@
     return true;
   }
 
+  // ---------- Palabras de la carpeta ----------
+  // El total y el detalle de cada nota (con las subcarpetas), y una meta de palabras por carpeta con su barra de avance.
+  // La meta se guarda en este navegador, por carpeta, aparte de las opciones de exportar (esas se renuevan: las últimas 40).
+  const GOALS = 'lmd:fxgoals';
+  const dirKey = (u) => (u.endsWith('/') ? u : u + '/');
+  function goalOf(dirUrl) {
+    try { const n = Math.floor(+JSON.parse(localStorage.getItem(GOALS) || '{}')[dirKey(dirUrl)]); return n > 0 ? n : 0; } catch (e) { return 0; }
+  }
+  function setGoal(dirUrl, n) {
+    try {
+      const all = JSON.parse(localStorage.getItem(GOALS) || '{}');
+      if (n > 0) all[dirKey(dirUrl)] = Math.floor(n); else delete all[dirKey(dirUrl)];
+      localStorage.setItem(GOALS, JSON.stringify(all));
+    } catch (e) { /* sin almacenamiento: la meta no queda */ }
+  }
+  // Las palabras de una nota como las cuenta la barra de abajo (lo que está entre espacios), sin su encabezado.
+  const wordsIn = (text) => (String(text).replace(/^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/, '').match(/\S+/g) || []).length;
+  const fmtN = (n) => n.toLocaleString(LMD.lang() === 'en' ? 'en-US' : 'es-AR');
+  // Cuenta las notas de la carpeta de a una. step(hechas, total) avisa el avance; stop() corta.
+  async function countWords(dirUrl, step, stop) {
+    const found = await scan(dirUrl);
+    const rows = []; let total = 0; let failed = 0;
+    for (let i = 0; i < found.files.length; i++) {
+      if (stop && stop()) throw CANCEL;
+      if (step) step(i, found.files.length);
+      const f = found.files[i]; let text = null;
+      try { text = await core.links.read(f.url); } catch (e) { text = null; }
+      if (typeof text !== 'string' || text.indexOf('\u0000') !== -1 || (LMD.seal && LMD.seal.sealed(text))) { failed++; continue; }
+      const n = wordsIn(text); total += n; rows.push({ rel: f.rel, label: f.label || '', words: n });
+      if (i % 20 === 19) await pause();
+    }
+    return { rows, total, failed, locked: found.locked, more: found.more };
+  }
+  let wordsBox = null;
+  async function words(c, dirUrl) {
+    core = c;
+    if (wordsBox) return false;
+    dirUrl = dirKey(dirUrl);
+    if (!(await unlocked(dirUrl))) { core.flash(T('La carpeta sigue bloqueada: no se exporta.'), 'warn'); return false; }
+    if (wordsBox) return false;
+    const box = el('div', { class: 'lmd-ask lmd-fx' });
+    box.innerHTML = '<div class="lmd-ask-card lmd-fx-card lmd-fw-card" role="dialog" aria-modal="true"><h3></h3><div class="lmd-fx-body">' +
+      '<p class="lmd-fw-total" data-fw-total role="status"></p>' +
+      '<label class="lmd-dlg-field"><span>' + esc(T('Meta de palabras')) + '</span><input type="number" inputmode="numeric" min="0" step="100" data-fw-goal placeholder="' + esc(T('Sin meta')) + '"></label>' +
+      '<div class="lmd-fw-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" data-fw-bar hidden><i></i></div><p class="lmd-hint lmd-fw-prog" data-fw-prog hidden></p>' +
+      '<ul class="lmd-fx-list lmd-fw-list" data-fw-list></ul>' +
+      '</div><div class="lmd-ask-actions"><button type="button" class="lmd-btn lmd-btn-fill" data-fw-do="close" data-esc>' + esc(T('Cerrar')) + '</button></div></div>';
+    const q = (sel) => box.querySelector(sel);
+    const title = T('Palabras de la carpeta');
+    q('.lmd-fx-card').setAttribute('aria-label', title); q('h3').textContent = title;
+    const totalEl = q('[data-fw-total]'); const list = q('[data-fw-list]'); const goalIn = q('[data-fw-goal]');
+    const bar = q('[data-fw-bar]'); const prog = q('[data-fw-prog]');
+    let total = 0; let stopped = false;
+    const close = () => { stopped = true; wordsBox = null; box.remove(); };
+    function paintGoal() {
+      const goal = Math.floor(+goalIn.value) || 0;
+      bar.hidden = prog.hidden = !goal;
+      if (!goal) return;
+      const pct = Math.min(100, Math.floor(total * 100 / goal));
+      bar.firstChild.style.width = pct + '%'; bar.setAttribute('aria-valuenow', String(pct)); bar.classList.toggle('lmd-fw-done', total >= goal);
+      prog.textContent = T('{a} de {b} palabras, {p} %', { a: fmtN(total), b: fmtN(goal), p: Math.floor(total * 100 / goal) }) + '. ' + (total >= goal ? T('Meta cumplida') : T('Faltan {n} palabras', { n: fmtN(goal - total) }));
+    }
+    goalIn.value = goalOf(dirUrl) || '';
+    goalIn.addEventListener('input', () => { setGoal(dirUrl, Math.floor(+goalIn.value) || 0); paintGoal(); });
+    box.addEventListener('click', (e) => { if (e.target.closest('[data-fw-do=close]')) close(); });
+    box.addEventListener('mousedown', (e) => { if (e.target === box) close(); });
+    box.addEventListener('keydown', (e) => { e.stopPropagation(); });
+    totalEl.textContent = T('Contando las palabras…');
+    document.body.appendChild(box); wordsBox = box;
+    goalIn.focus();
+    try {
+      const r = await countWords(dirUrl, (i, n) => { totalEl.textContent = T('Contando las palabras…') + ' ' + (i + 1) + '/' + n; }, () => stopped);
+      if (stopped) return true;
+      total = r.total;
+      if (!r.rows.length) { totalEl.textContent = T('En esta carpeta no hay notas para contar.'); return true; }
+      totalEl.textContent = T('Total: {n} palabras', { n: fmtN(r.total) });
+      r.rows.forEach((row) => {
+        const li = el('li', { class: 'lmd-fx-item lmd-fw-item' });
+        const name = el('span', { class: 'lmd-fw-name' }); name.textContent = row.label ? row.label + ' · ' + row.rel : row.rel;
+        const num = el('span', { class: 'lmd-fw-n' }); num.textContent = T(row.words === 1 ? '{n} palabra' : '{n} palabras', { n: fmtN(row.words) });
+        li.appendChild(name); li.appendChild(num); list.appendChild(li);
+      });
+      const note = [];
+      if (r.failed) note.push(T('No se pudieron leer: {a}.', { a: String(r.failed) }));
+      if (r.locked.length) note.push(T('Quedan afuera por estar bloqueadas: {a}.', { a: r.locked.join(', ') }));
+      if (r.more) note.push(T('Se muestran las primeras {n} notas.', { n: MAX_FILES }));
+      if (note.length) { const p = el('p', { class: 'lmd-hint lmd-fx-note' }); p.textContent = note.join(' '); q('.lmd-fx-body').appendChild(p); }
+      paintGoal();
+    } catch (e) {
+      if (stopped || e === CANCEL) return true;
+      totalEl.textContent = T('No se pudo contar. Probá de nuevo.');
+    }
+    return true;
+  }
+
   const bind = (c) => { core = c; };
-  LMD.folderexport = { open, bind, scan: (c, dirUrl) => { core = c; return scan(dirUrl); }, stagePdf, print, unstage, html, docx, markdown, defaults, PAPER, MARGIN };
+  LMD.folderexport = { open, words, goalOf, setGoal, wordsIn, countWords, bind, scan: (c, dirUrl) => { core = c; return scan(dirUrl); }, stagePdf, print, unstage, html, docx, epub, markdown, defaults, PAPER, MARGIN };
 })();

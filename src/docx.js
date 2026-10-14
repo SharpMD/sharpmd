@@ -6,7 +6,7 @@
   const T = LMD.t;
   const { el } = LMD.kit;
   const svgIcon = '<svg viewBox="0 0 24 24"><path d="M6.500 3.500h8l4 4v13h-12z"/><path d="M14.500 3.500v4h4M8.800 11.500l1.300 5.500 1.900-4.200 1.900 4.200 1.300-5.500"/></svg>';
-  let core = null; let on = false; let wired = false;
+  let core = null; let on = false;
 
   // ---------- Zip ----------
   const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
@@ -56,7 +56,7 @@
   // Lo que XML no admite (caracteres de control) se saca; lo demás se escapa.
   const x = (s) => String(s == null ? '' : s).replace(/[^\x09\x0A\x0D\x20-퟿-�\uD800-\uDFFF]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
-  const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" mc:Ignorable="w14"';
+  const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" mc:Ignorable="w14"';
   const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
   const EMU = 9525; // por píxel a 96 ppp
   const MAX_W = 5731200; // el ancho del texto en una hoja A4 con 2,54 cm de margen
@@ -153,6 +153,44 @@
     } catch (e) { return null; }
   }
 
+  // Una fórmula de KaTeX como imagen (respaldo de las que no se pueden pasar a ecuación de Word): se dibuja con sus tipografías
+  // incrustadas, porque dentro de una imagen SVG no se ven las de la página.
+  let mathCss = null;
+  async function katexCss() {
+    if (mathCss != null) return mathCss;
+    let css = '';
+    try {
+      for (const sh of Array.from(document.styleSheets)) {
+        let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+        const text = Array.from(rules).map((r) => r.cssText).join('\n');
+        if (text.indexOf('KaTeX_Main') >= 0) css += text + '\n';
+      }
+      const urls = new Set(); css.replace(/url\("?([^")]+\.woff2)"?\)/g, (m, u) => { urls.add(u); return m; });
+      for (const u of urls) {
+        try {
+          const b = await blobBytes(await (await fetch(u)).blob()); let bin = '';
+          for (let i = 0; i < b.length; i += 8192) bin += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
+          css = css.split(u).join('data:font/woff2;base64,' + btoa(bin));
+        } catch (e) { /* esa tipografía queda sin incrustar */ }
+      }
+    } catch (e) { css = ''; }
+    return (mathCss = css);
+  }
+  async function mathPng(node, bg) {
+    const k = node.querySelector('.katex'); if (!k) return null;
+    const box = k.getBoundingClientRect(); const w = Math.ceil(box.width) + 4; const h = Math.ceil(box.height) + 4;
+    if (box.width < 1 || box.height < 1) return null;
+    const css = await katexCss();
+    const fs = getComputedStyle(k).fontSize;
+    const html = '<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:' + fs + ';padding:2px;color:#111;background:' + (bg || '#fff') + '"><style><![CDATA[' + css + ']]></style>' + new XMLSerializer().serializeToString(k) + '</div>';
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '"><foreignObject width="100%" height="100%">' + html + '</foreignObject></svg>';
+    try {
+      const img = new Image();
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      return Object.assign(await drawn(img, w, h, bg), { w, h });
+    } catch (e) { return null; }
+  }
+
   // ---------- De la nota al documento ----------
   const SKIP = '.lmd-anchor, .lmd-box-empty, .lmd-code-copy, .lmd-code-lang, .lmd-jy, .lmd-dgm-tools, .lmd-xp-bar, .lmd-xp-card, .lmd-add, .lmd-draft, .lmd-draft-li, .lmd-board-edit, .lmd-cl-bar, .lmd-cl-add, .lmd-cl-grip, .lmd-front, .lmd-cm-layer, .lmd-live-layer, .lmd-voice-ghost, .lmd-handle, .footnote-backref, .lmd-col-n, .lmd-err-note, .footnotes-sep, script, style, button, select, textarea';
   const BLOCK = /^(P|DIV|UL|OL|DL|PRE|TABLE|BLOCKQUOTE|H[1-6]|HR|SECTION|DETAILS|FIGURE|ARTICLE|ASIDE|HEADER|FOOTER|NAV|MAIN)$/;
@@ -172,6 +210,15 @@
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
     for (const img of Array.from(article.querySelectorAll('img'))) { if (!img.closest(SKIP)) pics.set(img, await imageOf(img)); }
     for (const d of Array.from(article.querySelectorAll('.lmd-diagram'))) { const svg = d.querySelector('svg'); pics.set(d, svg ? await svgOf(svg, bg) : null); }
+    // Las fórmulas: ecuación de Word (OMML) si se sabe pasar; si no, su dibujo como imagen; si tampoco, el LaTeX.
+    const maths = new Map();
+    for (const m of Array.from(article.querySelectorAll('.lmd-math'))) {
+      if (m.closest(SKIP) || m.classList.contains('lmd-math-bad')) continue;
+      const block = m.classList.contains('lmd-math-block'); const ml = m.querySelector('.katex-mathml math');
+      let omml = null;
+      if (ml && LMD.omml) omml = LMD.omml.fromMathML(ml.outerHTML, { display: block });
+      maths.set(m, omml ? { omml } : { pic: await mathPng(m, bg) });
+    }
     // Los títulos llevan un marcador: un enlace a una sección de la nota salta ahí.
     article.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]').forEach((h) => { marks.set(h.id, { name: 'lmd_' + (marks.size + 1), id: ++markId }); });
     // Las notas al pie, por el id de su renglón.
@@ -217,7 +264,12 @@
           return;
         }
         if (tag === 'INPUT') { if (n.type === 'checkbox') out.push({ xml: checkbox(n.checked) }, { text: ' ', f }); return; }
-        if (n.classList.contains('lmd-math')) { out.push({ text: n.getAttribute('data-tex') || n.textContent, f: Object.assign(g, { code: true }) }); return; }
+        if (n.classList.contains('lmd-math')) {
+          const mt = maths.get(n);
+          if (mt && mt.omml) { out.push({ xml: mt.omml }); return; }
+          if (mt && mt.pic) { out.push({ xml: picture(mt.pic, n.getAttribute('data-tex') || '') }); return; }
+          out.push({ text: n.getAttribute('data-tex') || n.textContent, f: Object.assign(g, { code: true }) }); return;
+        }
         if (tag === 'SUP' && n.classList.contains('footnote-ref')) {
           const a = n.querySelector('a'); const key = a ? (a.getAttribute('href') || '').slice(1) : '';
           if (!inFn && fnItems.has(key) && !fnUsed.has(key)) { const id = notes.length + 1; fnUsed.set(key, id); notes.push({ id, li: fnItems.get(key) }); out.push({ xml: '<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="' + id + '"/></w:r>' }); }
@@ -341,6 +393,11 @@
         if (p) return para(pPrOf(c, { jc: 'center' }), picture(p, T('Diagrama')));
         return codeLines(n.getAttribute('data-code') || n.textContent, c);
       }
+      if (n.matches('.lmd-math-block')) {
+        const mt = maths.get(n);
+        if (mt && mt.omml) return para(pPrOf(c, { jc: 'center' }), mt.omml);
+        if (mt && mt.pic) return para(pPrOf(c, { jc: 'center' }), picture(mt.pic, n.getAttribute('data-tex') || ''));
+      }
       if (n.matches('.lmd-math-block')) return para(pPrOf(c, { jc: 'center' }), textRun(n.getAttribute('data-tex') || n.textContent, { code: true }));
       if (n.matches('.lmd-code')) { const code = n.querySelector('pre'); return code ? codeLines(code.textContent, c) : ''; }
       if (tag === 'PRE') return codeLines(n.textContent, c);
@@ -441,10 +498,13 @@
   let busy = false;
   // Devuelve los bytes del .docx de la nota abierta (para las pruebas y para quien lo quiera sin descargar).
   const bytes = () => build(core.ui.article, { title: titleOf() });
-  async function exportDoc() {
-    if (!on || !core || core.noDoc || busy) return false;
+  // La nota abierta a Word. Anda con la herramienta apagada: Word está siempre en el menú Exportar. c: el núcleo de la app.
+  async function exportDoc(c) {
+    if (c) core = c;
+    if (!core || core.noDoc || busy) return false;
     busy = true;
     try {
+      if (!LMD.omml && core.ensure) await core.ensure('docx');
       const data = await bytes();
       const name = (core.docName || T('documento')).replace(/\.[^.]+$/, '') + '.docx';
       if (LMD.kit.saveFile(new Blob([data], { type: MIME_DOCX }), name) === 'download') core.flash(T('Documento de Word descargado'));
@@ -453,21 +513,16 @@
     finally { busy = false; }
   }
 
-  function enable(c) {
-    core = c; on = true;
-    if (wired) return;
-    wired = true;
-    core.actions['export-docx'] = () => exportDoc();
-    core.menus.export.push(() => (on && core.blocks ? ['export-docx', svgIcon, 'Word (.docx)'] : null));
-  }
+  // El menú Exportar ya trae Word (content.js); la herramienta solo queda para quien la tenía prendida.
+  function enable(c) { core = c; on = true; }
   function disable() { on = false; }
   function settings(area, api) {
-    area.innerHTML = '<p class="lmd-tl-why">' + T('Está en el menú Exportar de la barra de arriba. Las fórmulas van como texto LaTeX y los diagramas como imagen.').replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch])) + '</p>' +
+    area.innerHTML = '<p class="lmd-tl-why">' + T('Word (.docx) está siempre en el menú Exportar de la barra de arriba. Las fórmulas van como ecuaciones de Word y los diagramas como imagen.').replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch])) + '</p>' +
       '<div class="lmd-row lmd-row-line"><span></span><button type="button" class="lmd-btn" data-docx="go">' + T('Exportar esta nota') + '</button></div>';
     const go = area.querySelector('[data-docx=go]');
     go.disabled = core.noDoc || !core.blocks;
     go.addEventListener('click', () => { api.close(); exportDoc(); });
   }
 
-  LMD.docx = { enable, disable, settings, export: exportDoc, bytes, build, zip, crc32 };
+  LMD.docx = { enable, disable, settings, export: exportDoc, bytes, build, zip, crc32, diagram: svgOf, image: imageOf };
 })();
