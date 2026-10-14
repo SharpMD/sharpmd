@@ -29,7 +29,7 @@ const h1 = (md) => (/^# (.+)$/m.exec(md) || [])[1] || '';
 
 check('entre 10 y 17 notas, las mismas en los dos idiomas, y solo Markdown', files.en.length >= 10 && files.en.length <= 17 && J(files.en) === J(files.es) && files.en.every((f) => /^[a-z0-9-]+\.md$/.test(f)), files);
 check('la lista de la app (GUIDE en content.js) nombra esas notas, ni una más ni una menos', GUIDE.length === files.en.length && J(GUIDE.map((g) => g[0] + '.md').sort()) === J(files.en), GUIDE.map((g) => g[0]));
-const swGuide = (/const GUIDE = [([sS]*?)];/.exec(fs.readFileSync(path.join(root, 'sw.js'), 'utf8')) || ['', ''])[1].match(/'([a-z0-9-]+)'/g) || [];
+const swGuide = (/const GUIDE = \[([\s\S]*?)\];/.exec(fs.readFileSync(path.join(root, 'sw.js'), 'utf8')) || ['', ''])[1].match(/'([a-z0-9-]+)'/g) || [];
 check('el service worker guarda las mismas notas que tiene la guía', J(swGuide.map((s) => s.slice(1, -1) + '.md').sort()) === J(files.en) && J(files.es) === J(files.en));
 const titles = GUIDE.map((g) => ({ id: g[0], es: h1(text('es', g[0] + '.md')), en: h1(text('en', g[0] + '.md')), list: g[1], listEn: toEn(g[1]) }));
 check('el título de cada nota es el que muestra el explorador, en español y en inglés', titles.every((t) => t.es === t.list && t.en === t.listEn && t.en !== t.es), titles.filter((t) => t.es !== t.list || t.en !== t.listEn || t.en === t.es));
@@ -141,7 +141,7 @@ console.log('La guía: la referencia de la API y cómo viaja');
   // No agranda la carga inicial: ni la página ni las listas del service worker nombran la guía; se guarda al usarla,
   // porque el service worker atiende todo lo que cuelga de src/.
   const sw = read('sw.js'); const lists = /const SHELL = \[[\s\S]*?\];[\s\S]*?const LATE = \[[\s\S]*?\];/.exec(sw)[0];
-  check('la guía no está en la página ni en el esqueleto del service worker: baja de a una después del código y queda para leerla sin conexión', !/guide/.test(read('src/app.html')) && !/guide/.test(lists) && /const AFTER = LATE.concat(GUIDE_FILES)/.test(sw) && sw.includes("/^(src|vendor|icons)\\//.test(path)") && /const text = \(await res\.text\(\)\)/.test(content));
+  check('la guía no está en la página ni en el esqueleto del service worker: baja de a una después del código y queda para leerla sin conexión', !/guide/.test(read('src/app.html')) && !/guide/.test(lists) && /const AFTER = LATE\.concat\(GUIDE_FILES\)/.test(sw) && sw.includes("/^(src|vendor|icons)\\//.test(path)") && /const text = \(await res\.text\(\)\)/.test(content));
   // En la extensión va dentro del paquete y la lee su propia página: no hace falta abrir nada a otros sitios.
   const attrs = read('.gitattributes'); const manifest = JSON.parse(read('manifest.json'));
   check('en la extensión va dentro del paquete, sin abrir nada más a otros sitios', !/^\/src/m.test(attrs) && /^\/tools\/ export-ignore$/m.test(attrs) && manifest.web_accessible_resources.length === 2 && !J(manifest.web_accessible_resources).includes('guide'));
