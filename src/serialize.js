@@ -22,6 +22,9 @@
         const target = n.getAttribute('data-wiki'); const label = n.textContent;
         out += '[[' + (label && label !== target ? target + '|' + label : target) + ']]'; return;
       }
+      // Una cita y la referencia a una ecuación vuelven a escribirse como estaban (la cita puede traer dos o más claves).
+      if (n.classList.contains('lmd-cite') && n.hasAttribute('data-cite')) { out += '[' + n.getAttribute('data-cite') + ']'; return; }
+      if (n.classList.contains('lmd-eqref') && n.hasAttribute('data-ref')) { out += n.getAttribute('data-form') ? '\\eqref{' + n.getAttribute('data-ref') + '}' : '@eq:' + n.getAttribute('data-ref'); return; }
       if (tag === 'BR') { out += '\n'; return; }
       if (tag === 'CODE') { out += '`' + n.textContent + '`'; return; }
       if (tag === 'IMG') { out += '![' + (n.getAttribute('alt') || '') + (n.dataset.lmdW ? '|' + n.dataset.lmdW : '') + '](' + (n.getAttribute('data-lmd-src') || n.getAttribute('src') || '') + ')'; return; }
@@ -48,7 +51,7 @@
       if (child.closest('.lmd-math') && !child.classList.contains('lmd-math')) continue;
       if (!INLINE_OK.has(child.tagName)) return false;
       if (child.classList.contains('footnote-ref') || child.closest('.footnote-ref')) return false;
-      if (child.tagName === 'SPAN' && !child.classList.contains('lmd-math') && !child.classList.contains('lmd-hnum') && child.attributes.length) return false;
+      if (child.tagName === 'SPAN' && !child.classList.contains('lmd-math') && !child.classList.contains('lmd-hnum') && !child.classList.contains('lmd-cite') && !child.classList.contains('lmd-eqref') && child.attributes.length) return false;
     }
     return true;
   }
