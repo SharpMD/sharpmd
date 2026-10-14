@@ -171,7 +171,7 @@ if (part('ui') || part('html') || part('formats')) {
         count: q('[data-fx-count]').textContent, go: q('[data-fx-do=go]').disabled, pages: document.querySelectorAll('.lmd-fx [data-step], .lmd-fx .lmd-steps').length, role: q('.lmd-fx-card').getAttribute('role') };
     });
     let s = await st(); let list = await listed(page);
-    check('el diálogo es una sola pantalla: formato, título, saltos, hoja, portada, índice, números y subcarpetas', s.role === 'dialog' && s.pages === 0 && J(s.formats) === J(['pdf', 'html', 'docx', 'md']) && s.format === 'pdf' && s.cover && s.toc && s.deep && s.paper && s.numbers, s);
+    check('el diálogo es una sola pantalla: formato, título, saltos, hoja, portada, índice, números y subcarpetas', s.role === 'dialog' && s.pages === 0 && J(s.formats) === J(['pdf', 'html', 'docx', 'epub', 'md']) && s.format === 'pdf' && s.cover && s.toc && s.deep && s.paper && s.numbers, s);
     check('el título de la portada es el nombre de la carpeta, y se puede cambiar', s.title === 'libro', s.title);
     check('con PDF, el salto entre documentos tiene los cuatro modos y arranca en "hasta la mitad"', J(s.breaks) === J(['half', 'three', 'always', 'never']) && s.breakNow === 'half', s);
     check('la lista muestra lo que entra, en orden natural (2 antes de 10) y con las subcarpetas en orden de árbol', J(list) === J(['partes/3-sub.md', '1-intro.md', '2-uno.md', '10-diez.md', 'notas.txt', 'vacio.md']), list);

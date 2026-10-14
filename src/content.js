@@ -769,7 +769,9 @@
     dictate: { js: ['src/voice.js', 'src/dictate.js'] },
     present: { js: ['src/present.js'] },
     daily: { js: ['src/daily.js'] },
-    docx: { js: ['src/docx.js'] },
+    docx: { js: ['src/omml.js', 'src/docx.js'] },
+    // Exportar una carpeta como libro EPUB: se pide al elegirlo; arma el zip con el de docx.js.
+    epub: { js: ['src/epub.js'] },
     // Exportar una carpeta entera como un solo documento: se pide al elegirla en un menú.
     folderexport: { js: ['src/folderexport.js'] },
     linkmap: { js: ['src/linkmap.js'] },
@@ -799,7 +801,8 @@
   const LAZY_HAVE = { hljs: () => !!window.hljs, emoji: () => !!window.markdownitEmoji, tools: () => !!(LMD.diagram && LMD.formula && LMD.templates && LMD.community) };
   LAZY_HAVE.gallery = () => !!LMD.gallery; LAZY_HAVE.automate = () => !!LMD.automate; LAZY_HAVE.publish = () => !!LMD.publish;
   LAZY_HAVE.speak = () => !!LMD.speak; LAZY_HAVE.dictate = () => !!(LMD.voice && LMD.dictate);
-  ['present', 'daily', 'docx', 'linkmap', 'explore', 'jsonyaml', 'import', 'agents', 'localtools'].forEach((k) => { LAZY_HAVE[k] = () => !!LMD[k]; });
+  LAZY_HAVE.docx = () => !!(LMD.docx && LMD.omml);
+  ['present', 'daily', 'epub', 'linkmap', 'explore', 'jsonyaml', 'import', 'agents', 'localtools'].forEach((k) => { LAZY_HAVE[k] = () => !!LMD[k]; });
   LAZY_HAVE.assistant = () => !!(LMD.ai && LMD.assistant);
   LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage;
   async function appLazy(what) {
@@ -2033,6 +2036,15 @@
       diskPath() && ['copy-furl', ICON.link, 'Copiar como dirección file://'],
     ], keys);
   }
+  // Word va siempre en el menú Exportar, sin la herramienta: el código de docx.js se pide recién al elegirlo.
+  const WORD_ICON = '<svg viewBox="0 0 24 24"><path d="M6.500 3.500h8l4 4v13h-12z"/><path d="M14.500 3.500v4h4M8.800 11.500l1.300 5.500 1.900-4.200 1.900 4.200 1.300-5.500"/></svg>';
+  function exportWord() {
+    flushTyping();
+    return ensure('docx').then((ok) => {
+      if (!ok || !LMD.docx) { flash(T('No se pudo abrir. Probá de nuevo.'), 'error'); return false; }
+      return LMD.docx.export(core);
+    });
+  }
   function openExport(btn, keys) {
     if (isBin()) {
       // Lo que tiene sentido para un archivo que solo se lee: llevárselo, verlo aparte, convertirlo y saber dónde está.
@@ -2050,6 +2062,7 @@
     barMenu(btn, 'lmd-menu-narrow lmd-menu-top lmd-menu-export', [
       ['export-pdf', ICON.doc, 'PDF'],
       md && ['export-html', ICON.code, 'Archivo HTML'],
+      md && ['export-docx', WORD_ICON, 'Word (.docx)'],
       ['export-md', ICON.file, md ? 'Archivo Markdown (.md)' : 'Descargar el archivo'],
       ['print', ICON.print, 'Imprimir', PRINT_KEY],
     ].concat(toolItems('export')), keys);
@@ -2133,6 +2146,7 @@
     else if (act === 'reload') { if (orphan || !alive()) location.reload(); else checkForChanges(true); }
     else if (act === 'print') window.print();
     else if (act === 'export-html') LMD.extras.exportHtml();
+    else if (act === 'export-docx') exportWord();
     else if (core.actions[act]) core.actions[act](source, keys);
     else if (act === 'close-panel') closePanel();
     else if (act === 'reset') { panelStale = true; LMD.save(LMD.merge({ supporter: settings.supporter })); }
