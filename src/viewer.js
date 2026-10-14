@@ -128,6 +128,7 @@
       '</div>' +
       (pdf ? '<div class="lmd-vw-grp">' + btn('out', I.minus, 'Alejar', '-') + '<span class="lmd-vw-zoom" aria-live="polite"></span>' + btn('in', I.plus, 'Acercar', '+') +
         btn('fit', I.fit, 'Ajustar al ancho', '0') + btn('real', '1:1', 'Tamaño real', '1') + '</div>' : '') +
+      (pdf ? '<div class="lmd-vw-grp">' + btn('cite', ICON.md, 'Citar en una nota') + '</div>' : '') +
       (speak ? '<div class="lmd-vw-grp">' + btn('speak', I.speak, 'Leer en voz alta') + '</div>' : '') +
       btn('find', ICON.search, 'Buscar', LMD.keys ? LMD.keys('Ctrl+F') : 'Ctrl+F', 'lmd-vw-findtog') +
       '<div class="lmd-vw-grp lmd-vw-find" role="search">' +
@@ -137,6 +138,8 @@
       '</div>';
     // Un archivo abierto desde el disco por su ruta: la salida al visor del navegador, a un toque.
     if (v.native) (bar.querySelector('.lmd-vw-findtog') || bar).insertAdjacentHTML(bar.querySelector('.lmd-vw-findtog') ? 'beforebegin' : 'beforeend', '<div class="lmd-vw-grp">' + btn('native', ICON.browser, 'Abrir con el visor del navegador') + '</div>');
+    // El botón de citar no le saca la selección al texto del PDF.
+    bar.addEventListener('mousedown', (e) => { if (e.target.closest('[data-vw="cite"]')) e.preventDefault(); });
     bar.addEventListener('click', (e) => {
       const b = e.target.closest('[data-vw]'); if (!b || b.disabled || cur !== v) return;
       act(v, b.dataset.vw);
@@ -162,12 +165,26 @@
     v.host.parentNode.insertBefore(bar, v.host);
     v.bar = bar;
   }
+  // "Citar en una nota": el texto elegido del PDF queda copiado como una cita con la página y un enlace que abre el
+  // PDF en esa página (archivo.pdf#page=N). Se pega en la nota; el visor y la nota no están abiertos a la vez.
+  async function citePdf(v) {
+    const sel = window.getSelection ? window.getSelection() : null;
+    const text = sel ? sel.toString().replace(/-\s*\n\s*/g, '').replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    const node = sel && sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
+    const pageEl = node && (node.nodeType === 1 ? node : node.parentElement) ? (node.nodeType === 1 ? node : node.parentElement).closest('.lmd-vw-page[data-page]') : null;
+    if (!text || !pageEl || !v.host.contains(pageEl)) { core.flash(T('Seleccioná texto del PDF para citarlo.'), 'warn'); return; }
+    if (!(await core.ensure('cite')) || !LMD.cite) return;
+    const page = parseInt(pageEl.dataset.page, 10);
+    core.copy(LMD.cite.quoteBlock(text, v.rel || v.name, page >= 1 ? page : 1));
+    core.flash(T('Cita copiada. Pegala en la nota.'));
+  }
   function act(v, what) {
     if (what === 'find') { const shut = v.bar.classList.toggle('lmd-vw-find-shut'); if (!shut) v.bar.querySelector('.lmd-vw-q').focus(); return; }
     if (what === 'find-prev') return step(-1);
     if (what === 'find-next') return step(1);
     if (what === 'speak') { if (core.actions.speak) core.actions.speak(); return; }
     if (what === 'native') { if (v.native) v.native(); return; }
+    if (what === 'cite') return citePdf(v);
     if (v.kind === 'image') return imgAct(v, what);
     if (v.kind === 'pdf') {
       if (what === 'prev') pdfGo(v, v.page - 1, 0);

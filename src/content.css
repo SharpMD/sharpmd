@@ -384,6 +384,13 @@ pre.lmd-graphviz { font-family: var(--lmd-mono); font-size: 0.86em; padding: 14p
 .lmd-toc-l5 { padding-left: 56px; } .lmd-toc-l6 { padding-left: 70px; }
 
 .lmd-math-block { display: block; overflow-x: auto; margin: 0 0 1em; text-align: center; }
+.lmd-cite { white-space: normal; }
+.lmd-cite-bad, .lmd-eqref-bad { color: #dc2626; border-bottom: 1px dotted currentColor; cursor: help; }
+.lmd-eqref { text-decoration: none; }
+a.lmd-eqref:hover { text-decoration: underline; }
+.lmd-bib { margin: 2em 0 0; padding-top: 0.8em; border-top: 1px solid var(--line); }
+.lmd-bib-title { font-size: 1.4em; font-weight: 700; margin: 0 0 0.6em; }
+.lmd-bib-item { margin: 0 0 0.6em; padding-left: 2em; text-indent: -2em; overflow-wrap: anywhere; }
 .lmd-diagram { text-align: center; overflow-x: auto; }
 .lmd-diagram svg { width: auto; height: auto; max-width: 100%; stroke: initial; fill: initial; stroke-width: initial; }
 pre.lmd-mermaid { font-family: var(--lmd-mono); font-size: 0.86em; padding: 14px 16px; background: var(--bg-code); border: 1px solid var(--line); border-radius: 9px; overflow: auto; }

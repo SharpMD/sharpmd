@@ -795,13 +795,15 @@
     viewer: { js: ['src/viewer.js'] },
     // Los archivos de código: números de línea, el índice de un HTML y su vista previa. Se pide al abrir el primero.
     codeview: { js: ['src/codeview.js'] },
+    // Citas [@clave] y la lista de Referencias: se pide cuando la nota tiene una cita.
+    cite: { js: ['src/citations.js'] },
   };
   const LAZY_HAVE = { hljs: () => !!window.hljs, emoji: () => !!window.markdownitEmoji, tools: () => !!(LMD.diagram && LMD.formula && LMD.templates && LMD.community) };
   LAZY_HAVE.gallery = () => !!LMD.gallery; LAZY_HAVE.automate = () => !!LMD.automate; LAZY_HAVE.publish = () => !!LMD.publish;
   LAZY_HAVE.speak = () => !!LMD.speak; LAZY_HAVE.dictate = () => !!(LMD.voice && LMD.dictate);
   ['present', 'daily', 'docx', 'linkmap', 'explore', 'jsonyaml', 'import', 'agents', 'localtools'].forEach((k) => { LAZY_HAVE[k] = () => !!LMD[k]; });
   LAZY_HAVE.assistant = () => !!(LMD.ai && LMD.assistant);
-  LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage;
+  LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.cite = () => !!LMD.cite; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage;
   async function appLazy(what) {
     const spec = LAZY_APP[what];
     try {
@@ -958,6 +960,7 @@
     // Fuera de la página (drawOff), las fórmulas y los diagramas los espera quien llama.
     if (off) return headings;
     renderMath(article);
+    renderCites(article);
     renderMermaid(article);
     renderGraphviz(article);
     resolveWiki(article);
@@ -1199,7 +1202,11 @@
     });
   }
 
-  async function renderMath(article) {
+  // Las macros (`macros:` en la cabecera) y las filas de la nota abierta; las usan las fórmulas y las citas.
+  let docRows = null; let docMacros = {};
+  const setDocRows = (rows) => { docRows = rows; docMacros = rows ? LMD.md.macrosOf(rows) : {}; };
+
+  async function renderMath(article, macros = docMacros) {
     const nodes = article.querySelectorAll('.lmd-math');
     if (!nodes.length) return;
     if (!(await ensure('katex')) || !window.katex) return;
@@ -1207,9 +1214,28 @@
     nodes.forEach((n) => {
       // Una fórmula con error no muestra el mensaje crudo de KaTeX: queda el código, con un aviso corto.
       try {
-        katex.render(n.getAttribute('data-tex'), n, { displayMode: n.classList.contains('lmd-math-block'), throwOnError: true });
+        // Una ecuación con etiqueta ({#eq:id}) lleva su número a la derecha.
+        const num = n.getAttribute('data-n');
+        katex.render(n.getAttribute('data-tex') + (num ? '\\tag{' + num + '}' : ''), n, { displayMode: n.classList.contains('lmd-math-block'), throwOnError: true, macros: Object.assign({}, macros) });
       } catch (e) { LMD.formula.fail(n, e); }
     });
+  }
+
+  // Citas [@clave]: se lee la bibliografía (bibliography: refs.bib junto a la nota, o un bloque ```bibtex dentro) y
+  // se escribe autor y año en cada cita. En la nota abierta, al final va la lista de Referencias.
+  async function renderCites(article, rows = docRows, main = article === ui.article) {
+    if (!article.querySelector('.lmd-cite')) return;
+    if (!(await ensure('cite')) || !LMD.cite) return;
+    const row = (rows || []).find((r) => r[0] === 'bibliography');
+    const files = row ? LMD.cite.bibFiles(row[1]) : [];
+    let src = ''; const errors = [];
+    article.querySelectorAll('code.language-bibtex, code.language-bib').forEach((c) => { src += c.textContent + '\n'; });
+    for (const f of files) {
+      let txt = null;
+      try { txt = await readDoc(new URL(f, HERE).href); } catch (e) { txt = null; }
+      if (txt == null) errors.push(f); else src += txt + '\n';
+    }
+    LMD.cite.apply(article, { db: LMD.cite.parseBib(src), declared: files.length > 0 || /\S/.test(src), errors, main });
   }
 
   // El ancho útil de un bloque, sin su relleno: a ese ancho se dibuja un gráfico.
@@ -1292,7 +1318,7 @@
     const box = el('div');
     box.innerHTML = DOMPurify.sanitize(buildParser().render(fm.body), { ADD_ATTR: ['target', 'data-tex'], FORBID_TAGS: ['style', 'form'] });
     postProcess(box, true);
-    await renderMath(box); await renderMermaid(box, true); await renderGraphviz(box);
+    await renderMath(box, LMD.md.macrosOf(fm.rows)); await renderCites(box, fm.rows, true); await renderMermaid(box, true); await renderGraphviz(box);
     return { box, rows: fm.rows || [] };
   }
 
@@ -2388,6 +2414,7 @@
     const codeDoc = kind === 'code' && raw.indexOf('\u0000') === -1;
     const fm = kind === 'text' || codeDoc ? { body: '', rows: null } : kind !== 'md' ? { body: asMarkdown(kind), rows: null } : (settings.plugins.frontmatter ? splitFrontmatter(raw) : { body: raw, rows: null });
     syncSource();
+    setDocRows(fm.rows);
     fmOffset = kind !== 'md' ? 0 : raw.slice(0, raw.length - fm.body.length).split('\n').length - 1;
     needsRender = false;
     let html = kind === 'text' || codeDoc ? '' : md.render(fm.body);
@@ -2830,6 +2857,9 @@
     // Lo que cambia el dibujo de otros bloques no se aplica de a un bloque: definiciones de enlaces, notas al pie,
     // y los títulos cuando hay un índice en el texto.
     if (touched.some((l) => /^\s{0,3}\[[^\]]+\]:/.test(l) || /\[\^[^\]]+\]/.test(l))) return false;
+    // Citas y ecuaciones numeradas: el número y la lista de Referencias dependen de todo el texto.
+    if (touched.some((l) => /\[@|@eq:|\\eqref|\{#eq:|^\s*(```|~~~)\s*(bibtex|bib)\b/i.test(l))) return false;
+    if (art.querySelector('.lmd-math[data-n], .lmd-eqref, .lmd-cite') && touched.some((l) => l.indexOf('$$') >= 0)) return false;
     if (art.querySelector('.lmd-toc') && touched.some((l) => /^\s{0,3}(#{1,6}(\s|$)|=+\s*$|-+\s*$)/.test(l))) return false;
     // Los bloques de un contenedor con las líneas que ocupan: para lo que ya estaba en pantalla, las de antes del
     // cambio. null si adentro hay texto suelto, que no se sabe comparar.
@@ -2837,7 +2867,7 @@
       const out = [];
       for (const n of box.childNodes) {
         if (n.nodeType === 3) { if (n.nodeValue.trim()) return null; continue; }
-        if (n.nodeType !== 1 || n.classList.contains('lmd-add') || n.classList.contains('lmd-front')) continue;
+        if (n.nodeType !== 1 || n.classList.contains('lmd-add') || n.classList.contains('lmd-front') || n.classList.contains('lmd-bib')) continue;
         const draft = n.classList.contains('lmd-draft') ? n : (n.classList.contains('lmd-draft-li') ? n.querySelector('.lmd-draft') : null);
         if (draft) { if (old && d.was.has(draft)) out.push({ node: n, el: null, r: d.was.get(draft), draft: true }); continue; }
         const own = ownRange(n);
@@ -4628,6 +4658,7 @@
     // El título de cada sección desplegable.
     if (LMD.fold) LMD.fold.editable(article, make);
     article.querySelectorAll('.lmd-math, .lmd-wiki').forEach((n) => { n.contentEditable = 'false'; });
+    article.querySelectorAll('.lmd-cite, .lmd-eqref, .lmd-bib').forEach((n) => { n.contentEditable = 'false'; });
     article.querySelectorAll('input.lmd-task').forEach((box) => { box.contentEditable = 'false'; });
 
     article.querySelectorAll('table[data-l]').forEach((table) => {
@@ -4856,7 +4887,7 @@
   }
 
   // Doble clic leyendo: pasa a edición con el cursor donde se hizo. Lo que ya responde al clic queda como está.
-  const NO_DBL = 'a, img, button, input, .lmd-code, .lmd-diagram, pre.lmd-mermaid, pre.lmd-graphviz, .lmd-board, .lmd-math, .lmd-toc, .lmd-front';
+  const NO_DBL = 'a, img, button, input, .lmd-code, .lmd-diagram, pre.lmd-mermaid, pre.lmd-graphviz, .lmd-board, .lmd-math, .lmd-toc, .lmd-front, .lmd-bib';
   async function editAt(e) {
     if (readOnly) { useTemplate('edit'); return; } // el original de una plantilla no se edita: se ofrece llevarse una copia
     if (docKind() !== 'md') return;
@@ -5008,6 +5039,7 @@
   // Lo que los módulos de edición (write.js y los que siguen) necesitan del lector.
   const core = {
     get shape() { return settings.diagramShape; },
+    get macros() { return docMacros; },
     get cloudState() { return cloudState; },
     get readOnly() { return readOnly; },
     get present() { return present; }, get presentNames() { return presentNames; }, get hereAi() { return hereAi; }, get lastEdit() { return lastEdit; },

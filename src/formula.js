@@ -184,7 +184,7 @@
       if (!tex) { view.innerHTML = '<p class="lmd-fx-empty">' + T('La fórmula se va a ver acá') + '</p>'; err.hidden = true; view.classList.remove('lmd-dgm-stale'); code.mark(null); return; }
       const holder = el('div');
       try {
-        window.katex.render(tex, holder, { displayMode: true, throwOnError: true });
+        window.katex.render(tex, holder, { displayMode: true, throwOnError: true, macros: Object.assign({}, core.macros) });
         view.textContent = ''; view.appendChild(holder);
         err.hidden = true; view.classList.remove('lmd-dgm-stale'); code.mark(null);
       } catch (ex) {
@@ -202,7 +202,9 @@
       modal.remove();
       const tex = ta.value.replace(/\s+$/, '').replace(/^\s*\n/, '');
       if (!apply || tex === original) return;
-      const lines = ['$$'].concat(tex.split('\n'), '$$').map((l) => prefix + l);
+      // La etiqueta de una ecuación numerada ({#eq:id}) sigue en el cierre.
+      const label = node ? (/\{#eq:[A-Za-z0-9_][\w.:-]*\}\s*$/.exec(core.srcLines[e - 1] || '') || [''])[0].trim() : '';
+      const lines = ['$$'].concat(tex.split('\n'), label ? '$$ ' + label : '$$').map((l) => prefix + l);
       if (!node) { if (tex.trim()) LMD.write.put(after, lines); return; }
       if (!tex.trim()) { LMD.write.remove(node); return; }
       core.spliceLines(s, e - s, lines);
@@ -248,7 +250,7 @@
       if (!tex) { view.textContent = ''; err.hidden = true; view.classList.remove('lmd-dgm-stale'); return; }
       const holder = el('span');
       try {
-        window.katex.render(tex, holder, { displayMode: false, throwOnError: true });
+        window.katex.render(tex, holder, { displayMode: false, throwOnError: true, macros: Object.assign({}, core.macros) });
         view.textContent = ''; view.appendChild(holder); err.hidden = true; view.classList.remove('lmd-dgm-stale');
       } catch (ex) { const info = explain(tex, ex); err.hidden = false; err.innerHTML = LMD.diagram.errorHtml(Object.assign({}, info, { line: null })); view.classList.add('lmd-dgm-stale'); }
       place();
@@ -278,7 +280,7 @@
       if (!fresh && (how === 'del' || !tex)) span.remove();
       else {
         span.setAttribute('data-tex', tex); span.classList.remove('lmd-math-bad'); span.removeAttribute('title');
-        try { window.katex.render(tex, span, { displayMode: false, throwOnError: true }); } catch (ex) { fail(span, ex); }
+        try { window.katex.render(tex, span, { displayMode: false, throwOnError: true, macros: Object.assign({}, core.macros) }); } catch (ex) { fail(span, ex); }
       }
       core.commitBlock(host);
       host._md = null;

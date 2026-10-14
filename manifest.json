@@ -82,6 +82,7 @@
         "src/emoji.js",
         "src/diagram.js",
         "src/formula.js",
+        "src/citations.js",
         "src/extras.js",
         "src/send.js",
         "src/images.js",
