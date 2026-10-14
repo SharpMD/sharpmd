@@ -787,6 +787,8 @@
     publish: { js: ['src/publish.js'] },
     // "Usar esta plantilla": se pide al abrirla desde una carpeta compartida como plantilla.
     fork: { js: ['src/fork.js'] },
+    // "Descargar todas mis notas" (Ajustes > Nube y eliminar la cuenta): se pide al usarla.
+    exportall: { js: ['src/exportall.js'] },
     // La página de una carpeta: se pide al abrir la primera.
     folderpage: { js: ['src/folderpage.js'] },
     // La hoja de atajos de teclado: se pide al abrirla.
@@ -801,7 +803,7 @@
   LAZY_HAVE.speak = () => !!LMD.speak; LAZY_HAVE.dictate = () => !!(LMD.voice && LMD.dictate);
   ['present', 'daily', 'docx', 'linkmap', 'explore', 'jsonyaml', 'import', 'agents', 'localtools'].forEach((k) => { LAZY_HAVE[k] = () => !!LMD[k]; });
   LAZY_HAVE.assistant = () => !!(LMD.ai && LMD.assistant);
-  LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage;
+  LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage; LAZY_HAVE.exportall = () => !!LMD.exportall;
   async function appLazy(what) {
     const spec = LAZY_APP[what];
     try {

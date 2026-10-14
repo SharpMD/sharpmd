@@ -434,6 +434,25 @@
     catch (e) { /* solo lectura, sin conexión o un servidor sin actualizar: se vuelve a intentar al próximo guardado */ }
   }
   const inner = (path) => String(path).replace(/^~\d+\//, '');
+  // Los bytes de una imagen de la nube para llevarlos en una exportación (exportall.js). ref sale de refsIn; spaces, los
+  // espacios donde buscarla ('' es lo propio). Una cifrada se abre con las llaves abiertas. Devuelve { bytes, type, ext }, o
+  // null si ya no está o no hay llave. Sin conexión sale con offline.
+  async function fetchRef(ref, spaces) {
+    let bytes = null; let type = '';
+    if (!ref.enc) {
+      const base = LMD.cloud.base();
+      if (!base || !ref.url.startsWith(base + '/f/')) return null;
+      let res; try { res = await fetch(ref.url); } catch (e) { throw fail('offline'); }
+      if (!res.ok) return null;
+      bytes = new Uint8Array(await res.arrayBuffer()); type = sniff(bytes);
+    } else {
+      let raw = null;
+      for (const s of spaces) { try { raw = await LMD.cloud.binary('GET', withSpace('/files/' + ref.id + '/raw', s), undefined, '', true); break; } catch (e) { if (e.code === 'offline') throw e; } }
+      if (!raw) return null;
+      for (const key of await LMD.cloud.vaultKeys()) { try { const blob = await openBytes(key, raw); bytes = new Uint8Array(await blob.arrayBuffer()); type = blob.type; break; } catch (e) { /* no es esa llave */ } }
+    }
+    return bytes && CODES[type] ? { bytes, type, ext: EXT[type] } : null;
+  }
   // o: { fromSpace, toSpace, fromKeys, toKey, fromPath, toPath }. Las rutas son las de adentro del espacio.
   // Devuelve { text, finish }: text es la nota con sus imágenes ya convertidas, y finish() se llama cuando esa nota
   // quedó guardada: declara lo que usa y borra del servidor las copias que nadie más usa.
@@ -648,5 +667,5 @@
     setTimeout(purgeFlush, 4000);
   }
 
-  LMD.images = { init, reduce, put, upload, why, tell, lift, liftQuiet, liftHere, pane: paintPane, manage, cleanSvg, paintEnc, sizeText, sniff, forgetUsage, mode, sealHere, convert, inline, purgeFlush, refsIn };
+  LMD.images = { init, reduce, put, upload, why, tell, lift, liftQuiet, liftHere, pane: paintPane, manage, cleanSvg, paintEnc, sizeText, sniff, forgetUsage, mode, sealHere, convert, inline, purgeFlush, refsIn, fetchRef };
 })();

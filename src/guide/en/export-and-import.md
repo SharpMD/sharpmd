@@ -19,6 +19,14 @@ With the **Export to Word** tool turned on, the menu adds Word (.docx). The file
 
 In the explorer, a right-click on a folder offers **Export the folder…**. It puts all its notes into one document, one after another: PDF, HTML, Word or a single Markdown file. Links between the notes become internal, and you can add a cover and a table of contents.
 
+## Your whole cloud
+
+In **Settings** > **Cloud**, the **Download all my notes** button builds a ZIP in your browser with everything you have in the cloud, in the same folders. Boards travel inside their notes, and images go in an `_images/` folder with their addresses already pointing there.
+
+Password-protected folders come out decrypted, but only if they are unlocked: your browser decrypts them and the key never leaves it. If one is still locked, the button offers to unlock it or to continue without it; whatever is left out is listed in `_not-included.txt` inside the ZIP. If you are in a team, you can add its notes in an `@team/` subfolder.
+
+When you delete your account, the first step offers this same download.
+
 ## Bringing in other formats
 
 The **Import to Markdown** tool turns a file into a note:
