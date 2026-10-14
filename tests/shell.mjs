@@ -130,7 +130,8 @@ try {
   let z = await zones();
   check('sin pestañas: el buscador arriba, después el índice y debajo el explorador, los dos a la vista', z.tabs === 0 && z.outline > 80 && z.files > 80 && z.search < z.outlineTop && z.outlineTop < z.filesTop, z);
   const roots = await app.evaluate(() => [...document.querySelectorAll('.lmd-xroot')].map((s) => s.dataset.root + ':' + s.querySelector('.lmd-tree-path').textContent));
-  check('el explorador lista las raíces en orden: la carpeta del disco y las notas del navegador', roots.join('|') === 'disk:pantalla|local:En este navegador', roots);
+  // La carpeta del disco ya no es una raíz suelta: va dentro de "Abiertos", la sección de lo que se abrió del disco.
+  check('el explorador lista las raíces en orden: Abiertos, con la carpeta del disco adentro, y las notas del navegador', roots.join('|') === 'open:Abiertos|disk:pantalla|local:En este navegador', roots);
   const icons = await app.evaluate(() => [...document.querySelectorAll('.lmd-xroot a.lmd-node')].map((n) => n.closest('.lmd-xroot').dataset.root + ':' + n.querySelector('.lmd-node-where').title).filter((v, i, a) => a.indexOf(v) === i));
   check('cada archivo lleva el ícono de dónde está guardado', J(icons) === J(['disk:En el disco', 'local:En este navegador']), icons);
   // La división se arrastra y cada zona se pliega; las dos cosas se recuerdan.
@@ -177,9 +178,10 @@ try {
     const h = await dir.getFileHandle('LEEME.md', { create: true }); const s = await h.createWritable(); await s.write('# Segunda carpeta\n\nCon una zanahoria más.\n'); await s.close();
     window.showDirectoryPicker = async () => dir;
   });
-  await app.click('.lmd-menu [data-f=dir]'); await app.waitForFunction(() => document.title === 'LEEME.md'); await app.waitForSelector('.lmd-xroot[data-root=recent] .lmd-node');
-  const second = await app.evaluate(() => ({ mark: window.__mark, disk: document.querySelector('.lmd-xroot[data-root=disk] .lmd-tree-path').textContent, recent: [...document.querySelectorAll('.lmd-xroot[data-root=recent] .lmd-node-name')].map((n) => n.textContent), order: [...document.querySelectorAll('.lmd-xroot')].map((s) => s.dataset.root).join() }));
-  check('abrir otra carpeta la pone en el explorador y deja la anterior en Recientes', second.mark === 'misma página' && second.disk === 'segunda' && J(second.recent) === J(['pantalla']) && second.order === 'disk,local,recent', second);
+  await app.click('.lmd-menu [data-f=dir]'); await app.waitForFunction(() => document.title === 'LEEME.md'); await app.waitForSelector('.lmd-xroot[data-root=disk] .lmd-root-tog[title^="segunda"]'); await app.waitForSelector('.lmd-open-dir[data-root^="dir-"]');
+  // Antes la carpeta anterior pasaba a "Recientes"; ahora las dos quedan en "Abiertos", cada una desplegable, y no hay otra lista.
+  const second = await app.evaluate(() => ({ mark: window.__mark, disk: document.querySelector('.lmd-xroot[data-root=disk] .lmd-tree-path').textContent, other: [...document.querySelectorAll('.lmd-open-dir:not([data-root=disk]) .lmd-tree-path')].map((n) => n.textContent), order: [...document.querySelectorAll('.lmd-xroot')].map((s) => s.dataset.root.replace(/^dir-.*/, 'dir')).join() }));
+  check('abrir otra carpeta la suma a Abiertos y deja la anterior ahí mismo, sin una lista de recientes', second.mark === 'misma página' && second.disk === 'segunda' && J(second.other) === J(['pantalla']) && second.order === 'open,dir,disk,local', second);
 
   console.log('Buscar en todo');
   await app.fill('.lmd-search input', 'zanahoria');
@@ -192,6 +194,7 @@ try {
   await app.waitForFunction(() => /\d/.test((document.querySelector('.lmd-results-sum') || {}).textContent || ''), null, { timeout: 15000 });
   const res = await app.evaluate(() => ({ doc: document.querySelector('.lmd-res-doc').textContent, count: document.querySelector('.lmd-search-count').textContent, roots: [...document.querySelectorAll('.lmd-res-root')].map((r) => r.dataset.root + ':' + r.textContent), files: [...document.querySelectorAll('.lmd-res-file .lmd-res-name')].map((n) => n.textContent), outline: document.querySelector('.lmd-pane-outline').getBoundingClientRect().height > 40, tree: document.querySelector('.lmd-tree-box').hidden }));
   check('con texto busca en la nota abierta y lo cuenta arriba de los resultados', /^En esta nota\s*1$/.test(res.doc) && res.count === '1 / 1' && res.outline, res);
+  // Tras recargar, la carpeta de la nota abierta (segunda) es la desplegada; la otra espera plegada y no entra en la búsqueda.
   check('y en los archivos de cada raíz, diciendo de dónde viene cada resultado', J(res.roots) === J(['disk:segunda', 'local:En este navegador']) && J(res.files) === J(['LEEME.md', 'huerta.md']) && res.tree, res);
   await app.locator('.lmd-res-file', { hasText: 'huerta.md' }).click(); await app.waitForFunction(() => document.title === 'huerta.md'); await app.waitForTimeout(300);
   const hop = await app.evaluate(() => ({ mark: window.__mark, kept: [...document.querySelectorAll('.lmd-res-file .lmd-res-name')].map((n) => n.textContent), here: [...document.querySelectorAll('.lmd-res-here .lmd-res-name')].map((n) => n.textContent), doc: document.querySelector('.lmd-res-doc .lmd-res-count').textContent }));
@@ -203,13 +206,19 @@ try {
   check('una raíz plegada no entra en la búsqueda', J(folded) === J(['disk']), folded);
   await app.fill('.lmd-search input', ''); await app.click('.lmd-xroot[data-root=local] .lmd-root-tog .lmd-node-chev');
 
-  console.log('Recientes');
-  await app.locator('.lmd-xroot[data-root=recent] .lmd-node', { hasText: 'pantalla' }).click(); await app.waitForSelector('.lmd-xroot[data-root=disk] .lmd-root-tog[title^="pantalla"]'); await app.waitForFunction(() => document.title === 'adentro.md');
-  const again = await app.evaluate(() => ({ mark: window.__mark, title: document.title, recent: [...document.querySelectorAll('.lmd-xroot[data-root=recent] .lmd-node-name')].map((n) => n.textContent) }));
-  check('un reciente vuelve a abrir esa carpeta en su última nota, sin recargar', again.mark === 'misma página' && again.title === 'adentro.md' && J(again.recent) === J(['segunda']), again);
-  await app.hover('.lmd-xroot[data-root=recent] .lmd-recent'); await app.click('.lmd-xroot[data-root=recent] .lmd-node-x');
-  await app.waitForFunction(() => !document.querySelector('.lmd-xroot[data-root=recent]'));
-  check('la cruz lo quita de la lista', (await app.evaluate(async () => (await LMD.store.rootsAll()).map((r) => r.name))).join() === 'pantalla');
+  // Lo que era "Recientes": la otra carpeta abierta espera plegada en "Abiertos". Su triángulo la despliega en el lugar
+  // (antes un clic la abría en su última nota) y desde su árbol se va a la nota; la cruz la cierra.
+  console.log('La otra carpeta abierta');
+  const otra = '.lmd-open-dir:has(> .lmd-tree-head .lmd-tree-path:text-is("pantalla"))';
+  await app.click(otra + ' .lmd-root-tog .lmd-node-chev'); await app.waitForSelector(otra + ' .lmd-node-dir:has-text("apuntes")');
+  await app.locator(otra + ' .lmd-node-dir', { hasText: 'apuntes' }).locator('.lmd-node-chev').click(); await app.locator(otra + ' a.lmd-node', { hasText: 'adentro.md' }).click();
+  await app.waitForSelector('.lmd-xroot[data-root=disk] .lmd-root-tog[title^="pantalla"]'); await app.waitForFunction(() => document.title === 'adentro.md');
+  const again = await app.evaluate(() => ({ mark: window.__mark, title: document.title, other: [...document.querySelectorAll('.lmd-open-dir:not([data-root=disk]) .lmd-tree-path')].map((n) => n.textContent) }));
+  check('la otra carpeta se despliega en el lugar y abre su nota, sin recargar', again.mark === 'misma página' && again.title === 'adentro.md' && J(again.other) === J(['segunda']), again);
+  const seg = '.lmd-open-dir:has(> .lmd-tree-head .lmd-tree-path:text-is("segunda"))';
+  await app.hover(seg + ' > .lmd-tree-head'); await app.click(seg + ' > .lmd-tree-head .lmd-node-x');
+  await app.waitForFunction(() => document.querySelectorAll('.lmd-open-dir').length === 1);
+  check('la cruz la cierra: sale de la lista y de lo guardado', (await app.evaluate(async () => (await LMD.store.rootsAll()).map((r) => r.name))).join() === 'pantalla');
 
   console.log('Raíz del árbol en el disco');
   await app.evaluate(async () => {

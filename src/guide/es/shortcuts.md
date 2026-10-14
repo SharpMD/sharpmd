@@ -13,6 +13,7 @@ En una Mac, `Ctrl` es `⌘` y `Alt` es `⌥`. La app los muestra así.
 | `Ctrl+B` y `Ctrl+I` | Negrita y cursiva |
 | `Ctrl+K` | Insertar o editar un enlace |
 | `Ctrl+Shift+F` | Buscar en la nota o en la carpeta |
+| `Alt+Shift+E` | Ir al explorador de archivos. Con las flechas te movés y `Enter` abre |
 | `Ctrl+P` | Imprimir o guardar como PDF |
 | `F2` | Cambiar el nombre de la nota |
 | `Esc` | Cerrar un menú, un cuadro o el buscador |

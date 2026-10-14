@@ -240,7 +240,8 @@
     if (old) return;
     const b = el('button', { type: 'button', class: 'lmd-btn', 'data-daily': 'today', title: T('Nota de hoy') + ' (' + KEY + ')' }, ICON.day + '<span>' + esc(T('Nota de hoy')) + '</span>');
     b.addEventListener('click', (e) => { e.stopPropagation(); openToday(); });
-    row.appendChild(b);
+    // Va con los botones de crear, antes del rótulo de abrir algo del disco.
+    row.insertBefore(b, row.querySelector('.lmd-home-label'));
   }
   function sideButton() {
     const head = core.ui.sidebar.querySelector('.lmd-zone-files .lmd-zone-head'); if (!head) return;

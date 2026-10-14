@@ -532,12 +532,13 @@
   }
   // Crear: desde la cabecera del explorador (sin dirUrl: donde van las notas nuevas) o dentro de una raíz.
   // Con whole (clic derecho sobre una raíz del explorador), suma exportar todo lo que hay en ella.
-  // onPage: lo abrió la página de esa raíz, que ya está a la vista.
-  function createMenu(x, y, dirUrl, whole, onPage) {
+  // onPage: lo abrió la página de esa raíz, que ya está a la vista. more: entradas que se suman al final ({ items, pick }).
+  function createMenu(x, y, dirUrl, whole, onPage, more) {
     const folderAt = dirUrl ? (canTree(dirUrl) ? dirUrl : '') : (core.diskDir() || (LMD.cloud.signedIn() ? core.urlOf('') : ''));
     showMenu(x, y, [whole && dirUrl && !onPage && core.canOpenDir(dirUrl) && OPEN_ITEM, ['new', 'Nota en blanco'], ['tpl', 'Desde una plantilla…'], folderAt && ['dir', 'Carpeta']].concat(upItems(dirUrl), [whole && dirUrl && ['fexp', 'Exportar la carpeta…'],
       // La raíz entera a la nube: la carpeta abierta con sus subcarpetas, o todas las notas de este navegador.
-      whole && dirUrl && LMD.send.can(dirUrl) && ['send', inLocal(dirUrl) ? 'Enviar todas a la nube' : 'Enviar la carpeta a la nube']], whole && dirUrl ? whereItems(dirUrl) : []).filter(Boolean), (f) => {
+      whole && dirUrl && LMD.send.can(dirUrl) && ['send', inLocal(dirUrl) ? 'Enviar todas a la nube' : 'Enviar la carpeta a la nube']], whole && dirUrl ? whereItems(dirUrl) : [], more ? more.items : []).filter(Boolean), (f) => {
+      if (more && more.pick(f)) return;
       if (wherePick(f, dirUrl) || upPick(f, dirUrl)) return;
       if (f === 'page') core.openDir(dirUrl);
       else if (f === 'send') LMD.send.start(dirUrl);
@@ -547,6 +548,20 @@
       else if (dirUrl) newFile(dirUrl);
       else core.newNote();
     });
+  }
+  // El menú de un elemento de "Abiertos". De un archivo: abrirlo, dónde está y cerrarlo. De una carpeta, lo que ya se
+  // podía hacer con su raíz, más Cerrar. Cerrar saca de la lista: en el disco no se borra nada (lo dice la cruz).
+  function openItemMenu(x, y, box) {
+    const isDir = !box.classList.contains('lmd-open-row');
+    const sec = isDir ? box.closest('.lmd-xroot') : null; const key = isDir ? sec.dataset.key : box.dataset.key;
+    const node = isDir ? null : box.querySelector('.lmd-node');
+    const url = isDir ? rootUrl(box) : node.dataset.url;
+    const ready = isDir ? !!url : !node.dataset.ask && !node.dataset.ghost;
+    const shut = ['close', 'Cerrar', false, 'close'];
+    if (!ready) { showMenu(x, y, [shut], () => core.closeOpen(key)); return; }
+    // Una carpeta: el menú de su raíz (crear ahí, exportarla, enviarla a la nube), más Cerrar.
+    if (isDir) { createMenu(x, y, url, true, false, { items: [shut], pick: (f) => { if (f !== 'close') return false; core.closeOpen(key); return true; } }); return; }
+    showMenu(x, y, [['open', 'Abrir', false, 'open'], LMD.send.can(url) && ['send', 'Enviar a la nube']].concat(whereItems(url), [shut]).filter(Boolean), (f) => { if (f === 'close') core.closeOpen(key); else if (f === 'send') LMD.send.start(url); else if (f === 'open') node.click(); else wherePick(f, url); });
   }
   // Abrir otra carpeta u otro archivo del disco, sin salir de la nota. Sobre un .md abierto directo, eso es abrir la app.
   function openMenu(x, y) {
@@ -1250,6 +1265,9 @@
     window.addEventListener('afterprint', () => core.ui.article.querySelectorAll('.lmd-keep').forEach((n) => n.classList.remove('lmd-keep')));
     // Árbol: clic derecho sobre un archivo o carpeta, y botón de archivo nuevo en la cabecera.
     core.ui.treeBox.addEventListener('contextmenu', (e) => {
+      // Un elemento de "Abiertos" (un archivo suelto, o la cabecera de una carpeta abierta): su menú, con Cerrar.
+      const loose = e.target.closest('.lmd-open-row, .lmd-open-dir > .lmd-tree-head');
+      if (loose && core.APP) { e.preventDefault(); openItemMenu(e.clientX, e.clientY, loose); return; }
       const node = e.target.closest('.lmd-node');
       // Sobre un archivo o una carpeta, sus acciones; sobre el resto de una raíz, crear ahí.
       const at = node ? node.dataset.url : rootUrl(e.target);

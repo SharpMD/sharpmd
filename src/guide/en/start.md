@@ -9,7 +9,7 @@ This guide comes with the app and reads offline. Its notes are read only. **Save
 From the start screen:
 
 - **New note** creates a note that saves itself in this browser.
-- **Open file** opens a `.md` from your disk. It is not uploaded anywhere.
+- **Open file** opens a `.md` from your disk. It is not uploaded anywhere, and it stays in the explorer until you close it.
 - **Open folder** opens a whole folder, with its file tree and search. It is there in Chrome, Edge and Brave.
 
 **From a template** starts the note with a structure already in place. On a computer you can also drag a file or a folder into the window.

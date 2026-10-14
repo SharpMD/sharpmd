@@ -160,9 +160,10 @@ try {
   check('una carpeta abierta en la web figura en la extensión, sin permiso todavía', !!ghost && ghost.ghost && !ghost.handle && ghost.kind === 'dir', await extRoots());
   await makeDir(extPage);
   await extPage.goto(OWN); await extPage.waitForSelector('.lmd-home');
-  const row = extPage.locator('a[data-ghost]', { hasText: 'proj' });
+  // Ya no hay "Recientes": la carpeta figura en "Abiertos", como cabecera de carpeta (antes era un enlace de la lista).
+  const row = extPage.locator('.lmd-open-dir [data-ghost]', { hasText: 'proj' });
   await row.waitFor({ timeout: 8000 }).catch(() => {});
-  check('y en Recientes dice que hay que reconectarla', (await row.count()) === 1 && /Reconnect/.test(await row.textContent().catch(() => '')), await extPage.evaluate(() => [...document.querySelectorAll('.lmd-recent')].map((n) => n.textContent)));
+  check('y en Abiertos dice que hay que reconectarla', (await row.count()) === 1 && /Reconnect/.test(await row.textContent().catch(() => '')), await extPage.evaluate(() => [...document.querySelectorAll('.lmd-open-dir, .lmd-open-row')].map((n) => n.textContent)));
   await extPage.evaluate(() => { window.showDirectoryPicker = async (o) => { window.__picked = o; return (await navigator.storage.getDirectory()).getDirectoryHandle('proj'); }; });
   await row.click(); await extPage.waitForSelector('.lmd-dlg [data-dlg=ok], [data-dlg=ok]', { timeout: 5000 }).catch(() => {});
   const asks = await extPage.evaluate(() => { const b = document.querySelector('[data-dlg=ok]'); const box = b && b.closest('[role=dialog], .lmd-dlg') || document.body; return { ok: b ? b.textContent.trim() : '', text: box.textContent }; });
@@ -174,7 +175,7 @@ try {
   const after = (await extRoots()).filter((r) => r.name === 'proj');
   check('ya es una carpeta de este lado: un solo renglón, con permiso', after.length === 1 && !after[0].ghost && after[0].handle, after);
   await extPage.goto(OWN); await extPage.waitForSelector('.lmd-xroot');
-  check('una vez por carpeta: no vuelve a pedirla', (await extPage.locator('a[data-ghost]').count()) === 0);
+  check('una vez por carpeta: no vuelve a pedirla', (await extPage.locator('[data-ghost]').count()) === 0);
   await web.evaluate(() => LMD.bridge.sync());
   const webRoots = await web.evaluate(async () => (await LMD.store.rootsAll()).map((r) => ({ name: r.name, ghost: !!r.ghost, handle: !!r.handle })));
   check('la web conserva la suya', J(webRoots) === J([{ name: 'proj', ghost: false, handle: true }]), webRoots);
@@ -414,6 +415,9 @@ try {
   const upTwo = path.basename(path.dirname(path.dirname(disk)));
   check('el archivo abierto por enlace figura en el lateral, en "Del disco", con su rama desplegada', !!s1 && !s1.shut && s1.head === 'From disk · ' + upTwo && s1.title.toLowerCase() === (path.dirname(path.dirname(disk)) + path.sep).toLowerCase() && s1.nodes.includes('[' + path.basename(path.dirname(disk)) + ']') && s1.nodes.includes('[' + path.basename(disk) + ']') && s1.nodes.includes('links.md'), s1);
   check('y queda marcado como elegido, a la vista', !!s1 && s1.active === 'links.md' && s1.activeShown && s1.f === fAt(disk, 'links.md'), s1 && [s1.active, s1.f]);
+  // Lo abierto por enlace también entra en "Abiertos": un renglón, marcado como copia, que se cierra como los demás.
+  const loose = await until(() => lo.evaluate(() => { const r = [...document.querySelectorAll('.lmd-open-row')].map((x) => ({ name: x.querySelector('.lmd-node-name').textContent, sub: (x.querySelector('.lmd-node-sub') || { textContent: '' }).textContent.trim(), x: (x.querySelector('.lmd-node-x') || {}).title || '', active: x.querySelector('.lmd-node').classList.contains('lmd-active') })); return r.length ? r : null; }), 4000);
+  check('y entra en "Abiertos" como un renglón, marcado como copia y con su cruz', !!loose && loose.filter((r) => r.name === 'links.md').length === 1 && loose.every((r) => r.sub === 'Copy' && r.x === 'Close. The file is not deleted.') && loose.find((r) => r.name === 'links.md').active, loose);
   check('con la carpeta habilitada en la extensión se ven los hermanos, sin ningún clic', !!s1 && ['other.md', 'my notes.md', '[sub]'].every((n) => s1.nodes.includes(n)) && !s1.nodes.includes('plain.txt') && !s1.nodes.includes('page.html'), s1 && s1.nodes);
   check('el cartel dice que es una copia y ofrece editar el archivo del disco; el lateral, abrir la carpeta', !!s1 && !!s1.bar && s1.bar.text === 'Opened as a copy. The file on your disk is not changed.' && s1.bar.btn === 'Edit the file on disk' && s1.open === 'Open this folder', s1 && [s1.bar, s1.open]);
   fs.mkdirSync('C:/tmp/agopen', { recursive: true });
@@ -435,6 +439,7 @@ try {
   await lo.keyboard.press('Escape'); await gone(lo);
   // Los enlaces relativos de la nota se resuelven contra la ruta real y abren por el mismo camino.
   await follow(lo, 'Other'); const l1 = await sideOf(lo);
+  check('seguir un enlace a otra nota de la carpeta no suma renglones a "Abiertos"', !(await lo.evaluate(() => [...document.querySelectorAll('.lmd-open-row .lmd-node-name')].map((n) => n.textContent))).includes('other.md'));
   check('un enlace a un hermano lo abre, sin recargar, y el lateral lo sigue', l1.h1 === 'Other' && l1.f === fAt(disk, 'other.md') && l1.active === 'other.md' && (await lo.locator('.lmd-dlg-card').count()) === 0 && !!l1.bar, [l1.h1, l1.f, l1.active]);
   await lo.goBack(); await lo.waitForTimeout(700); const l2 = await sideOf(lo);
   await lo.goForward(); await lo.waitForTimeout(700); const l3 = await sideOf(lo);

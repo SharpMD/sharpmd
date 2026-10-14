@@ -16,7 +16,13 @@ Si otro programa crea o borra un archivo, el explorador lo nota solo en unos seg
 
 Chrome, Edge y Brave abren carpetas y guardan en el lugar. Firefox y Safari abren de a un archivo, y al guardar se descarga una copia.
 
-Lo que ya abriste queda en **Recientes**.
+## Abiertos
+
+Cada archivo o carpeta del disco que abrís queda en **Abiertos**, arriba en el explorador. Un archivo suelto es un renglón y una carpeta se despliega. Abrir otro lo suma a la lista, y la lista sigue ahí en otra pestaña o al volver otro día.
+
+Para sacar uno, pasá el mouse por encima y tocá la cruz, o elegí **Cerrar** en su menú. Cerrar lo saca de la lista: en el disco no se borra nada.
+
+Al volver otro día, el navegador puede pedir el permiso de nuevo. El elemento figura atenuado, y un toque lo pide. En Firefox y Safari lo que abrís es una copia: figura mientras la pestaña esté abierta.
 
 ## En este navegador
 

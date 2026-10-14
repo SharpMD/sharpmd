@@ -54,6 +54,7 @@
     ['itm-level', 'write', 'Tab / Shift+Tab', 'Sangrar los ítems o sacarlos un nivel', { ctx: 'Con ítems seleccionados' }],
 
     ['search', 'nav', 'Ctrl+Shift+F', 'Buscar en la nota o en la carpeta'],
+    ['explorer', 'nav', 'Alt+Shift+E', 'Ir al explorador de archivos. Flechas para moverse, Enter abre'],
     ['search-step', 'nav', 'Enter / Shift+Enter', 'Resultado siguiente o anterior', { ctx: 'En el buscador' }],
     ['replace', 'nav', 'Enter', 'Reemplazar', { ctx: 'En Reemplazar' }],
     ['replace-all', 'nav', 'Ctrl+Enter', 'Reemplazar todo', { ctx: 'En Reemplazar' }],

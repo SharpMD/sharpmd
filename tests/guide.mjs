@@ -195,14 +195,18 @@ try {
   console.log('La primera vez, sin nada propio (inglés)');
   {
     const { ctx, page } = await open();
-    await page.goto(home); await page.waitForSelector('.lmd-home [data-home=new]'); await page.waitForSelector('.lmd-xroot[data-root=guide] .lmd-node');
+    await page.goto(home); await page.waitForSelector('.lmd-home [data-home=new]'); await page.waitForSelector('.lmd-xroot[data-root=cloud]'); await wait(400);
     let t = await tree(page);
-    check('el explorador muestra la raíz "Guide" al final, con sus notas por título y en orden', t.roots[t.roots.length - 1] === 'guide' && t.roots.includes('local') && t.name === 'Guide' && J(t.nodes) === J(GUIDE.map((g) => toEn(g[1]))) && !t.add, t);
+    // Cambio a propósito: la raíz "Guide" ya no se muestra sola a quien no tiene nada (se leía como "siempre documentación").
+    // Se llega por "See how it works" y por Ajustes, y está en el explorador solo mientras se lee una de sus notas.
+    check('la primera vez el explorador muestra solo lo propio: la guía no aparece sola', !t.roots.includes('guide') && t.roots.includes('local') && !t.name, t);
     const link = await page.evaluate(() => { const a = document.querySelector('.lmd-home [data-home=guide]'); return a ? { text: a.textContent, f: new URL(a.href).searchParams.get('f'), path: new URL(a.href).pathname, tag: a.tagName } : null; });
     check('el inicio tiene el enlace "See how it works", con dirección propia', link && link.text === 'See how it works' && link.f === 'guide/start.md' && link.path === '/src/app.html' && link.tag === 'A', link);
     check('hasta acá no se pidió ningún archivo de la guía', guideHits().length === 0, guideHits());
     const mark = hits.length;
-    await page.click('.lmd-home [data-home=guide]'); await opened(page, 'Start here');
+    await page.click('.lmd-home [data-home=guide]'); await opened(page, 'Start here'); await marked(page);
+    t = await tree(page);
+    check('leyendo la guía, su raíz "Guide" está al final del explorador, con sus notas por título y en orden', t.roots[t.roots.length - 1] === 'guide' && t.roots.includes('local') && t.name === 'Guide' && J(t.nodes) === J(GUIDE.map((g) => toEn(g[1]))) && !t.add, t);
     let d = await doc(page);
     check('el enlace abre la primera nota sin recargar, en inglés y con su dirección', d.f === 'guide/start.md' && d.name === 'Start here' && d.title === 'Start here' && d.active === 'Start here' && guideHits(mark)[0] === '/src/guide/en/start.md' && !hits.slice(mark).includes('/src/app.html'), [d, guideHits(mark)]);
     check('es de solo lectura: sin ver/editar, sin insertar, sin guardar, y el pie lo dice y ofrece una copia', d.guide && d.ro && !d.editing && !d.mode && !d.insert && !d.save && d.state === 'Guide · read only' && d.copy && d.copyText === 'Save a copy', d);
@@ -288,11 +292,12 @@ try {
   {
     const { ctx, page } = await open('es');
     const mark = hits.length;
-    await page.goto(home); await page.waitForSelector('.lmd-xroot[data-root=guide] .lmd-node');
+    await page.goto(home); await page.waitForSelector('.lmd-home [data-home=guide]'); await page.waitForSelector('.lmd-xroot[data-root=local]');
+    check('el enlace del inicio dice "Ver cómo funciona"', (await page.textContent('.lmd-home [data-home=guide]')) === 'Ver cómo funciona');
+    await page.click('.lmd-home [data-home=guide]'); await opened(page, 'Empezar'); await marked(page);
+    // La raíz se mira con una nota de la guía abierta: ya no está en el explorador antes de eso.
     const t = await tree(page);
     check('la raíz se llama "Guía" y lista las notas por su título en español', t.name === 'Guía' && J(t.nodes) === J(GUIDE.map((g) => g[1])), t);
-    check('el enlace del inicio dice "Ver cómo funciona"', (await page.textContent('.lmd-home [data-home=guide]')) === 'Ver cómo funciona');
-    await page.click('.lmd-home [data-home=guide]'); await opened(page, 'Empezar');
     let d = await doc(page);
     check('abre en español: la nota, su nombre y el pie', d.f === 'guide/start.md' && d.name === 'Empezar' && d.state === 'Guía · solo lectura' && d.copyText === 'Guardar una copia' && guideHits(mark)[0] === '/src/guide/es/start.md', [d, guideHits(mark)]);
     await page.click('.lmd-article a.lmd-wiki:text-is("Conectar tu IA por MCP")'); await opened(page, 'Conectar tu IA por MCP');
@@ -361,10 +366,13 @@ console.log('En la extensión');
     // La página de bienvenida se abre sola al instalar: no es parte de esta prueba.
     const page = await ctx.newPage(); page.on('pageerror', (e) => extErrors.push(e.message));
     const asked = []; page.on('request', (r) => { if (/\/guide\//.test(r.url())) asked.push(r.url()); });
-    await page.goto(app); await page.waitForSelector('.lmd-home [data-home=guide]'); await page.waitForSelector('.lmd-xroot[data-root=guide] .lmd-node');
+    await page.goto(app); await page.waitForSelector('.lmd-home [data-home=guide]'); await page.waitForSelector('.lmd-xroot[data-root=local]');
+    const t0 = await tree(page);
+    // Tampoco en la extensión aparece sola: el enlace del inicio la abre, y ahí está su raíz, en el idioma del navegador.
+    check('la página de la extensión no muestra la guía sola, ni pide nada de ella', !t0.roots.includes('guide') && asked.length === 0, [t0.roots, asked]);
+    await page.click('.lmd-home [data-home=guide]'); await opened(page, 'Empezar'); await marked(page);
     const t = await tree(page);
-    check('la página de la extensión muestra la guía la primera vez, en el idioma del navegador', t.name === 'Guía' && t.nodes.length === GUIDE.length && asked.length === 0, [t, asked]);
-    await page.click('.lmd-home [data-home=guide]'); await opened(page, 'Empezar');
+    check('al abrirla desde el inicio, su raíz está en el explorador, en el idioma del navegador', t.name === 'Guía' && t.nodes.length === GUIDE.length, t);
     const d = await doc(page);
     check('la abre desde su propio paquete, sin salir a la red, y es de solo lectura', d.f === 'guide/start.md' && d.guide && d.ro && !d.mode && asked.length >= 1 && asked.every((u) => u.startsWith('chrome-extension://' + id + '/src/guide/es/')), [d, asked]);
     await page.click('.lmd-article a.lmd-wiki:text-is("Diagramas y fórmulas")'); await opened(page, 'Diagramas y fórmulas');
