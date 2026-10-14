@@ -2335,6 +2335,10 @@
       "Herramientas y plugins": "Tools and plugins", "Dictado y lectura en voz alta": "Dictation and read aloud", "IA con tu propia clave": "AI with your own key",
       "La nube y compartir": "The cloud and sharing", "Conectar tu IA por MCP": "Connect your AI over MCP", "Automatizaciones y webhooks": "Automations and webhooks",
       "Referencia de la API": "API reference", "Extensión de Chrome y app de Android": "Chrome extension and Android app", "Exportar e importar": "Export and import", "Privacidad": "Privacy",
+      "Modo sin distracciones (Alt+Shift+Z)": "Distraction-free mode (Alt+Shift+Z)",
+      "Modo sin distracciones": "Distraction-free mode",
+      "Esc para salir": "Esc to exit",
+      "Modo sin distracciones: solo el texto, Esc sale": "Distraction-free mode: only the text, Esc exits",
   };
   let current = 'es';
   function setLang(pref) {

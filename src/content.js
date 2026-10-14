@@ -1584,6 +1584,7 @@
           '</div>' +
           '<span class="lmd-sep lmd-doc-only"></span>' +
           // Copiar y exportar: un botón cada uno, y adentro qué copiar o a qué formato.
+          '<button class="lmd-icon-btn lmd-doc-only lmd-zen-btn" data-act="zen" aria-pressed="false" title="' + T('Modo sin distracciones (Alt+Shift+Z)') + '">' + ICON.zen + '</button>' +
           '<button class="lmd-icon-btn lmd-doc-only" data-act="copy" aria-haspopup="menu" aria-expanded="false" title="' + T('Copiar') + '">' + ICON.copy + '</button>' +
           '<button class="lmd-icon-btn lmd-doc-only" data-act="export" aria-haspopup="menu" aria-expanded="false" title="' + T('Exportar') + '">' + ICON.download + '</button>' +
           // Recargar solo sirve para lo que vive en el disco: lo demás se actualiza solo.
@@ -1789,6 +1790,9 @@
     window.addEventListener('scroll', savePosition, { passive: true });
     document.addEventListener('selectionchange', debounce(updateCount, 80));
     window.addEventListener('keydown', (e) => {
+      if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyZ' && !document.querySelector('.lmd-ask, .lmd-dgm, .lmd-pres')) { e.preventDefault(); setZen(!zen); return; }
+      // En modo sin distracciones, Escape sale cuando no hay nada más que cerrar (un menú, un cuadro, o un bloque en edición, que lo descarta).
+      if (e.key === 'Escape' && zen && !moreMenu && ui.viewer.hidden && ui.panel.hidden && !document.querySelector('.lmd-menu, .lmd-ask, .lmd-dgm, .lmd-pres') && !(document.activeElement && document.activeElement.isContentEditable)) { setZen(false); return; }
       if (e.key === 'Escape') {
         if (moreMenu) closeMore(true);
         else if (!ui.viewer.hidden) ui.viewer.click();
@@ -2055,6 +2059,19 @@
     ].concat(toolItems('export')), keys);
   }
   // En pantalla chica, lo que en escritorio está a la vista en la barra de arriba, acá en una lista.
+  // Modo sin distracciones: solo el texto, centrado. No se guarda: al recargar vuelve todo. Escape lo cierra.
+  let zen = false;
+  function setZen(on) {
+    zen = !!on;
+    document.documentElement.classList.toggle('lmd-zen', zen);
+    if (zen) {
+      closeMore(true); if (LMD.touch.small()) setDrawer(false);
+      // La barra de abajo, donde van los avisos, se esconde con todo lo demás: el aviso de cómo salir va aparte y se apaga solo.
+      const hint = el('div', { class: 'lmd-zen-hint', role: 'status' }, T('Esc para salir'));
+      document.body.appendChild(hint); setTimeout(() => hint.remove(), 2600);
+    }
+    const b = ui.main.querySelector('.lmd-zen-btn'); if (b) b.setAttribute('aria-pressed', String(zen));
+  }
   function openMore() {
     const md = docKind() === 'md'; const cloud = !!appRoot && appRoot.kind === 'cloud'; const bin = isBin(); const dir = inDir();
     // Lo que la barra todavía muestra no se repite acá: en una ventana angosta el selector de vista sigue en su lugar.
@@ -2065,6 +2082,7 @@
       cloud && LMD.live.active() && ['live', ICON.people, 'Colaborar en vivo'],
       editMode && md && !rawMode && !shown('.lmd-insert') && ['insert', ICON.plus, 'Insertar un bloque'],
       !bin && !shown('.lmd-view') && (rawMode ? ['view-doc', ICON.doc, 'Ver documento'] : ['view-raw', ICON.code, 'Ver código fuente']),
+      !bin && !shown('.lmd-zen-btn') && ['zen', ICON.zen, 'Modo sin distracciones'],
       // Copiar y exportar abren acá mismo el menú que en escritorio cuelga de su botón.
       !bin && ['copy', ICON.copy, 'Copiar'],
       !dir && ['export', ICON.download, bin ? 'Archivo' : 'Exportar'],
@@ -2098,6 +2116,7 @@
     if (act === 'shortcuts') openKeys(source);
     else if (act === 'sidebar') { if (LMD.touch.small()) setDrawer(!drawerOpen()); else LMD.patch({ sidebarHidden: !settings.sidebarHidden }); }
     else if (act === 'more') openMore();
+    else if (act === 'zen') setZen(!zen);
     else if (act === 'page') { if (LMD.page) LMD.page.open(); }
     else if (act === 'copy') openCopy(source, keys);
     else if (act === 'export') openExport(source, keys);

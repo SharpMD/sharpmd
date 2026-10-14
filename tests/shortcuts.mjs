@@ -168,7 +168,7 @@ if (ENGINE === 'chromium') await step('Pantalla chica y táctil: sin botón flot
 // Cada atajo listado tiene acá su prueba, o figura abajo con el motivo por el que no se dispara desde esta batería.
 const ELSEWHERE = {
   follow: 'necesita un enlace a otra pestaña', print: 'abre el cuadro de impresión del navegador', 'pres-full': 'la pantalla completa pide un gesto real', 'pres-pdf': 'abre el cuadro de impresión',
-  sidebar: 'lo atiende la extensión', centered: 'lo atiende la extensión', refresh: 'lo atiende la extensión', theme: 'tools.mjs (en la web) y la extensión',
+  zen: 'zen.mjs', sidebar: 'lo atiende la extensión', centered: 'lo atiende la extensión', refresh: 'lo atiende la extensión', theme: 'tools.mjs (en la web) y la extensión',
   speak: 'depende de las voces del equipo (voice.mjs)', dictate: 'necesita micrófono (voice.mjs)', 'daily-month': 'tools.mjs', wiki: 'links.mjs', replace: 'extras.mjs', 'replace-all': 'extras.mjs',
   'card-tag': 'data.mjs', 'col-name': 'data.mjs', 'ed-apply': 'diagram-editor.mjs y formulas.mjs', 'ed-cancel': 'diagram-editor.mjs y formulas.mjs', 'ed-indent': 'diagram-editor.mjs', 'ed-hole': 'formulas.mjs',
   'code-done': 'writing.mjs', 'list-level': 'lists.mjs', 'list-move': 'lists.mjs', fold: 'fold.mjs', 'fold-all': 'fold.mjs', 'unfold-all': 'fold.mjs', 'ai-here': 'assistant.mjs', 'ai-send': 'assistant.mjs', 'ai-gen': 'assistant.mjs', comment: 'ai.mjs',

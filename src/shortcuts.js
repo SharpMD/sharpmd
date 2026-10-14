@@ -70,6 +70,7 @@
     ['print', 'files', 'Ctrl+P', 'Imprimir o guardar como PDF'],
 
     ['sidebar', 'view', 'Alt+Shift+B', 'Mostrar u ocultar la barra lateral', { on: 'ext' }],
+    ['zen', 'view', 'Alt+Shift+Z', 'Modo sin distracciones: solo el texto, Esc sale'],
     ['centered', 'view', 'Alt+Shift+C', 'Centrar o no el contenido', { on: 'ext' }],
     ['refresh', 'view', 'Alt+Shift+R', 'Activar o desactivar la recarga automática', { on: 'ext' }],
     // Con la extensión la tecla es suya y recorre automático, claro y oscuro; en la web pasa de claro a oscuro.

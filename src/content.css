@@ -64,6 +64,15 @@
 .lmd-body [hidden] { display: none !important; }
 .lmd-body svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
+/* ---------- Modo sin distracciones: solo el texto, centrado ---------- */
+.lmd-zen .lmd-sidebar, .lmd-zen .lmd-topbar, .lmd-zen .lmd-foot, .lmd-zen .lmd-to-top, .lmd-zen .lmd-keys-btn, .lmd-zen .lmd-offline, .lmd-zen .lmd-scrim,
+.lmd-zen .lmd-back, .lmd-zen .lmd-daily-nav, .lmd-zen .lmd-tplbar, .lmd-zen .lmd-update { display: none !important; }
+.lmd-zen .lmd-main { margin-left: 0; }
+.lmd-zen .lmd-article, .lmd-zen .lmd-raw { max-width: calc(var(--lmd-content-w) + 96px); margin: 0 auto; padding-top: 7vh; padding-bottom: 20vh; }
+.lmd-zen-hint { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 6px 14px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--line); color: var(--fg-muted); font: 12.5px/1.4 var(--lmd-font); animation: lmd-zen-hint 2.6s ease forwards; pointer-events: none; }
+@keyframes lmd-zen-hint { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@media print { .lmd-zen-hint { display: none; } }
+
 /* ---------- Barra lateral ---------- */
 .lmd-sidebar {
   position: fixed; inset: 0 auto 0 0; width: var(--lmd-side-w);
