@@ -916,8 +916,10 @@ function sharedWith(user) {
 function sharesOf(user, of) {
   const people = q('SELECT id, path, kind, email, role FROM shares WHERE owner = ?').all(user.id).filter((s) => !of || s.path === of);
   // Un enlace de carpeta sale con su tipo, sus opciones de plantilla, las copias que se hicieron y su nombre corto.
-  const links = q('SELECT l.id, l.path, l.pass IS NOT NULL AS protected, l.created, l.kind, l.tpl, l.tpl_login, l.copies, (SELECT name FROM template_names WHERE link = l.id AND owner = l.owner) AS name FROM links l WHERE l.owner = ?').all(user.id)
-    .map((l) => (l.kind === 'folder' ? { id: l.id, path: l.path.replace(/\/$/, ''), protected: 0, created: l.created, kind: 'folder', template: !!l.tpl, login: !!l.tpl_login, copies: l.copies, name: l.name || '' } : { id: l.id, path: l.path, protected: l.protected, created: l.created }))
+  // expires: cuándo vence (0, nunca); expired, si ya venció.
+  const links = q('SELECT l.id, l.path, l.pass IS NOT NULL AS protected, l.created, l.expires, l.kind, l.tpl, l.tpl_login, l.copies, (SELECT name FROM template_names WHERE link = l.id AND owner = l.owner) AS name FROM links l WHERE l.owner = ?').all(user.id)
+    .map((l) => Object.assign(l.kind === 'folder' ? { id: l.id, path: l.path.replace(/\/$/, ''), protected: l.protected, created: l.created, kind: 'folder', template: !!l.tpl, login: !!l.tpl_login, copies: l.copies, name: l.name || '' } : { id: l.id, path: l.path, protected: l.protected, created: l.created },
+      { expires: l.expires || 0, expired: !!l.expires && l.expires <= now() }))
     .filter((l) => !of || l.path === of);
   return { people, links };
 }
@@ -936,6 +938,39 @@ function addShare(user, body) {
 
 // Enlace público de solo lectura, con contraseña opcional. La contraseña se guarda con scrypt.
 const passHash = (pass, salt) => crypto.scryptSync(String(pass), salt, 32).toString('hex');
+// Un enlace puede vencer: expires es el momento (ms) desde el que responde 410. 0 es que no vence.
+try { db.exec('ALTER TABLE links ADD COLUMN expires INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* ya estaba */ }
+const LINK_DAYS_MAX = 3660;
+// El vencimiento que se pide: milisegundos, una fecha y hora ISO, o una fecha sola (vence al terminar ese día, en UTC;
+// la app manda el fin del día en la hora de quien lo elige). Vacío, 0 o null: no vence.
+function linkExpires(v) {
+  if (v == null || v === '' || v === 0 || v === '0' || v === false) return 0;
+  const s = String(v).trim();
+  const t = typeof v === 'number' ? v : /^\d+$/.test(s) ? +s : /^\d{4}-\d{2}-\d{2}$/.test(s) ? Date.parse(s + 'T23:59:59.999Z') : Date.parse(s);
+  if (!Number.isFinite(t) || t <= now() || t > now() + LINK_DAYS_MAX * DAY) throw new Fail(400, 'bad_expires', 'The expiry date has to be in the future and within ten years');
+  return Math.floor(t);
+}
+const linkPass = (password) => {
+  if (password == null || password === '') return null;
+  if (String(password).length > 200) throw new Fail(400, 'bad_password');
+  const salt = random(12); return salt + ':' + passHash(password, salt);
+};
+// Lo que se revisa antes de mostrar nada de un enlace: que no haya vencido y, si tiene contraseña, que coincida.
+// Diez intentos fallidos bloquean el enlace diez minutos.
+function linkGate(link, password) {
+  if (link.expires && link.expires <= now()) throw new Fail(410, 'link_expired', 'This link expired');
+  if (!link.pass) return;
+  if (link.locked > now()) throw new Fail(429, 'locked', '', { retry_after: Math.ceil((link.locked - now()) / 1000) });
+  if (!password) throw new Fail(401, 'need_password');
+  const [salt, hash] = link.pass.split(':');
+  const given = Buffer.from(passHash(password, salt), 'hex');
+  if (!crypto.timingSafeEqual(given, Buffer.from(hash, 'hex'))) {
+    const fails = link.fails + 1;
+    q('UPDATE links SET fails = ?, locked = ? WHERE id = ?').run(fails >= 10 ? 0 : fails, fails >= 10 ? now() + 600000 : 0, link.id);
+    throw new Fail(403, 'bad_password');
+  }
+  if (link.fails) q('UPDATE links SET fails = 0 WHERE id = ?').run(link.id);
+}
 function addLink(user, body) {
   if (!shareAllowed(user)) throw new Fail(402, 'share_needs_plan', 'Sharing notes and creating public links are part of the paid plan');
   if (body.kind === 'folder') return addFolderLink(user, body);
@@ -943,30 +978,30 @@ function addLink(user, body) {
   if (vaultOf(user.id, p)) throw new Fail(409, 'vault', 'A note in a folder protected with a password cannot have a public link');
   if (!q('SELECT 1 FROM notes WHERE user = ? AND path = ?').get(user.id, p)) throw new Fail(404, 'not_found');
   if (q('SELECT COUNT(*) AS n FROM links WHERE owner = ?').get(user.id).n >= MAX_LINKS) throw new Fail(429, 'too_many');
-  if (body.password != null && String(body.password).length > 200) throw new Fail(400, 'bad_password');
-  const token = random(24); let pass = null;
-  if (body.password) { const salt = random(12); pass = salt + ':' + passHash(body.password, salt); }
-  const r = q('INSERT INTO links (hash, owner, path, pass, created) VALUES (?, ?, ?, ?, ?)').run(sha(token), user.id, p, pass, now());
+  const pass = linkPass(body.password); const expires = linkExpires(body.expires);
+  const token = random(24);
+  const r = q('INSERT INTO links (hash, owner, path, pass, created, expires) VALUES (?, ?, ?, ?, ?, ?)').run(sha(token), user.id, p, pass, now(), expires);
   statOnce(user.id, STAT_BIT.shared, 'shared');
-  return { id: Number(r.lastInsertRowid), token, protected: !!pass };
+  return { id: Number(r.lastInsertRowid), token, protected: !!pass, expires };
+}
+// Cambia la contraseña o el vencimiento de un enlace (de nota o de carpeta). password '' la quita; expires 0 o null
+// lo deja sin vencer. Lo que no viene no cambia. En uno de carpeta, también sus opciones de plantilla.
+function setLink(owner, id, body) {
+  const link = q('SELECT * FROM links WHERE id = ? AND owner = ?').get(id, owner.id);
+  if (!link) throw new Fail(404, 'not_found');
+  const pass = body.password !== undefined ? linkPass(body.password) : link.pass; const expires = body.expires !== undefined ? linkExpires(body.expires) : link.expires;
+  if (link.kind === 'folder' && pass && (body.template == null ? !!link.tpl : !!body.template)) throw new Fail(400, 'template_password', TPL_PASS);
+  if (body.password !== undefined) q('UPDATE links SET pass = ?, fails = 0, locked = 0 WHERE id = ?').run(pass, link.id);
+  if (body.expires !== undefined) q('UPDATE links SET expires = ? WHERE id = ?').run(expires, link.id);
+  if (link.kind === 'folder') return setFolderLink(owner, id, body);
+  const l = q('SELECT * FROM links WHERE id = ?').get(link.id);
+  return { id: l.id, path: l.path, protected: !!l.pass, expires: l.expires };
 }
 function publicNote(token, password, req, url) {
   const link = q('SELECT * FROM links WHERE hash = ?').get(sha(String(token)));
   if (!link) throw new Fail(404, 'not_found');
+  linkGate(link, password);
   if (link.kind === 'folder') return folderPublic(link, req, url);
-  if (link.pass) {
-    if (link.locked > now()) throw new Fail(429, 'locked', '', { retry_after: Math.ceil((link.locked - now()) / 1000) });
-    if (!password) throw new Fail(401, 'need_password');
-    const [salt, hash] = link.pass.split(':');
-    const given = Buffer.from(passHash(password, salt), 'hex');
-    if (!crypto.timingSafeEqual(given, Buffer.from(hash, 'hex'))) {
-      // Diez intentos fallidos bloquean el enlace diez minutos.
-      const fails = link.fails + 1;
-      q('UPDATE links SET fails = ?, locked = ? WHERE id = ?').run(fails >= 10 ? 0 : fails, fails >= 10 ? now() + 600000 : 0, link.id);
-      throw new Fail(403, 'bad_password');
-    }
-    if (link.fails) q('UPDATE links SET fails = 0 WHERE id = ?').run(link.id);
-  }
   const n = q('SELECT path, text, updated, e, v FROM notes WHERE user = ? AND path = ?').get(link.owner, link.path);
   // Un enlace nunca muestra una nota de una carpeta con contraseña, ni siquiera su texto cifrado.
   if (!n || n.v || vaultOf(link.owner, link.path)) throw new Fail(404, 'not_found');
@@ -980,7 +1015,8 @@ function publicNote(token, password, req, url) {
 // Marcado como plantilla (tpl), quien lo abre puede llevarse todas las notas de un pedido (?all=1) para dejar una
 // copia propia: en su navegador, en su nube o en un ZIP. Lo que haga con la copia no vuelve acá. tpl_login pide una
 // cuenta para llevársela (leerla sigue abierto). copies cuenta las copias completas, sin anotar de quién.
-// Un enlace de carpeta no lleva contraseña, y una carpeta protegida con contraseña no se comparte así.
+// Un enlace de carpeta puede llevar contraseña y vencimiento, como el de una nota (una plantilla, contraseña no). Una
+// carpeta protegida con contraseña (cifrada) no se comparte así.
 for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'tpl INTEGER NOT NULL DEFAULT 0', 'tpl_login INTEGER NOT NULL DEFAULT 0', 'copies INTEGER NOT NULL DEFAULT 0']) { try { db.exec('ALTER TABLE links ADD COLUMN ' + col); } catch (e) { /* ya estaba */ } }
 // El nombre corto de una plantilla (la dirección /t/<nombre>, que puede ir impresa). Es de la cuenta que lo eligió
 // para siempre: puede apuntarlo a otro enlace suyo, y nadie más lo puede tomar aunque quede sin enlace (link nulo,
@@ -1033,10 +1069,13 @@ function tplNameSet(owner, link, raw) {
   if (name) q('INSERT INTO template_names (name, owner, link, created) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET link = excluded.link').run(name, owner.id, link.id, now());
   return name;
 }
-const folderLinkView = (link) => ({ id: link.id, path: link.path.replace(/\/$/, ''), kind: 'folder', template: !!link.tpl, login: !!link.tpl_login, copies: link.copies, name: tplNameOf(link) });
+const folderLinkView = (link) => ({ id: link.id, path: link.path.replace(/\/$/, ''), kind: 'folder', template: !!link.tpl, login: !!link.tpl_login, copies: link.copies, name: tplNameOf(link), protected: !!link.pass, expires: link.expires || 0 });
+// Una plantilla es para que cualquiera se lleve una copia (y su dirección corta puede ir impresa): no lleva contraseña.
+const TPL_PASS = 'A template cannot have a password. Share the folder as read only to protect it with one.';
 function addFolderLink(user, body) {
   const pre = folderPre(body.path);
-  if (body.password) throw new Fail(400, 'folder_password', 'A folder link does not take a password');
+  if (body.password && body.template) throw new Fail(400, 'template_password', TPL_PASS);
+  const pass = linkPass(body.password); const expires = linkExpires(body.expires);
   // Ni la carpeta, ni una de más arriba, ni una de adentro pueden estar protegidas con contraseña.
   if (vaultsOf(user.id).some((v) => !v.folder || inside(pre + 'x', v.folder) || (v.folder + '/').startsWith(pre))) throw new Fail(409, 'vault', 'A folder protected with a password cannot have a public link or be a template');
   if (!q('SELECT 1 FROM notes WHERE user = ? AND substr(path, 1, length(?)) = ? LIMIT 1').get(user.id, pre, pre)) throw new Fail(404, 'not_found');
@@ -1045,14 +1084,14 @@ function addFolderLink(user, body) {
   const token = random(24); let made = null;
   db.exec('BEGIN');
   try {
-    const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login) VALUES (?, ?, ?, NULL, ?, 'folder', ?, ?)").run(sha(token), user.id, pre, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0);
+    const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login, expires) VALUES (?, ?, ?, ?, ?, 'folder', ?, ?, ?)").run(sha(token), user.id, pre, pass, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0, expires);
     made = q('SELECT * FROM links WHERE id = ?').get(Number(r.lastInsertRowid));
     q('UPDATE template_names SET link = NULL WHERE link = ?').run(made.id); // un enlace nuevo nunca hereda el nombre de otro que tuvo su número
     if (name) tplNameSet(user, made, name);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   statOnce(user.id, STAT_BIT.shared, 'shared');
-  return Object.assign(folderLinkView(made), { token, protected: false });
+  return Object.assign(folderLinkView(made), { token });
 }
 // Cambia las opciones de un enlace de carpeta: si es plantilla, si pide cuenta y su nombre. Dejar de ser plantilla
 // suelta el nombre (sigue siendo de la cuenta) y la dirección corta responde que fue retirada.
@@ -1060,6 +1099,7 @@ function setFolderLink(owner, id, body) {
   const link = q("SELECT * FROM links WHERE id = ? AND owner = ? AND kind = 'folder'").get(id, owner.id);
   if (!link) throw new Fail(404, 'not_found');
   const tpl = body.template == null ? !!link.tpl : !!body.template; const login = tpl && (body.login == null ? !!link.tpl_login : !!body.login);
+  if (tpl && link.pass) throw new Fail(400, 'template_password', TPL_PASS);
   db.exec('BEGIN');
   try {
     q('UPDATE links SET tpl = ?, tpl_login = ? WHERE id = ?').run(tpl ? 1 : 0, login ? 1 : 0, link.id);
@@ -1123,6 +1163,7 @@ function templateByName(raw, req) {
   if (!row) { mark(ip); throw new Fail(404, 'not_found'); }
   const link = row.link == null ? null : q("SELECT * FROM links WHERE id = ? AND owner = ? AND kind = 'folder' AND tpl = 1").get(row.link, row.owner);
   if (!link || !folderRows(link).length) throw new Fail(410, 'template_gone', 'This template was withdrawn');
+  linkGate(link, null);
   return link;
 }
 // Al renombrar o mover una carpeta, la app mueve sus notas de a una. El enlace de la carpeta la sigue cuando la
@@ -1869,7 +1910,7 @@ const TOOLS = [
   { share: true, name: 'list_shares', description: 'List who the notes are shared with and which public links exist. Pass a path to see only that note or folder.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Optional note or folder' } } } },
   { share: true, name: 'share_note', description: 'Share a note, or a whole folder, with another SharpMD account by its email address. Only do this when the person asks for it. They open it after signing in to SharpMD with that address.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Path of a note, or of a folder to share everything inside it' }, email: { type: 'string' }, role: { type: 'string', enum: ['view', 'edit'], description: 'view (default) or edit' } }, required: ['path', 'email'] } },
   { share: true, name: 'unshare_note', description: 'Stop sharing a note or folder with an email address.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, email: { type: 'string' } }, required: ['path', 'email'] } },
-  { share: true, name: 'create_public_link', description: 'Create a read-only public link to a note and return its URL. Anyone with the URL can read the note, so only do this when the person asks for it. Pass a password to protect it. The URL is only returned once.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, password: { type: 'string', description: 'Optional password the reader must type' } }, required: ['path'] } },
+  { share: true, name: 'create_public_link', description: 'Create a read-only public link to a note and return its URL. Anyone with the URL can read the note, so only do this when the person asks for it. Pass a password to protect it, and expires to make it stop working after a date. The URL is only returned once.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, password: { type: 'string', description: 'Optional password the reader must type' }, expires: { type: 'string', description: 'Optional end date, YYYY-MM-DD (the link stops working when that day ends, UTC) or an ISO date and time' } }, required: ['path'] } },
   { share: true, name: 'revoke_public_link', description: 'Revoke public links: one by its id, or every link to a note by its path.', inputSchema: { type: 'object', properties: { id: { type: 'number' }, path: { type: 'string' } } } },
 ];
 // A un token del equipo que solo lee no se le ofrecen las que cambian algo.
@@ -2117,7 +2158,7 @@ function runTool(user, name, args, opt, did) {
     if (name === 'list_shares') {
       const a = args.path ? own(args.path, 'share') : { who: user, p: '' };
       const all = sharesOf(a.who, a.p);
-      return { people: all.people.filter((s) => within(user, pre(a) + s.path)).map((s) => ({ path: pre(a) + s.path, kind: s.kind, email: s.email, role: s.role })), links: all.links.filter((l) => within(user, pre(a) + l.path)).map((l) => ({ id: l.id, path: pre(a) + l.path, protected: !!l.protected, created: new Date(l.created).toISOString() })) };
+      return { people: all.people.filter((s) => within(user, pre(a) + s.path)).map((s) => ({ path: pre(a) + s.path, kind: s.kind, email: s.email, role: s.role })), links: all.links.filter((l) => within(user, pre(a) + l.path)).map((l) => Object.assign({ id: l.id, path: pre(a) + l.path, protected: !!l.protected, created: new Date(l.created).toISOString() }, l.expires ? { expires: new Date(l.expires).toISOString(), expired: l.expired } : {})) };
     }
     if (name === 'share_note') {
       const a = own(args.path, 'share'); const p = a.p;
@@ -2135,9 +2176,10 @@ function runTool(user, name, args, opt, did) {
       return 'Stopped sharing ' + a.full + ' with ' + email + '.';
     }
     if (name === 'create_public_link') {
-      const a = own(args.path, 'links'); const body = { path: a.p, password: args.password == null || args.password === '' ? null : String(args.password) };
+      const a = own(args.path, 'links'); const body = { path: a.p, password: args.password == null || args.password === '' ? null : String(args.password), expires: args.expires };
       const made = inTeam(a) ? teamLink(theTeam, user, a.who, body) : addLink(user, body);
-      return { path: a.full, url: appLink('pub/' + made.token), id: made.id, protected: made.protected, note: 'Anyone with this URL can read the note' + (made.protected ? ' after typing the password.' : '.') + ' The URL is not shown again.' };
+      return Object.assign({ path: a.full, url: appLink('pub/' + made.token), id: made.id, protected: made.protected }, made.expires ? { expires: new Date(made.expires).toISOString() } : {},
+        { note: 'Anyone with this URL can read the note' + (made.protected ? ' after typing the password' : '') + (made.expires ? ' until ' + new Date(made.expires).toISOString() : '') + '. The URL is not shown again.' });
     }
     // revoke_public_link: uno por id, o todos los de una nota. Por id se busca en lo propio y, si se puede, en lo del equipo.
     const of = args.id == null ? own(args.path, 'links') : null;
@@ -2775,7 +2817,7 @@ function teamShare(team, user, owner, body) {
 }
 function teamLink(team, user, owner, body) {
   const r = addLink(owner, body);
-  teamLog(team, user, 'link', cleanPath(body.path), r.protected ? 'password' : '');
+  teamLog(team, user, 'link', cleanPath(body.path), [r.protected ? 'password' : '', r.expires ? 'expires ' + iso(r.expires).slice(0, 10) : ''].filter(Boolean).join(' '));
   return r;
 }
 // De quién es lo que se comparte en un pedido que trae o. Con el espacio del equipo, what dice qué se necesita:
@@ -4656,7 +4698,7 @@ async function apiRoute(req, url, p, m) {
   if (r === '/shares' && m === 'GET') return ok(call('list_shares', { path: qs.get('path') || undefined }));
   if (r === '/shares' && m === 'POST') return ok({ message: call('share_note', { path: body.path, email: body.email, role: body.role }) });
   if (r === '/shares' && m === 'DELETE') return ok({ message: call('unshare_note', { path: qs.get('path'), email: qs.get('email') }) });
-  if (r === '/links' && m === 'POST') return ok(call('create_public_link', { path: body.path, password: body.password }));
+  if (r === '/links' && m === 'POST') return ok(call('create_public_link', { path: body.path, password: body.password, expires: body.expires }));
   if (r === '/links' && m === 'DELETE') return ok({ message: call('revoke_public_link', { id: num(qs.get('id')), path: qs.get('path') || undefined }) });
   throw new Fail(404, 'no_route');
 }
@@ -6467,6 +6509,7 @@ async function route(req, url) {
   if (copied) {
     const link = copied[1] === 'template' ? templateByName(dec(copied[2]), req) : q("SELECT * FROM links WHERE hash = ? AND kind = 'folder'").get(sha(dec(copied[2])));
     if (!link) throw new Fail(404, 'not_found');
+    if (copied[1] === 'public') linkGate(link, req.headers['x-password']);
     return folderCopied(link, req);
   }
   if (p.startsWith('/template/') && m === 'GET') return folderPublic(templateByName(dec(p.slice(10)), req), req, url);
@@ -6515,7 +6558,7 @@ async function route(req, url) {
     return { ok: true };
   }
   if (p === '/links' && m === 'POST') { const b = await readBody(req); const owner = shareOwner(user, b.o, 'links'); if (owner === user) return addLink(user, b); const r = teamLink(user.team, user, owner, b); statOnce(user.id, STAT_BIT.shared, 'shared'); return r; }
-  if (p.startsWith('/links/') && m === 'PUT') { const b = await readBody(req); return setFolderLink(shareOwner(user, b.o, 'links'), +p.slice(7), b); }
+  if (p.startsWith('/links/') && m === 'PUT') { const b = await readBody(req); return setLink(shareOwner(user, b.o, 'links'), +p.slice(7), b); }
   if (p.startsWith('/links/') && m === 'DELETE') {
     const owner = shareOwner(user, url.searchParams.get('o'), 'links'); const row = q('SELECT path FROM links WHERE id = ? AND owner = ?').get(+p.slice(7), owner.id);
     q('DELETE FROM links WHERE id = ? AND owner = ?').run(+p.slice(7), owner.id);
@@ -6652,6 +6695,7 @@ const PERSON_TEXT = {
 // Frases propias de una ruta para personas: una imagen adjunta que ya no está.
 const PERSON_KIND = {
   file: ['Image not found', 'This image is not here', 'The link may be mistyped, or the image was deleted from its note.'],
+  link_expired: ['Link expired', 'This link expired', 'The person who shared it gave it an end date, and that date passed. Ask them for a new link.'],
 };
 const PERSON_LOGO = '<svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#14161a"/><g fill="#f3f5f8"><rect x="14.5" y="17" width="6" height="30" rx="1.3"/><rect x="26.5" y="17" width="6" height="30" rx="1.3"/><rect x="8.5" y="23.25" width="30" height="6" rx="1.3"/><rect x="8.5" y="34.75" width="30" height="6" rx="1.3"/></g><rect x="43.5" y="15" width="11" height="34" rx="2.4" fill="#c5f467"/></svg>';
 const PERSON_CSS = ':root{color-scheme:light dark;--bg:#fbfaf7;--soft:#f1efe9;--fg:#1d2026;--muted:#5c6370;--line:#dedbd2;--fill:#4d7c0f;--on:#fff}' +
@@ -6710,7 +6754,7 @@ const server = http.createServer(async (req, res) => {
     if (status >= 500) console.error(status === 500 ? 'error 500 en ' + req.method + ' ' + String(req.url).split('?')[0].slice(0, 80) + ' · ' + String(e && e.stack || e).slice(0, 1500) : 'error ' + status + ' ' + (e.code || '') + ' en ' + req.method + ' ' + String(req.url).split('?')[0].slice(0, 80));
     if (res.headersSent) { res.end(); return; }
     // Una persona navegando: la página, con el mismo código. La portada del servidor dice qué es esto.
-    if (wantsPage(req)) { personSend(req, res, status, String(req.url).split('?')[0] === '/' ? 'root' : '', e instanceof Fail && e.extra && e.extra.retry_after ? { 'retry-after': String(e.extra.retry_after) } : null); return; }
+    if (wantsPage(req)) { personSend(req, res, status, String(req.url).split('?')[0] === '/' ? 'root' : e instanceof Fail && PERSON_KIND[e.code] ? e.code : '',e instanceof Fail && e.extra && e.extra.retry_after ? { 'retry-after': String(e.extra.retry_after) } : null); return; }
     const body = JSON.stringify(String(req.url).startsWith('/api/v1/') ? apiError(e) : e instanceof Fail ? Object.assign({ error: e.code, message: e.message || '' }, e.extra) : { error: 'server_error', message: '' });
     if (e instanceof Fail && e.extra && e.extra.retry_after) res.setHeader('retry-after', String(e.extra.retry_after));
     // Un cuerpo pasado de tamaño: se avisa y recién ahí se corta, para no seguir recibiendo.

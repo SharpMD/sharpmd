@@ -21,11 +21,13 @@ With a cloud note open, the cloud button opens a menu. **Share** has two ways:
 | Way | Who gets in | What they can do |
 |---|---|---|
 | **With another account** | The person whose email you type | **View only** or **Can edit** |
-| **With a read-only link** | Anyone who has the link | Read. It can carry a password |
+| **With a read-only link** | Anyone who has the link | Read. It can carry a password and an end date |
 
 A whole folder can be shared with another account too. Sharing is part of the paid plan.
 
-A cloud folder can also be shared with a link, and it can be a template. It is in the right-click on the folder: **Share the folder…**. With **It is a template**, whoever opens the link reads the folder and takes a copy to edit: to their browser, to their cloud or as a ZIP. The original does not change, and nobody else sees what each person does with their copy. **Ask for an account to use it** lets anyone read it and asks them to sign in to take it. The short address gives it a name, like `sharpmd.app/t/my-template`, good for printing: the name stays with your account and you can point it to another folder. The same window shows how many copies were made.
+A cloud folder can also be shared with a link, and it can be a template. It is in the right-click on the folder: **Share the folder…**. With **It is a template**, whoever opens the link reads the folder and takes a copy to edit: to their browser, to their cloud or as a ZIP. The original does not change, and nobody else sees what each person does with their copy. **Ask for an account to use it** lets anyone read it and asks them to sign in to take it. The short address gives it a name, like `sharpmd.app/t/my-template`, good for printing: the name stays with your account and you can point it to another folder. The same window shows how many copies were made. A folder link that is not a template can carry a password.
+
+A link with an end date stops opening when that day ends, and whoever opens it sees that it expired. The server checks the password, and after several failed tries the link locks for a while.
 
 ## Writing at the same time
 

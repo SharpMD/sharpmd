@@ -940,6 +940,55 @@ try {
     check('portada: hay un tope por IP, y otra IP sigue entrando', last.status === 429 && after === 2 + 60 && (await beat({ v: 'b', e: 'view' }, '203.0.113.10')).status === 204, [last.status, after]);
   }
 
+  // Enlaces públicos con fecha de vencimiento, y carpetas con contraseña.
+  console.log('Enlaces: vencimiento y contraseña de carpeta');
+  {
+    const enc = encodeURIComponent;
+    const linkDb = (sql, ...args) => { const db = new DatabaseSync(path.join(data, 'mdtools.db')); db.exec('PRAGMA busy_timeout = 3000'); db.prepare(sql).run(...args); db.close(); };
+    const page = (p) => new Promise((resolve) => { const r = http.request(base + p, { headers: { accept: 'text/html', 'x-forwarded-for': '203.0.113.90' } }, (res) => { let body = ''; res.on('data', (d) => { body += d; }); res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'] || '', body })); }); r.end(); });
+    const past = await call('POST', '/links', { path: 'ia/resumen.md', expires: '2020-01-01' }, s);
+    const far = await call('POST', '/links', { path: 'ia/resumen.md', expires: Date.now() + 20 * 365 * 864e5 }, s);
+    check('un vencimiento en el pasado, o a más de diez años, se rechaza', past.status === 400 && past.json.error === 'bad_expires' && far.status === 400, [past.json, far.json]);
+    const soon = await call('POST', '/links', { path: 'ia/resumen.md', expires: Date.now() + 3600000 }, s);
+    check('un enlace con vencimiento futuro abre', soon.status === 200 && soon.json.expires > Date.now() && (await call('GET', '/public/' + soon.json.token)).status === 200, soon.json);
+    const byDate = await call('POST', '/links', { path: 'ia/resumen.md', expires: new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10) }, s);
+    check('una fecha sola vence al terminar ese día (UTC)', byDate.status === 200 && new Date(byDate.json.expires).toISOString().endsWith('T23:59:59.999Z'), byDate.json);
+    const listed = (await call('GET', '/shares?path=' + enc('ia/resumen.md'), undefined, s)).json.links.find((l) => l.id === soon.json.id);
+    check('la lista de enlaces dice cuándo vence', listed && listed.expires === soon.json.expires && listed.expired === false, listed);
+    linkDb('UPDATE links SET expires = ? WHERE id = ?', Date.now() - 1000, soon.json.id);
+    const gone = await call('GET', '/public/' + soon.json.token);
+    check('un enlace vencido responde 410 link_expired, sin el texto', gone.status === 410 && gone.json.error === 'link_expired' && !('text' in gone.json), gone.json);
+    const gonePage = await page('/public/' + enc(soon.json.token));
+    check('a una persona, el vencido le llega como página clara con 410', gonePage.status === 410 && /^text\/html/.test(gonePage.type) && /This link expired/.test(gonePage.body) && /end date/.test(gonePage.body), [gonePage.status, gonePage.body.slice(0, 120)]);
+    check('y la lista lo marca vencido', (await call('GET', '/shares?path=' + enc('ia/resumen.md'), undefined, s)).json.links.find((l) => l.id === soon.json.id).expired === true);
+    const put = await call('PUT', '/links/' + soon.json.id, { expires: null }, s);
+    check('quitarle el vencimiento lo vuelve a abrir', put.status === 200 && put.json.expires === 0 && (await call('GET', '/public/' + soon.json.token)).status === 200, put.json);
+    const putPass = await call('PUT', '/links/' + soon.json.id, { password: 'uva-3' }, s);
+    check('y se le puede poner contraseña después', putPass.json.protected === true && (await call('GET', '/public/' + soon.json.token)).status === 401 && (await call('GET', '/public/' + soon.json.token, undefined, undefined, { 'x-password': 'uva-3' })).status === 200, putPass.json);
+    check('otra cuenta no cambia un enlace ajeno', (await call('PUT', '/links/' + soon.json.id, { expires: null }, b)).status === 404);
+
+    const fpw = await call('POST', '/links', { path: 'ideas', kind: 'folder', password: 'kiwi-7' }, s);
+    check('un enlace de carpeta acepta contraseña', fpw.status === 200 && fpw.json.protected === true && fpw.json.kind === 'folder', fpw.json);
+    const pw = { 'x-password': 'kiwi-7' };
+    const fNo = await call('GET', '/public/' + fpw.json.token); const fNote = await call('GET', '/public/' + fpw.json.token + '?note=uno.md');
+    const fBad = await call('GET', '/public/' + fpw.json.token + '?note=uno.md', undefined, undefined, { 'x-password': 'pera' });
+    const fOk = await call('GET', '/public/' + fpw.json.token, undefined, undefined, pw); const fNoteOk = await call('GET', '/public/' + fpw.json.token + '?note=uno.md', undefined, undefined, pw);
+    check('sin la contraseña no muestra la lista ni una nota; con una equivocada tampoco; con la correcta sí', fNo.status === 401 && fNo.json.error === 'need_password' && !fNo.json.notes && fNote.status === 401 && fBad.status === 403
+      && fOk.status === 200 && fOk.json.kind === 'folder' && fOk.json.notes.some((n) => n.path === 'uno.md') && fNoteOk.status === 200 && typeof fNoteOk.json.text === 'string', [fNo.json, fNote.json, fBad.json, fOk.json]);
+    const tplPw = await call('POST', '/links', { path: 'ideas', kind: 'folder', template: true, password: 'kiwi-7' }, s);
+    const toTpl = await call('PUT', '/links/' + fpw.json.id, { template: true }, s);
+    check('una plantilla no lleva contraseña, ni al crearla ni al convertirla', tplPw.status === 400 && tplPw.json.error === 'template_password' && toTpl.status === 400 && toTpl.json.error === 'template_password', [tplPw.json, toTpl.json]);
+    check('avisar una copia de una carpeta con contraseña también la pide', (await call('POST', '/public/' + fpw.json.token + '/copied')).status === 401);
+    linkDb('UPDATE links SET expires = ? WHERE id = ?', Date.now() - 1000, fpw.json.id);
+    const fGone = await call('GET', '/public/' + fpw.json.token + '?note=uno.md', undefined, undefined, pw);
+    check('una carpeta vencida responde 410 aunque la contraseña sea la correcta', fGone.status === 410 && fGone.json.error === 'link_expired', fGone.json);
+    const tpl = await call('POST', '/links', { path: 'ideas', kind: 'folder', template: true, name: 'ideas-vence', expires: Date.now() + 3600000 }, s);
+    linkDb('UPDATE links SET expires = ? WHERE id = ?', Date.now() - 1000, tpl.json.id);
+    const tGone = await call('GET', '/template/ideas-vence');
+    check('una plantilla vencida, abierta por su nombre, también responde 410 link_expired', tpl.status === 200 && tGone.status === 410 && tGone.json.error === 'link_expired', [tpl.json, tGone.json]);
+    for (const id of [soon.json.id, byDate.json.id, fpw.json.id, tpl.json.id]) await call('DELETE', '/links/' + id, undefined, s);
+  }
+
   // Una persona que abre una dirección del servidor en el navegador ve una página propia, con el mismo código.
   // Un cliente de la API recibe el JSON de siempre. (tests/security.mjs, "Páginas para personas", lo recorre entero.)
   console.log('Páginas para personas');

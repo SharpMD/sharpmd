@@ -21,11 +21,13 @@ Con una nota de la nube abierta, el botón de la nube abre un menú. **Compartir
 | Camino | Quién entra | Qué puede hacer |
 |---|---|---|
 | **Con otra cuenta** | La persona del correo que escribís | **Solo ver** o **Puede editar** |
-| **Con un enlace de solo lectura** | Cualquiera que tenga el enlace | Leer. Puede llevar contraseña |
+| **Con un enlace de solo lectura** | Cualquiera que tenga el enlace | Leer. Puede llevar contraseña y fecha de vencimiento |
 
 También se comparte una carpeta entera con otra cuenta. Compartir es parte del plan pago.
 
-Una carpeta de la nube también se comparte con un enlace, y puede ser una plantilla. Está en el clic derecho sobre la carpeta: **Compartir la carpeta…**. Con **Es una plantilla**, quien abre el enlace lee la carpeta y se lleva una copia para editar: a su navegador, a su nube o en un ZIP. El original no cambia y nadie más ve lo que cada uno hace con su copia. **Pedir una cuenta para usarla** deja leerla a cualquiera y pide entrar para llevársela. La dirección corta le pone un nombre, como `sharpmd.app/t/mi-plantilla`, que sirve para imprimirla: el nombre queda de tu cuenta y lo podés apuntar a otra carpeta. Ahí mismo ves cuántas copias se hicieron.
+Una carpeta de la nube también se comparte con un enlace, y puede ser una plantilla. Está en el clic derecho sobre la carpeta: **Compartir la carpeta…**. Con **Es una plantilla**, quien abre el enlace lee la carpeta y se lleva una copia para editar: a su navegador, a su nube o en un ZIP. El original no cambia y nadie más ve lo que cada uno hace con su copia. **Pedir una cuenta para usarla** deja leerla a cualquiera y pide entrar para llevársela. La dirección corta le pone un nombre, como `sharpmd.app/t/mi-plantilla`, que sirve para imprimirla: el nombre queda de tu cuenta y lo podés apuntar a otra carpeta. Ahí mismo ves cuántas copias se hicieron. Un enlace de carpeta que no es plantilla puede llevar contraseña.
+
+Un enlace con fecha de vencimiento deja de abrir al terminar ese día, y quien lo abre ve que venció. La contraseña la revisa el servidor, y después de varios intentos fallidos el enlace se traba un rato.
 
 ## Escribir a la vez
 

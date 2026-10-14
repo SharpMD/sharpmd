@@ -2335,6 +2335,17 @@
       "Herramientas y plugins": "Tools and plugins", "Dictado y lectura en voz alta": "Dictation and read aloud", "IA con tu propia clave": "AI with your own key",
       "La nube y compartir": "The cloud and sharing", "Conectar tu IA por MCP": "Connect your AI over MCP", "Automatizaciones y webhooks": "Automations and webhooks",
       "Referencia de la API": "API reference", "Extensión de Chrome y app de Android": "Chrome extension and Android app", "Exportar e importar": "Export and import", "Privacidad": "Privacy",
+      "Este enlace venció": "This link expired",
+      "Quien lo compartió le puso una fecha de vencimiento y ya pasó. Pedile un enlace nuevo.": "The person who shared it gave it an end date, and that date passed. Ask them for a new link.",
+      "Este enlace venció.": "This link expired.",
+      "Vence (opcional)": "Expires (optional)",
+      "venció": "expired",
+      "vence el {a}": "expires on {a}",
+      "La fecha de vencimiento tiene que ser futura.": "The expiry date has to be in the future.",
+      "una plantilla no lleva contraseña": "a template has no password",
+      "contraseña nueva (opcional)": "new password (optional)",
+      "con contraseña": "with a password",
+      "Una plantilla no lleva contraseña. Quitá el enlace y crealo de nuevo sin contraseña.": "A template has no password. Remove the link and create it again without one.",
   };
   let current = 'es';
   function setLang(pref) {

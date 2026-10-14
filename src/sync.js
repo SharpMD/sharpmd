@@ -980,6 +980,10 @@
   }
 
   const mine = () => LMD.cloud.split(core.cloudPath);
+  // Vencimiento de un enlace: la fecha del campo vence al terminar ese día, en la hora de quien la elige.
+  const linkDay = (ms) => { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const linkExp = (v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + 'T23:59:59.999').getTime() : null);
+  const linkEnd = (l) => (!l.expires ? '' : ' · ' + (l.expired ? T('venció') : T('vence el {a}', { a: new Date(l.expires).toLocaleDateString(LMD.lang() === 'en' ? 'en-US' : 'es-AR', { dateStyle: 'medium' }) })));
 
   // Compartir: con otra cuenta (ver o editar), o con un enlace público de solo lectura, con contraseña opcional.
   async function share() {
@@ -998,7 +1002,8 @@
       (folder ? '<label class="lmd-check"><input type="checkbox" data-sh="folder"><span>' + T('Compartir toda la carpeta "{a}"', { a: esc(folder) }) + '</span></label>' : '') : '') +
       '<ul data-sh="people"' + (people ? '' : ' hidden') + '></ul>' +
       (links ? '<h4>' + T('Con un enlace de solo lectura') + '</h4>' +
-      '<div class="lmd-share-row"><input type="text" data-sh="pass" placeholder="' + T('contraseña (opcional)') + '"><button type="button" class="lmd-btn" data-sh="link">' + T('Crear enlace') + '</button></div>' : '') +
+      '<div class="lmd-share-row"><input type="text" data-sh="pass" placeholder="' + T('contraseña (opcional)') + '"><button type="button" class="lmd-btn" data-sh="link">' + T('Crear enlace') + '</button></div>' +
+      '<label class="lmd-share-exp">' + T('Vence (opcional)') + ' <input type="date" data-sh="exp" min="' + linkDay(Date.now() + 864e5) + '"></label>' : '') +
       '<ul data-sh="links"' + (links ? '' : ' hidden') + '></ul>' +
       // La carpeta entera con un enlace, o como plantilla: tiene su propia ventana (shareFolder).
       (links && folder ? '<button type="button" class="lmd-link lmd-share-more" data-sh="folderlink">' + T('Compartir toda la carpeta "{a}" con un enlace o como plantilla…', { a: esc(folder) }) + '</button>' : '') +
@@ -1008,7 +1013,7 @@
       '<div class="lmd-ask-actions"><button type="button" class="lmd-btn" data-sh="close" data-esc>' + T('Cerrar') + '</button></div></div>';
     document.body.appendChild(box);
     const q = (n) => box.querySelector('[data-sh=' + n + ']'); const err = box.querySelector('.lmd-img-err');
-    const fail = (e) => { err.hidden = false; err.textContent = T({ bad_email: 'Ese correo no parece válido.', own_email: 'Ese es tu propio correo.', offline: 'No hay conexión con el servidor.', share_needs_plan: 'Compartir es parte del plan pago.', already_member: 'Esa persona ya está en el equipo.', team_policy: 'Lo administra quien administra el equipo', read_only: 'En este equipo solo podés leer.', too_many: 'Llegaste al tope de lo que se puede compartir. Quitá algo para sumar más.', not_found: 'Esta nota ya no está en la nube.' }[e && e.code] || 'No se pudo completar. Probá de nuevo.'); };
+    const fail = (e) => { err.hidden = false; err.textContent = T({ bad_email: 'Ese correo no parece válido.', own_email: 'Ese es tu propio correo.', offline: 'No hay conexión con el servidor.', share_needs_plan: 'Compartir es parte del plan pago.', already_member: 'Esa persona ya está en el equipo.', team_policy: 'Lo administra quien administra el equipo', read_only: 'En este equipo solo podés leer.', too_many: 'Llegaste al tope de lo que se puede compartir. Quitá algo para sumar más.', not_found: 'Esta nota ya no está en la nube.', bad_expires: 'La fecha de vencimiento tiene que ser futura.' }[e && e.code] || 'No se pudo completar. Probá de nuevo.'); };
     const made = {}; // enlaces creados en esta ventana: el token solo se conoce al crearlo
     const draw = async () => {
       try {
@@ -1017,7 +1022,7 @@
         q('people').innerHTML = people.map((s) => '<li><span>' + esc(s.email) + ' · ' + T(s.role === 'edit' ? 'Puede editar' : 'Solo ver') + (s.kind === 'folder' ? ' · ' + esc(s.path) + '/' : '') + '</span><button type="button" data-rm="s' + s.id + '">' + T('Quitar') + '</button></li>').join('');
         const fresh = all.links.some((l) => l.path === path && made[l.id]);
         q('linknote').hidden = !fresh;
-        q('links').innerHTML = all.links.filter((l) => l.path === path && l.kind !== 'folder').map((l) => '<li' + (made[l.id] ? ' class="lmd-share-new"' : '') + '>' + (made[l.id] ? '<input type="text" readonly aria-label="' + T('Enlace') + '" value="' + esc(made[l.id]) + '"><button type="button" class="lmd-link" data-sh="copy">' + T('Copiar') + '</button>' : '<span>' + T(l.protected ? 'Enlace con contraseña' : 'Enlace abierto') + '</span>') + '<button type="button" data-rm="l' + l.id + '">' + T('Quitar') + '</button></li>').join('');
+        q('links').innerHTML = all.links.filter((l) => l.path === path && l.kind !== 'folder').map((l) => '<li' + (made[l.id] ? ' class="lmd-share-new"' : '') + '>' + (made[l.id] ? '<input type="text" readonly aria-label="' + T('Enlace') + '" value="' + esc(made[l.id]) + '"><button type="button" class="lmd-link" data-sh="copy">' + T('Copiar') + '</button>' : '<span>' + T(l.protected ? 'Enlace con contraseña' : 'Enlace abierto') + linkEnd(l) + '</span>') + '<button type="button" data-rm="l' + l.id + '">' + T('Quitar') + '</button></li>').join('');
       } catch (e) { fail(e); }
     };
     draw();
@@ -1041,11 +1046,11 @@
           q('email').value = ''; return draw();
         }
         if (e.target.closest('[data-sh=link]')) {
-          const r = await LMD.cloud.link(full, q('pass').value);
+          const r = await LMD.cloud.link(full, q('pass').value, linkExp(q('exp').value));
           const all = await LMD.cloud.shares(full);
           const newest = all.links.sort((a, b) => b.id - a.id)[0];
           if (newest) made[newest.id] = LMD.WEB_APP_URL + '?f=' + encodeURIComponent('pub/' + r.token);
-          q('pass').value = ''; return draw();
+          q('pass').value = ''; q('exp').value = ''; return draw();
         }
       } catch (ex) { fail(ex); }
     });
@@ -1080,6 +1085,8 @@
           (named ? '<div class="lmd-share-name lmd-share-sub"><label for="lmd-sf-name">' + T('Dirección corta (opcional)') + '</label>' +
             '<div class="lmd-share-row"><b>' + esc(tplHost()) + '</b><input type="text" id="lmd-sf-name" data-sf="name" disabled maxlength="40" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="' + T('mi-plantilla') + '"></div>' +
             '<small>' + T('Minúsculas, números y guiones. Si la vas a imprimir, elegila con cuidado: después no conviene cambiarla.') + '</small></div>' : '') +
+          '<div class="lmd-share-row"><input type="text" data-sf="pass" disabled placeholder="' + T('contraseña (opcional)') + '" autocomplete="off">' +
+            '<label class="lmd-share-exp">' + T('Vence (opcional)') + ' <input type="date" data-sf="exp" disabled min="' + linkDay(Date.now() + 864e5) + '"></label></div>' +
           '<div class="lmd-share-row"><button type="button" class="lmd-btn lmd-btn-fill" data-sf="save" disabled>' + T('Crear enlace') + '</button></div>' +
           '<ul data-sf="links"></ul>' +
           '<p class="lmd-hint" data-sf="once" hidden>' + T('Copiá el enlace ahora: no se vuelve a mostrar.') + '</p>') +
@@ -1090,23 +1097,26 @@
     const fail = (e) => { err.hidden = false; err.textContent = T({ offline: 'No hay conexión con el servidor.', share_needs_plan: 'Compartir es parte del plan pago.', team_policy: 'Lo administra quien administra el equipo', read_only: 'En este equipo solo podés leer.',
       too_many: 'Llegaste al tope de lo que se puede compartir. Quitá algo para sumar más.', not_found: 'Esta carpeta ya no tiene notas en la nube.', vault: NO_VAULT,
       bad_name: 'Ese nombre no sirve. Van de 3 a 40 minúsculas, números y guiones, sin guion al principio ni al final.', name_reserved: 'Ese nombre está reservado. Elegí otro.', name_taken: 'Ese nombre ya lo usa otra cuenta. Elegí otro.',
-      too_many_names: 'Llegaste al tope de direcciones cortas de la cuenta.' }[e && e.code] || 'No se pudo completar. Probá de nuevo.'); };
+      too_many_names: 'Llegaste al tope de direcciones cortas de la cuenta.', template_password: 'Una plantilla no lleva contraseña. Quitá el enlace y crealo de nuevo sin contraseña.', bad_expires: 'La fecha de vencimiento tiene que ser futura.' }[e && e.code] || 'No se pudo completar. Probá de nuevo.'); };
     box.addEventListener('click', (e) => { if (e.target === box || e.target.closest('[data-sf=close]')) box.remove(); });
     if (vaulted) return;
     let cur = null; // el enlace que ya tiene la carpeta: el formulario cambia sus opciones
-    const sync = () => { const on = q('tpl').checked; q('login').disabled = !on; if (!on) q('login').checked = false; if (q('name')) q('name').disabled = !on; box.querySelectorAll('.lmd-share-sub').forEach((n) => n.classList.toggle('lmd-off', !on)); };
+    // Una plantilla no lleva contraseña: la tiene que poder abrir cualquiera.
+    const sync = () => { const on = q('tpl').checked; q('login').disabled = !on; if (!on) q('login').checked = false; q('pass').disabled = on; if (on) q('pass').value = '';
+      q('pass').placeholder = T(on ? 'una plantilla no lleva contraseña' : cur && cur.protected ? 'contraseña nueva (opcional)' : 'contraseña (opcional)'); if (q('name')) q('name').disabled = !on; box.querySelectorAll('.lmd-share-sub').forEach((n) => n.classList.toggle('lmd-off', !on)); };
     const urlOf = (l) => (l.template && l.name && named ? 'https://' + tplHost() + l.name : foldersMade[l.id] || '');
     const copies = (n) => (n === 1 ? T('1 copia hecha') : T('{n} copias hechas', { n }));
     const draw = async (keep) => {
       try {
         const mine = (await LMD.cloud.shares(full)).links.filter((l) => l.kind === 'folder' && l.path === path).sort((a, b) => b.id - a.id);
         cur = mine[0] || null;
-        if (!keep) { q('tpl').checked = !!(cur && cur.template); q('login').checked = !!(cur && cur.login); if (q('name')) q('name').value = (cur && cur.name) || ''; }
+        if (!keep) { q('tpl').checked = !!(cur && cur.template); q('login').checked = !!(cur && cur.login); if (q('name')) q('name').value = (cur && cur.name) || ''; q('exp').value = cur && cur.expires ? linkDay(cur.expires) : ''; q('pass').value = ''; }
+        q('exp').disabled = false;
         // Hasta saber qué enlace tiene la carpeta, el formulario espera: lo que se elija no se pisa al llegar la respuesta.
         q('save').textContent = T(cur ? 'Guardar' : 'Crear enlace'); q('save').disabled = false; q('tpl').disabled = false;
         q('once').hidden = !mine.some((l) => foldersMade[l.id] && !(l.template && l.name && named));
         q('links').innerHTML = mine.map((l) => { const u = urlOf(l); return '<li class="lmd-share-new" data-link="' + l.id + '">' + (u ? '<input type="text" readonly aria-label="' + T('Enlace') + '" value="' + esc(u) + '"><button type="button" class="lmd-link" data-sf="copy">' + T('Copiar') + '</button>' : '<span>' + T('Enlace de la carpeta') + '</span>') +
-          '<small class="lmd-share-meta">' + T(l.template ? 'Plantilla' : 'Solo lectura') + (l.template ? ' · ' + copies(l.copies || 0) : '') + '</small><button type="button" data-rm="' + l.id + '">' + T('Quitar') + '</button></li>'; }).join('');
+          '<small class="lmd-share-meta">' + T(l.template ? 'Plantilla' : 'Solo lectura') + (l.template ? ' · ' + copies(l.copies || 0) : '') + (l.protected ? ' · ' + T('con contraseña') : '') + linkEnd(l) + '</small><button type="button" data-rm="' + l.id + '">' + T('Quitar') + '</button></li>'; }).join('');
         sync();
       } catch (e) { fail(e); }
     };
@@ -1136,7 +1146,7 @@
           const tpl = q('tpl').checked; const name = tpl && q('name') ? q('name').value.trim() : '';
           if (name && !NAME_OK.test(name)) return fail({ code: 'bad_name' });
           if (cur && cur.name && cur.name !== name && !(await LMD.dialog.confirm({ title: T('Cambiar la dirección corta'), text: T('La dirección {a} deja de abrir esta plantilla. Si está impresa, conviene no cambiarla.', { a: tplHost() + cur.name }), ok: T('Cambiar'), danger: true }))) return;
-          const opt = Object.assign({ template: tpl, login: tpl && q('login').checked }, q('name') ? { name } : {});
+          const opt = Object.assign({ template: tpl, login: tpl && q('login').checked, expires: linkExp(q('exp').value) }, q('name') ? { name } : {}, !tpl && q('pass').value ? { password: q('pass').value } : {});
           q('save').disabled = true;
           try {
             if (cur) await LMD.cloud.linkSet(cur.id, full + '/', opt);
@@ -1228,7 +1238,7 @@
     return { url: (linksMade[full] = LMD.WEB_APP_URL + '?f=' + encodeURIComponent('pub/' + r.token)), reused: false };
   }
   const linkWhy = (e) => T({ offline: 'No hay conexión con el servidor.', share_needs_plan: 'Compartir es parte del plan pago.', team_policy: 'Lo administra quien administra el equipo', read_only: 'En este equipo solo podés leer.',
-    too_many: 'Llegaste al tope de lo que se puede compartir. Quitá algo para sumar más.', not_found: 'Esta nota ya no está en la nube.' }[e && e.code] || 'No se pudo completar. Probá de nuevo.');
+    too_many: 'Llegaste al tope de lo que se puede compartir. Quitá algo para sumar más.', not_found: 'Esta nota ya no está en la nube.', bad_expires: 'La fecha de vencimiento tiene que ser futura.' }[e && e.code] || 'No se pudo completar. Probá de nuevo.');
 
   // Vuelve a leer la cuenta después de un cambio en el equipo.
   const reload = async () => { account = await LMD.cloud.account(); asked = true; adopt(account, true); paint(); return account; };

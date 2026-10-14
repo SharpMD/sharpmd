@@ -228,11 +228,23 @@
   function pubFail(e, ref) {
     const code = e && e.code; const where = 'sharpmd.app/t/' + ref.key;
     const lead = code === 'template_gone' ? [T('Esta plantilla ya no está disponible'), T('Quien la compartió la retiró.')]
+      : code === 'link_expired' ? [T('Este enlace venció'), T('Quien lo compartió le puso una fecha de vencimiento y ya pasó. Pedile un enlace nuevo.')]
       : code === 'offline' ? [T('No hay conexión con el servidor.'), T('Revisá la conexión y abrí el enlace de nuevo.')]
         : code === 'too_many' ? [T('Demasiados intentos desde esta red'), T('Probá de nuevo en un rato.')]
           : ref.by === 't' ? [T('No encontramos esa plantilla'), T('No hay ninguna plantilla en {a}. Revisá que la dirección esté bien escrita.', { a: where })]
             : [T('Ese enlace ya no existe.'), T('Quien lo compartió lo quitó.')];
     return { fail: lead[0], lead: { title: lead[0], text: lead[1] } };
+  }
+  // Por qué no abrió un enlace público (de nota o de carpeta), en una línea.
+  const pubWhy = (e) => (e.code === 'locked' && e.retry ? T('Demasiadas contraseñas equivocadas. Probá de nuevo en {a}.', { a: LMD.home.waitText(e.retry) })
+    : T(e.code === 'locked' ? 'Demasiadas contraseñas equivocadas. Probá de nuevo en 10 minutos.' : e.code === 'offline' ? 'No hay conexión con el servidor.' : e.code === 'link_expired' ? 'Este enlace venció.' : 'Ese enlace ya no existe.'));
+  // Pide la contraseña de un enlace. Se prueba desde el diálogo: si no coincide, lo dice ahí y deja corregirla.
+  // Devuelve { n } con lo que abrió, o { stop } con por qué no.
+  async function pubAsk(token, folder) {
+    let n = null; let stop = '';
+    const typed = await LMD.dialog.prompt({ title: T(folder ? 'Carpeta protegida' : 'Nota protegida'), label: T('Contraseña'), password: true, ok: T('Abrir'), empty: T('Escribí la contraseña.'),
+      validate: async (v) => { try { n = await LMD.cloud.publicNote(token, v); return ''; } catch (err) { if (err.code === 'bad_password') return T('Esa contraseña no coincide.'); stop = pubWhy(err); return ''; } } });
+    return typed == null || !n ? { stop } : { n };
   }
   // "Usar esta plantilla" (fork.js, que se pide recién acá). why 'edit': la persona quiso editar el original.
   function useTemplate(why) {
@@ -5440,7 +5452,13 @@
       await LMD.cloud.ready();
       const parts = vParts(url); const ref = { by: id, key: parts[0] || '' }; const rel = parts.slice(1).join('/');
       let k = null; let text = null;
-      try { k = await pubInfo(ref, !rel); } catch (e) { return pubFail(e, ref); }
+      try { k = await pubInfo(ref, !rel); } catch (e) {
+        // Una carpeta con contraseña: se pide acá, y con ella se vuelve a pedir la lista.
+        if (ref.by !== 'pub' || (e.code !== 'need_password' && e.code !== 'bad_password')) return pubFail(e, ref);
+        const got = await pubAsk(ref.key, true);
+        if (!got.n) return got.stop ? fail(got.stop) : pubFail(e, ref);
+        k = pubKeep(ref, got.n);
+      }
       if (!k.info) return fail(T('Ese enlace ya no existe.'));
       if (!rel) return pubFirst(k.info) ? { goto: pubPath(ref, '') + '/' } : pubFail({ code: 'template_gone' }, ref);
       try { text = await pubText(k, rel); } catch (e) { return e.code === 'not_found' ? fail(T('No se encontró "{a}".', { a: name })) : pubFail(e, ref); }
@@ -5450,15 +5468,13 @@
       // Enlace público de solo lectura; si tiene contraseña, se pide.
       await LMD.cloud.ready();
       const token = vParts(url).join('/');
-      const why = (e) => (e.code === 'locked' && e.retry ? T('Demasiadas contraseñas equivocadas. Probá de nuevo en {a}.', { a: LMD.home.waitText(e.retry) }) : T(e.code === 'locked' ? 'Demasiadas contraseñas equivocadas. Probá de nuevo en 10 minutos.' : e.code === 'offline' ? 'No hay conexión con el servidor.' : 'Ese enlace ya no existe.'));
-      let n = null; let stop = '';
+      let n = null;
       try { n = await LMD.cloud.publicNote(token, ''); }
       catch (e) {
-        if (e.code !== 'need_password' && e.code !== 'bad_password') return fail(why(e));
-        // La contraseña se prueba desde el diálogo: si no coincide, lo dice ahí y deja corregirla.
-        const typed = await LMD.dialog.prompt({ title: T('Nota protegida'), label: T('Contraseña'), password: true, ok: T('Abrir'), empty: T('Escribí la contraseña.'),
-          validate: async (v) => { try { n = await LMD.cloud.publicNote(token, v); return ''; } catch (err) { if (err.code === 'bad_password') return T('Esa contraseña no coincide.'); stop = why(err); return ''; } } });
-        if (typed == null || !n) return fail(stop);
+        if (e.code !== 'need_password' && e.code !== 'bad_password') return fail(pubWhy(e));
+        const got = await pubAsk(token);
+        if (!got.n) return fail(got.stop);
+        n = got.n;
       }
       // El enlace es de una carpeta entera: se abre su página.
       if (n.kind === 'folder') { const ref = { by: 'pub', key: token }; return pubFirst(pubKeep(ref, n).info) ? { goto: pubPath(ref, '') + '/' } : fail(T('Ese enlace ya no existe.')); }
