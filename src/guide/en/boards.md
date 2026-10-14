@@ -54,6 +54,10 @@ A card can end with its attributes in braces:
 {show=due,priority priority=low|medium|high}
 ```
 
+## In a note, or in `board.md`
+
+Use a board inside a note when the tasks belong to a text: a plan, meeting notes, a report with its status. The board goes along with what you read. Use a `board.md` note when the board is the work of a whole project: it lives on its own, and it is the one your AI keeps over MCP, with one card per task.
+
 ## With your AI and with other apps
 
 An AI connected over MCP creates boards, adds cards and moves them. See [Connect your AI over MCP](connect-your-ai.md). A webhook tells the outside when a card changes: [Automations and webhooks](automations.md).

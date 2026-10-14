@@ -186,8 +186,6 @@
   .form label { display: block; margin-bottom: 8px; color: var(--faint); font-size: 12px; } .form label i { display: block; margin-top: 3px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--fg); font-style: normal; font-size: 13px; }
   .send { display: inline-block; margin-top: 2px; padding: 5px 14px; border-radius: 8px; background: var(--fill); color: var(--on); font-size: 12.5px; font-weight: 600; }
   .lines { margin: 0; padding: 0 0 0 16px; font-size: 13.5px; } .lines li { margin-bottom: 6px; } .lines .new { padding: 2px 5px; margin-left: -5px; border-radius: 5px; background: color-mix(in srgb, var(--fill) 20%, transparent); }
-  .soon { display: none; margin-left: 10px; padding: 4px 9px; border-radius: 6px; background: color-mix(in srgb, var(--fill) 16%, var(--soft)); color: var(--accent); font: 400 11.5px/1.3 var(--mono); letter-spacing: .02em; vertical-align: 6px; }
-  html[data-cloud="soon"] .soon { display: inline-block; }
 
   /* Planes: las mismas filas en cada columna, en el mismo orden. Lo que un plan no trae queda apagado. */
   .plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 840px; margin: 48px auto 0; text-align: left; }
@@ -314,9 +312,9 @@
   <div>
     <p class="eyebrow"><span lang="en">Markdown editor with your AI connected</span><span lang="es">Editor de Markdown con tu IA conectada</span></p>
     <h1 data-a="[[Edit Markdown without writing Markdown.||Editá Markdown sin escribir Markdown.]]"><span lang="en">Markdown notes your AI writes and your team reads.</span><span lang="es">Notas en Markdown que tu IA escribe y tu equipo lee.</span></h1>
-    <p class="lede" data-a="[[Click a heading, a table or a diagram and change it right there, on the formatted page. No syntax to type and nothing to install. Your AI reads and writes the same notes over MCP.||Hacés clic en un título, una tabla o un diagrama y lo cambiás ahí mismo, sobre la página ya formateada. Sin sintaxis que escribir ni nada que instalar. Tu IA lee y escribe las mismas notas por MCP.]]">
-      <span lang="en">A Markdown editor in the cloud, with the MCP endpoint already running. Claude, Codex or any other MCP client reads your notes before it works and writes down what it did. You edit on the formatted page, with no syntax to type.</span>
-      <span lang="es">Un editor de Markdown en la nube, con la conexión MCP ya andando. Claude, Codex o cualquier otro cliente MCP lee tus notas antes de trabajar y deja escrito lo que hizo. Vos editás sobre la página ya formateada, sin escribir sintaxis.</span>
+    <p class="lede" data-a="[[Click a heading, a table or a diagram and change it right there, on the formatted page. No syntax to type and nothing to install. Your AI reads and writes the same notes.||Hacés clic en un título, una tabla o un diagrama y lo cambiás ahí mismo, sobre la página ya formateada. Sin sintaxis que escribir ni nada que instalar. Tu IA lee y escribe las mismas notas.]]">
+      <span lang="en">Write your notes on the page as they will look, with nothing to learn. Claude, Codex or any other AI reads them before it works and writes down what it did, so you and your team can follow along.</span>
+      <span lang="es">Escribís tus notas sobre la página tal como van a verse, sin aprender nada. Claude, Codex o cualquier otra IA las lee antes de trabajar y deja escrito lo que hizo, para que vos y tu equipo lo sigan.</span>
     </p>
     <div class="cta">
       <a class="btn fill" href="src/app.html"><span lang="en">Open the app</span><span lang="es">Abrir la app</span></a>
@@ -326,7 +324,7 @@
       <a class="btn watch" href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h7.8M9.2 13.6 5.3 6.9M14.8 13.6l-3.9 6.8"/></svg><span lang="en">Chrome extension</span><span lang="es">Extensión de Chrome</span></a>
       <a class="btn watch" href="https://play.google.com/store/apps/details?id=app.sharpmd" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5.5 4.2v15.6a.8.8 0 0 0 1.2.7l13-7.8a.8.8 0 0 0 0-1.4l-13-7.8a.8.8 0 0 0-1.2.7z"/></svg><span lang="en">Android app</span><span lang="es">App de Android</span></a>
     </div>
-    <p class="under"><span lang="en">The editor is free and open source. Nothing to install, and no account needed to write.</span><span lang="es">El editor es gratis y de código abierto. No hay nada que instalar ni hace falta una cuenta para escribir.</span></p>
+    <p class="under"><span lang="en">The editor is free and open source. Nothing to install. To write you need no account; to connect your AI you do.</span><span lang="es">El editor es gratis y de código abierto. No hay nada que instalar. Para escribir no hace falta cuenta; para conectar tu IA, sí.</span></p>
     <script>
     // Puts headline A in place before the hero is painted. The visit and the first click on a link to the app or to the
     // plans are counted by src/count.js, at the end of the page, with the headline that was shown.
@@ -386,11 +384,11 @@
 
 <section id="ai"><div class="wrap">
   <h2><span lang="en">Your AI on the same notes</span><span lang="es">Tu IA sobre las mismas notas</span></h2>
-  <p class="sub"><span lang="en">SharpMD has no AI of its own. There are two ways to bring yours.</span><span lang="es">SharpMD no trae una IA propia. Hay dos formas de usar la tuya.</span></p>
+  <p class="sub"><span lang="en">Your agent leaves the project documented, in notes you read from any device. SharpMD brings no AI of its own, so there are two ways to use yours.</span><span lang="es">Tu agente deja el proyecto documentado, en notas que leés desde cualquier dispositivo. SharpMD no trae una IA propia, así que hay dos formas de usar la tuya.</span></p>
   <div class="two host ways">
     <div>
       <h3><span lang="en">Your agent, connected over MCP</span><span lang="es">Tu agente, conectado por MCP</span></h3>
-      <p><span lang="en">Claude, Codex or any other MCP client reads and writes the notes you keep in the cloud, from wherever it works. It reaches as far as the token you give it.</span><span lang="es">Claude, Codex o cualquier otro cliente MCP lee y escribe las notas que tenés en la nube, desde donde trabaja. Llega hasta donde llega el token que le das.</span></p>
+      <p><span lang="en">Claude, Codex or any other client of MCP, the standard way for an AI to use an app, reads and writes the notes you keep in the cloud, from wherever it works. It reaches as far as the token you give it.</span><span lang="es">Claude, Codex o cualquier otro cliente de MCP, la forma estándar en que una IA usa una app, lee y escribe las notas que tenés en la nube, desde donde trabaja. Llega hasta donde llega el token que le das.</span></p>
     </div>
     <div>
       <h3><span lang="en">An assistant inside the note, with your own key</span><span lang="es">Un asistente dentro de la nota, con tu propia clave</span></h3>
@@ -427,7 +425,7 @@
 </div></section>
 
 <section class="band" id="share"><div class="wrap">
-  <h2><span lang="en">Cloud notes and sharing</span><span lang="es">Notas en la nube y compartir</span><span class="soon"><span lang="en">Soon</span><span lang="es">Pronto</span></span></h2>
+  <h2><span lang="en">Cloud notes and sharing</span><span lang="es">Notas en la nube y compartir</span></h2>
   <p class="sub"><span lang="en">Nothing goes to the cloud until you send it.</span><span lang="es">Nada va a la nube hasta que lo mandás.</span></p>
   <div class="pick">
     <div class="stage"></div>
