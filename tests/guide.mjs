@@ -139,7 +139,7 @@ console.log('La guía: la referencia de la API y cómo viaja');
   // No agranda la carga inicial: ni la página ni las listas del service worker nombran la guía; se guarda al usarla,
   // porque el service worker atiende todo lo que cuelga de src/.
   const sw = read('sw.js'); const lists = /const SHELL = \[[\s\S]*?\];[\s\S]*?const LATE = \[[\s\S]*?\];/.exec(sw)[0];
-  check('la guía no está en la página ni en las listas del service worker: se pide al abrirla y se guarda al usarla', !/guide/.test(read('src/app.html')) && !/guide/.test(lists) && sw.includes("/^(src|vendor|icons)\\//.test(path)") && /const text = \(await res\.text\(\)\)/.test(content));
+  check('la guía no está en la página ni en el esqueleto del service worker: baja de a una después del código y queda para leerla sin conexión', !/guide/.test(read('src/app.html')) && !/guide/.test(lists) && /const AFTER = LATE.concat(GUIDE_FILES)/.test(sw) && sw.includes("/^(src|vendor|icons)\\//.test(path)") && /const text = \(await res\.text\(\)\)/.test(content));
   // En la extensión va dentro del paquete y la lee su propia página: no hace falta abrir nada a otros sitios.
   const attrs = read('.gitattributes'); const manifest = JSON.parse(read('manifest.json'));
   check('en la extensión va dentro del paquete, sin abrir nada más a otros sitios', !/^\/src/m.test(attrs) && /^\/tools\/ export-ignore$/m.test(attrs) && manifest.web_accessible_resources.length === 2 && !J(manifest.web_accessible_resources).includes('guide'));

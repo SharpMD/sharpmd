@@ -35,12 +35,18 @@ const SHELL = [
 const LATE = [
   'src/emoji-data.js', 'src/emoji.js', 'src/community.js', 'src/templates.js', 'src/diagram.js', 'src/formula.js',
   'src/speak.js', 'src/voice.js', 'src/dictate.js', 'src/gallery.js',
-  'src/present.js', 'src/daily.js', 'src/docx.js', 'src/folderexport.js', 'src/linkmap.js', 'src/explore.js', 'src/jsonyaml.js', 'src/import.js', 'src/viewer.js', 'src/codeview.js', 'src/htmlrun.html', 'src/automate.js', 'src/publish.js', 'src/fork.js', 'src/folderpage.js', 'src/aikey.js', 'src/assistant.js', 'src/agents.js', 'src/localtools.js', 'src/shortcuts.js',
+  'src/present.js', 'src/daily.js', 'src/docx.js', 'src/folderexport.js', 'src/linkmap.js', 'src/explore.js', 'src/jsonyaml.js', 'src/import.js', 'src/viewer.js', 'src/codeview.js', 'src/tour.js', 'src/htmlrun.html', 'src/automate.js', 'src/publish.js', 'src/fork.js', 'src/folderpage.js', 'src/aikey.js', 'src/assistant.js', 'src/agents.js', 'src/localtools.js', 'src/shortcuts.js',
   'vendor/highlight.min.js', 'vendor/markdown-it-emoji.min.js',
   'vendor/fonts/inter-italic.woff2',
   'vendor/katex/katex.min.js', 'vendor/katex/katex.min.css',
   'icons/icon192.png', 'icons/icon512.png', 'icons/apple-touch-icon-180.png',
 ];
+// La guía, en los dos idiomas: son notas cortas, y así se puede leer sin conexión desde que se instala. Va en el mismo
+// goteo que LATE, después del código. tests/guide.mjs comprueba que esta lista y las carpetas tengan las mismas notas.
+const GUIDE = ['start', 'reading-and-editing', 'files-and-folders', 'diagrams-and-formulas', 'boards', 'tools-and-plugins', 'voice', 'ai-with-your-key',
+  'cloud-and-sharing', 'connect-your-ai', 'automations', 'api', 'extension-and-android', 'shortcuts', 'export-and-import', 'privacy', 'updates'];
+const GUIDE_FILES = ['es', 'en'].reduce((all, lang) => all.concat(GUIDE.map((name) => 'src/guide/' + lang + '/' + name + '.md')), []);
+const AFTER = LATE.concat(GUIDE_FILES);
 // Los diagramas (Mermaid, Graphviz), las tipografías de las fórmulas y el lector de PDF (vendor/pdfjs) pesan: se
 // guardan la primera vez que se usan.
 
@@ -58,7 +64,7 @@ self.addEventListener('install', (e) => {
 
 async function late() {
   const cache = await caches.open(CACHE);
-  for (const path of LATE) {
+  for (const path of AFTER) {
     const url = new URL(path, ROOT);
     if (await cache.match(keyOf(url))) continue;
     try { await keep(cache, url, await ask(path)); } catch (err) { return; } // sin red: quedan para la próxima
@@ -113,7 +119,7 @@ function refresh(light) {
       const saved = await cache.match(keyOf(first[0]));
       had = saved ? versionIn(await saved.text()) : '';
       if (light && version === had) return;
-      const list = SHELL.concat(LATE).filter((path) => path !== DEFAULTS); const got = [first];
+      const list = SHELL.concat(AFTER).filter((path) => path !== DEFAULTS); const got = [first];
       for (let i = 0; i < list.length; i += 6) got.push(...(await Promise.all(list.slice(i, i + 6).map(get))));
       if (stop.signal.aborted) throw new Error('timeout');
       if (!current()) return;
@@ -129,7 +135,7 @@ function refresh(light) {
 // Una página que lleva rato abierta pregunta si hay versión nueva (src/web.js).
 self.addEventListener('message', (e) => { if (e.data && e.data.type === 'lmd-check') e.waitUntil(refresh(true)); });
 
-const LISTED = new Set(SHELL.concat(LATE));
+const LISTED = new Set(SHELL.concat(AFTER));
 
 async function respond(req, url, path, e) {
   const cache = await caches.open(CACHE);

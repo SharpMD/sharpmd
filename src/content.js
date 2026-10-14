@@ -795,13 +795,15 @@
     viewer: { js: ['src/viewer.js'] },
     // Los archivos de código: números de línea, el índice de un HTML y su vista previa. Se pide al abrir el primero.
     codeview: { js: ['src/codeview.js'] },
+    // El recorrido de la primera vez en el celular: se pide al mostrar el inicio, una sola vez.
+    tour: { js: ['src/tour.js'] },
   };
   const LAZY_HAVE = { hljs: () => !!window.hljs, emoji: () => !!window.markdownitEmoji, tools: () => !!(LMD.diagram && LMD.formula && LMD.templates && LMD.community) };
   LAZY_HAVE.gallery = () => !!LMD.gallery; LAZY_HAVE.automate = () => !!LMD.automate; LAZY_HAVE.publish = () => !!LMD.publish;
   LAZY_HAVE.speak = () => !!LMD.speak; LAZY_HAVE.dictate = () => !!(LMD.voice && LMD.dictate);
   ['present', 'daily', 'docx', 'linkmap', 'explore', 'jsonyaml', 'import', 'agents', 'localtools'].forEach((k) => { LAZY_HAVE[k] = () => !!LMD[k]; });
   LAZY_HAVE.assistant = () => !!(LMD.ai && LMD.assistant);
-  LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage;
+  LAZY_HAVE.fork = () => !!LMD.fork; LAZY_HAVE.shortcuts = () => !!LMD.shortcuts; LAZY_HAVE.folderexport = () => !!LMD.folderexport; LAZY_HAVE.viewer = () => !!LMD.viewer; LAZY_HAVE.codeview = () => !!LMD.codeview; LAZY_HAVE.folderpage = () => !!LMD.folderpage; LAZY_HAVE.tour = () => !!LMD.tour;
   async function appLazy(what) {
     const spec = LAZY_APP[what];
     try {
@@ -5769,7 +5771,14 @@
     ui.main.querySelector('.lmd-report').hidden = !(APP && LMD.sync.reportRef());
     if (settings && !ui.status.classList.contains('lmd-flash')) ui.status.textContent = idleStatus();
   }
-  function showEmpty(note) { ui.home.hidden = false; LMD.home.show(homeCtx(), note); core.hooks.home.forEach((fn) => fn(ui.home)); unsplash(); }
+  function showEmpty(note) { ui.home.hidden = false; LMD.home.show(homeCtx(), note); core.hooks.home.forEach((fn) => fn(ui.home)); unsplash(); firstTour(); }
+  // Primera vez en el celular: el recorrido de tres pasos, sin trabar el primer pintado.
+  function firstTour() {
+    if (!APP) return;
+    let done = false; try { done = localStorage.getItem('lmd-tour-seen') === '1'; } catch (e) { /* sin almacenamiento */ }
+    if (done || !(LMD.storeApp === true || window.matchMedia('(max-width: 700px)').matches)) return;
+    setTimeout(() => ensure('tour').then((ok) => { if (ok && LMD.tour) LMD.tour.show(); }), 1200);
+  }
 
   // Dibuja la nota recién abierta y la deja donde corresponde: en edición si toca, y en la sección o búsqueda pedida.
   function afterOpen(opt) {

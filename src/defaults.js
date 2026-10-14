@@ -2347,6 +2347,15 @@
       "Fijadas": "Pinned",
       "Las notas que fijaste. Se sueltan desde su menú.": "The notes you pinned. Unpin them from their menu.",
       "Sin red": "Offline",
+      "Una nota rápida": "A quick note",
+      "Tocá \"Nueva nota\" en el inicio y escribí. Se guarda sola en este dispositivo.": "Tap \"New note\" on the home screen and write. It saves itself on this device.",
+      "Una tarea": "A task",
+      "Empezá una línea con - [ ] y queda una casilla que se tilda con un toque.": "Start a line with - [ ] and you get a box you tick with a tap.",
+      "Abrir un .md compartido": "Open a shared .md",
+      "Desde otra app, compartí un archivo .md con SharpMD y se abre acá para leerlo o editarlo.": "From another app, share a .md file with SharpMD and it opens here to read or edit.",
+      "Tus notas en la nube": "Your notes in the cloud",
+      "10 notas gratis en la nube, para tenerlas en todos tus dispositivos.": "10 free notes in the cloud, to keep them on all your devices.",
+      "Primeros pasos": "First steps",
   };
   let current = 'es';
   function setLang(pref) {

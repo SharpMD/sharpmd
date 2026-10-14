@@ -104,6 +104,7 @@
         "src/publish.js",
         "src/fork.js",
         "src/folderpage.js",
+        "src/tour.js",
         "src/present.js",
         "src/daily.js",
         "src/docx.js",

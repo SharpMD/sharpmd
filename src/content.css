@@ -4032,3 +4032,13 @@ dialog.lmd-xp-full::backdrop { background: var(--bg); }
   .lmd-fp-rmeta { font-size: 12px; }
 }
 @media print { .lmd-fp-acts, .lmd-fp-edit, .lmd-fp-add, .lmd-fp-ro { display: none !important; } }
+
+/* ---------- Recorrido de la primera vez ---------- */
+.lmd-tour { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .45); }
+.lmd-tour-card { width: 100%; max-width: 420px; padding: 18px; border-radius: 14px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, .35); }
+.lmd-tour-count { font-size: 12px; opacity: .7; }
+.lmd-tour-title { margin: 4px 0 6px; font-size: 18px; border: 0; }
+.lmd-tour-text { margin: 0 0 14px; line-height: 1.5; }
+.lmd-tour-actions { display: flex; justify-content: space-between; gap: 8px; }
+.lmd-tour-actions button { min-height: 44px; padding: 0 16px; border-radius: 9px; font: inherit; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.lmd-tour-actions .lmd-tour-next { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
