@@ -51,6 +51,18 @@ Una nota de solo lectura, como las de esta guía o una que te compartieron para 
 
 Cada título se pliega con la flecha chica de su margen. Plegar no cambia el archivo.
 
+## Modo sin distracciones
+
+El botón de las cuatro esquinas de la barra de arriba, o `Alt+Shift+Z`, esconde todo menos el texto. Podés seguir editando. `Esc` devuelve las barras. Si estás en medio de la edición de un bloque, el primer `Esc` cierra esa edición y el segundo sale del modo. En una pantalla chica el botón está en el menú **Más**.
+
+## Notas fijadas
+
+**Fijar arriba** está en el menú de la nota (**Más**) y en el menú de cada archivo de la barra lateral. Las notas fijadas van a una sección **Fijadas** arriba de la barra lateral y a la pantalla de inicio. **Desfijar** está en los mismos menús. Las fijadas se guardan solo en este navegador: la cuenta de la nube no las lleva a otros dispositivos.
+
+## Enlaces entrantes
+
+Con la herramienta **Mapa de enlaces** prendida (en Ajustes, Herramientas), al pie de cada nota aparece **Enlaces a esta nota**: las notas que apuntan a la que tenés abierta. Un clic lleva a esa nota.
+
 Lo que vale para una sola nota (el ancho de la página, los títulos numerados, mostrar o no el índice) está en **Ajustes de la página** y se guarda en la cabecera de la nota.
 
 Sigue en [Archivos y carpetas](files-and-folders.md). Todos los atajos están en [Atajos de teclado](shortcuts.md).

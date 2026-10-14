@@ -106,6 +106,7 @@
         "src/fork.js",
         "src/exportall.js",
         "src/folderpage.js",
+        "src/tour.js",
         "src/present.js",
         "src/daily.js",
         "src/omml.js",

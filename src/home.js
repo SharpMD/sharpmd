@@ -412,6 +412,8 @@
         '<img class="lmd-home-logo" src="' + chrome.runtime.getURL('icons/icon128.png') + '" alt="">' +
         // En pantalla chica no hay nada "a la izquierda": la lista de notas está detrás del botón de la barra.
         '<p class="lmd-home-sub">' + T(LMD.touch.small() ? 'Empezá una nota nueva o abrí una que ya tengas.' : 'Elegí una nota de la izquierda o empezá una nueva.') + '</p>' +
+        // Las notas fijadas, a un toque (se fijan desde el menú de la nota).
+        '<div class="lmd-home-pins" hidden></div>' +
         // Arriba, crear; abajo y con su rótulo, abrir algo que ya está en el disco. Cada botón dice qué hace al pasar el mouse.
         '<div class="lmd-home-actions">' +
           btn('new', ICON.plus, 'Nueva nota', 'Crear una nota en blanco', ' lmd-btn-fill') +
@@ -440,6 +442,13 @@
     sayNow = say;
     if (note && typeof note === 'object') { const lead = box.querySelector('.lmd-home-lead'); lead.hidden = false; lead.querySelector('h2').textContent = note.title || ''; lead.querySelector('p').textContent = note.text || ''; }
     else if (note) say(note);
+    // Fijadas: hasta ocho, las primeras que se fijaron.
+    const pinsBox = box.querySelector('.lmd-home-pins'); const pins = ctx.pins ? ctx.pins().slice(0, 8) : [];
+    if (pinsBox && pins.length) {
+      pinsBox.hidden = false;
+      pinsBox.appendChild(el('p', { class: 'lmd-home-label', text: T('Fijadas') }));
+      pins.forEach((p) => { const a = el('a', { class: 'lmd-home-pin', href: ctx.APP_URL + '?f=' + encodeURIComponent(p.f), 'data-home': 'pin', 'data-f': p.f }); a.innerHTML = ICON.pin; a.appendChild(el('span', { text: p.name })); pinsBox.appendChild(a); });
+    }
     const notesLine = box.querySelector('.lmd-home-notes');
     const paintNotes = async () => {
       if (!notesLine) return;
@@ -467,6 +476,7 @@
       if (b.dataset.home === 'feedback') { LMD.sync.feedback(); return; }
       // Con Ctrl, Shift o el botón del medio el enlace abre la guía en otra pestaña, como cualquier enlace.
       if (b.dataset.home === 'guide') { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return; e.preventDefault(); ctx.open(GUIDE); return; }
+      if (b.dataset.home === 'pin') { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return; e.preventDefault(); ctx.open(b.dataset.f); return; }
       if (b.dataset.home === 'new') { create(); return; }
       if (b.dataset.home === 'tpl') { ctx.template(); return; }
       if (b.dataset.home === 'notes') {

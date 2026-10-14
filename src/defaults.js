@@ -34,6 +34,7 @@
     imageQuality: 'normal', // normal | high | original: cuánto se achica una imagen al insertarla
     refreshInterval: 1000, // ms
     sidebarHidden: false,
+    pins: [], // direcciones de las notas fijadas arriba del explorador y del inicio. Quedan en este navegador: la cuenta de la nube no sincroniza preferencias
     sidebarWidth: 300,
     filesOnlyMarkdown: false, // el explorador muestra todo lo que la app sabe abrir; prendido, solo Markdown y texto
     filesChosen: false, // la persona tocó ese ajuste: antes venía prendido, y un "true" guardado sin esto es el de fábrica de entonces
@@ -2450,6 +2451,26 @@
       "Herramientas y plugins": "Tools and plugins", "Dictado y lectura en voz alta": "Dictation and read aloud", "IA con tu propia clave": "AI with your own key",
       "La nube y compartir": "The cloud and sharing", "Conectar tu IA por MCP": "Connect your AI over MCP", "Automatizaciones y webhooks": "Automations and webhooks",
       "Referencia de la API": "API reference", "Extensión de Chrome y app de Android": "Chrome extension and Android app", "Exportar e importar": "Export and import", "Privacidad": "Privacy",
+      "Modo sin distracciones (Alt+Shift+Z)": "Distraction-free mode (Alt+Shift+Z)",
+      "Modo sin distracciones": "Distraction-free mode",
+      "Esc para salir": "Esc to exit",
+      "Modo sin distracciones: solo el texto, Esc sale": "Distraction-free mode: only the text, Esc exits",
+      "Nota fijada arriba": "Note pinned to the top",
+      "Nota desfijada": "Note unpinned",
+      "Fijar arriba": "Pin to the top",
+      "Desfijar": "Unpin",
+      "Fijadas": "Pinned",
+      "Las notas que fijaste. Se sueltan desde su menú.": "The notes you pinned. Unpin them from their menu.",
+      "Sin red": "Offline",
+      "Una nota rápida": "A quick note",
+      "Tocá \"Nueva nota\" en el inicio y escribí. Se guarda sola en este dispositivo.": "Tap \"New note\" on the home screen and write. It saves itself on this device.",
+      "Una tarea": "A task",
+      "Empezá una línea con - [ ] y queda una casilla que se tilda con un toque.": "Start a line with - [ ] and you get a box you tick with a tap.",
+      "Abrir un .md compartido": "Open a shared .md",
+      "Desde otra app, compartí un archivo .md con SharpMD y se abre acá para leerlo o editarlo.": "From another app, share a .md file with SharpMD and it opens here to read or edit.",
+      "Tus notas en la nube": "Your notes in the cloud",
+      "10 notas gratis en la nube, para tenerlas en todos tus dispositivos.": "10 free notes in the cloud, to keep them on all your devices.",
+      "Primeros pasos": "First steps",
   };
   let current = 'es';
   function setLang(pref) {

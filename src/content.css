@@ -64,6 +64,23 @@
 .lmd-body [hidden] { display: none !important; }
 .lmd-body svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
+/* ---------- Modo sin distracciones: solo el texto, centrado ---------- */
+.lmd-zen .lmd-sidebar, .lmd-zen .lmd-topbar, .lmd-zen .lmd-foot, .lmd-zen .lmd-to-top, .lmd-zen .lmd-keys-btn, .lmd-zen .lmd-offline, .lmd-zen .lmd-scrim,
+.lmd-zen .lmd-back, .lmd-zen .lmd-daily-nav, .lmd-zen .lmd-tplbar, .lmd-zen .lmd-update { display: none !important; }
+.lmd-zen .lmd-main { margin-left: 0; }
+.lmd-zen .lmd-article, .lmd-zen .lmd-raw { max-width: calc(var(--lmd-content-w) + 96px); margin: 0 auto; padding-top: 7vh; padding-bottom: 20vh; }
+.lmd-zen-hint { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 6px 14px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--line); color: var(--fg-muted); font: 12.5px/1.4 var(--lmd-font); animation: lmd-zen-hint 2.6s ease forwards; pointer-events: none; }
+@keyframes lmd-zen-hint { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@media print { .lmd-zen-hint { display: none; } }
+
+/* ---------- Notas fijadas ---------- */
+.lmd-home-pins { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; text-align: left; }
+.lmd-home-pins .lmd-home-label { margin: 0 0 2px; }
+.lmd-home-pin { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--fg); text-decoration: none; background: var(--bg-soft); }
+.lmd-home-pin:hover { border-color: var(--accent-fill); }
+.lmd-home-pin svg { color: var(--accent); }
+.lmd-home-pin span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- Barra lateral ---------- */
 .lmd-sidebar {
   position: fixed; inset: 0 auto 0 0; width: var(--lmd-side-w);
@@ -1670,7 +1687,7 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
 .lmd-offline { display: inline-flex; align-items: center; gap: 5px; flex: none; height: 24px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--fg-muted); font-size: 12px; white-space: nowrap; }
 .lmd-offline[hidden] { display: none; }
 .lmd-offline svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-@media (max-width: 700px) { .lmd-offline { padding: 0 5px; } .lmd-offline span { display: none; } }
+@media (max-width: 700px) { .lmd-offline { gap: 4px; padding: 0 7px; font-size: 11.5px; } .lmd-offline span { max-width: 64px; overflow: hidden; text-overflow: ellipsis; } }
 @media print { .lmd-offline { display: none !important; } }
 
 /* Recientes: una carpeta abierta desde el otro lado (la web o la extensión), que acá falta reconectar. */
@@ -4056,3 +4073,12 @@ dialog.lmd-xp-full::backdrop { background: var(--bg); }
 .lmd-shared .lmd-update-x { width: 30px; height: 30px; padding: 0; background: transparent; color: var(--fg-muted); }
 .lmd-shared .lmd-update-x:hover { background: var(--accent-soft); color: var(--fg); }
 .lmd-shared .lmd-update-x svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+/* ---------- Recorrido de la primera vez ---------- */
+.lmd-tour { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .45); }
+.lmd-tour-card { width: 100%; max-width: 420px; padding: 18px; border-radius: 14px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, .35); }
+.lmd-tour-count { font-size: 12px; opacity: .7; }
+.lmd-tour-title { margin: 4px 0 6px; font-size: 18px; border: 0; }
+.lmd-tour-text { margin: 0 0 14px; line-height: 1.5; }
+.lmd-tour-actions { display: flex; justify-content: space-between; gap: 8px; }
+.lmd-tour-actions button { min-height: 44px; padding: 0 16px; border-radius: 9px; font: inherit; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
+.lmd-tour-actions .lmd-tour-next { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }

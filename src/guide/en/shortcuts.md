@@ -35,6 +35,7 @@ On a Mac, `Ctrl` is `⌘` and `Alt` is `⌥`. The app shows them that way.
 |---|---|
 | `Alt+Shift+T` | Switch the theme |
 | `Alt+Shift+F` | Fold or unfold the section of the cursor |
+| `Alt+Shift+Z` | Focus mode: only the text, `Esc` leaves |
 | `Alt+Shift+B` | Show or hide the sidebar, with the extension |
 | `Alt+Shift+C` | Center the content or not, with the extension |
 

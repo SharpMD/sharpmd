@@ -570,7 +570,7 @@ try {
   const recent = await app.evaluate(async () => (await LMD.store.rootsAll()).map((r) => decodeURIComponent(r.last || '')));
   check('y los recientes apuntan al nombre nuevo', recent.some((l) => /\/beta renamed\.md$/.test(l)), recent);
   const m1 = await menuOfTitle();
-  check('el menú del nombre: de una carpeta elegida con el selector no se conoce la ruta, así que solo ofrece renombrar', J(m1) === J(['Rename']), m1);
+  check('el menú del nombre: de una carpeta elegida con el selector no se conoce la ruta, así que solo ofrece renombrar y fijar', J(m1) === J(['Rename', 'Pin to the top']), m1);
   await app.click(node('sub/'), { button: 'right' }); await app.waitForSelector('.lmd-menu-narrow', { timeout: 3000 }).catch(() => {});
   const subItems = await app.evaluate(() => [...document.querySelectorAll('.lmd-menu-narrow button')].map((b) => b.textContent.trim())); await app.keyboard.press('Escape'); await sleep(150);
   check('y el menú de una carpeta de adentro tampoco ofrece ruta, dirección ni explorador: no se inventa una ruta', subItems.length > 0 && !subItems.some((t) => /path|file:\/\/|Explorer|View the folder/.test(t)), subItems);
@@ -580,7 +580,7 @@ try {
   await app.setViewportSize({ width: 1000, height: 800 }); await sleep(300);
   const fits1000 = await app.evaluate(() => { const bar = document.querySelector('.lmd-topbar'); return bar.scrollWidth <= bar.clientWidth + 1 && document.documentElement.scrollWidth <= window.innerWidth; });
   await app.setViewportSize({ width: 1280, height: 800 }); await sleep(200);
-  check('leyendo, un clic sobre el nombre abre el menú; la barra de arriba entra igual, también a 1000 px', J(readItems) === J(['Rename']) && barFits && fits1000, [readItems, barFits, fits1000]);
+  check('leyendo, un clic sobre el nombre abre el menú; la barra de arriba entra igual, también a 1000 px', J(readItems) === J(['Rename', 'Pin to the top']) && barFits && fits1000, [readItems, barFits, fits1000]);
   await app.click('[data-act=mode-edit]').catch(() => {}); await sleep(300);
   // Una nota del navegador.
   await app.evaluate(() => LMD.store.notePut('nota.md', '# Nota\n\ntexto\n'));

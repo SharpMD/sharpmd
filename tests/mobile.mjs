@@ -1377,7 +1377,7 @@ try {
     await page.evaluate(() => LMD.store.notePut('phone-note.md', '# Phone note\n'));
     await page.goto(home + '?f=' + encodeURIComponent('local/phone-note.md')); await page.waitForSelector('.markdown-body h1');
     const items = await page.evaluate(() => { const n = document.querySelector('.lmd-docname'); const r = n.getBoundingClientRect(); n.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 })); return [...document.querySelectorAll('.lmd-menu-narrow button')].map((b) => b.textContent.trim()); });
-    check('teléfono: el menú del nombre solo ofrece renombrar', J(items) === J(['Rename']), items);
+    check('teléfono: el menú del nombre solo ofrece renombrar y fijar', J(items) === J(['Rename', 'Pin to the top']), items);
     await away(page);
     await ctx.close();
   }

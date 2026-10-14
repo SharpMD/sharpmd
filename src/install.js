@@ -262,7 +262,11 @@
     const bar = document.querySelector('.lmd-top-right');
     if (!bar || bar.querySelector('.lmd-offline')) return;
     const chip = el('span', { class: 'lmd-offline', role: 'status', title: T('Lo guardado en este dispositivo sigue disponible. La nube se actualiza al volver la conexión.') }, ICON.cloud + '<span></span>');
-    chip.querySelector('span').textContent = T('Sin conexión');
+    // En pantalla chica, texto corto junto al ícono: el ícono solo no dice qué pasa.
+    const label = chip.querySelector('span'); const narrow = window.matchMedia('(max-width: 700px)');
+    const words = () => { label.textContent = T(narrow.matches ? 'Sin red' : 'Sin conexión'); };
+    words();
+    if (narrow.addEventListener) narrow.addEventListener('change', words);
     bar.prepend(chip);
     const paint = () => { chip.hidden = navigator.onLine !== false; };
     window.addEventListener('online', paint); window.addEventListener('offline', paint);
