@@ -987,6 +987,11 @@ for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'tpl INTEGER NOT NULL DE
 // o de un enlace que ya no existe) o la cuenta se elimine (owner 0).
 db.exec('CREATE TABLE IF NOT EXISTS template_names (name TEXT PRIMARY KEY, owner INTEGER NOT NULL, link INTEGER, created INTEGER NOT NULL)');
 db.exec('CREATE INDEX IF NOT EXISTS template_names_owner ON template_names (owner)');
+// Un enlace que se quita suelta su nombre, se quite por donde se quite. Los números de enlace se vuelven a usar: sin
+// esto, el nombre de un enlace quitado quedaba apuntando al próximo enlace de la cuenta que recibiera ese número, y
+// una plantilla creada sin nombre (para pasar solo por su enlace secreto) se abría por la dirección corta de la anterior.
+db.exec('CREATE TRIGGER IF NOT EXISTS links_name_drop AFTER DELETE ON links BEGIN UPDATE template_names SET link = NULL WHERE link = OLD.id; END');
+db.exec('UPDATE template_names SET link = NULL WHERE link IS NOT NULL AND link NOT IN (SELECT id FROM links)');
 const TPL_NAME = /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,38}[a-z0-9]$/; // de 3 a 40: minúsculas, números y guiones sueltos, sin guion en las puntas
 const TPL_NAMES_MAX = 50; // nombres por cuenta
 const TPL_NOTES_MAX = 500; const TPL_BYTES_MAX = 8 * 1024 * 1024; // lo que una carpeta muestra y lo que pesa llevársela entera
@@ -999,11 +1004,16 @@ const TPL_COPIES_IP_HOUR = 60;
 const tplReserved = (name) => SITE_RESERVED.has(name) || /sharp-?md/.test(name) || /^(t|tpl|template|templates|plantilla|plantillas|src|vendor|icons|es|en|local|guide|guia|community|comunidad|gallery|galeria|pub|cloud|nube|link|links|share|shared|free|pro|premium|www\d*)$/.test(name);
 const folderPre = (v) => cleanPath(String(v == null ? '' : v).replace(/\/+$/, '')) + '/';
 // Las notas de una carpeta compartida: las suyas y las de sus subcarpetas, nunca las de una carpeta con contraseña.
+// Sin el texto: listar una carpeta lo pide cualquiera, sin sesión y sin tope, y no tiene por qué leer todas sus notas.
+// En la fila el texto va antes que la fecha y el tamaño, y SQLite lo recorre entero para llegar a ellos: el índice
+// trae esos datos sin pasar por la fila, así el costo de listar no depende de cuánto pesan las notas.
+db.exec('CREATE INDEX IF NOT EXISTS notes_folder ON notes (user, path, updated, size, v)');
 function folderRows(link) {
   const vaults = vaultsOf(link.owner);
-  return q('SELECT path, text, updated, size, e, v FROM notes WHERE user = ? AND substr(path, 1, length(?)) = ? ORDER BY path').all(link.owner, link.path, link.path)
+  return q('SELECT path, updated, size, v FROM notes WHERE user = ? AND substr(path, 1, length(?)) = ? ORDER BY path').all(link.owner, link.path, link.path)
     .filter((n) => !n.v && !vaults.some((v) => inside(n.path, v.folder))).slice(0, TPL_NOTES_MAX);
 }
+const folderText = (link, n) => { const r = q('SELECT text, e FROM notes WHERE user = ? AND path = ?').get(link.owner, n.path); return r ? unseal(r.text, r.e, 'notes.text') : ''; };
 const tplNameOf = (link) => { const r = q('SELECT name FROM template_names WHERE link = ? AND owner = ?').get(link.id, link.owner); return r ? r.name : ''; };
 // Pone, cambia o quita el nombre de un enlace. Un nombre que ya es de esta cuenta se muda a este enlace (así se
 // apunta una dirección impresa a otra carpeta); el de otra cuenta no se toca nunca.
@@ -1037,6 +1047,7 @@ function addFolderLink(user, body) {
   try {
     const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login) VALUES (?, ?, ?, NULL, ?, 'folder', ?, ?)").run(sha(token), user.id, pre, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0);
     made = q('SELECT * FROM links WHERE id = ?').get(Number(r.lastInsertRowid));
+    q('UPDATE template_names SET link = NULL WHERE link = ?').run(made.id); // un enlace nuevo nunca hereda el nombre de otro que tuvo su número
     if (name) tplNameSet(user, made, name);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
@@ -1071,7 +1082,7 @@ function folderPublic(link, req, url) {
   if (one != null) {
     const want = link.path + cleanPath(one); const n = rows.find((r) => r.path === want);
     if (!n) throw new Fail(404, 'not_found');
-    return { path: rel(n), text: unseal(n.text, n.e, 'notes.text'), updated: n.updated };
+    return { path: rel(n), text: folderText(link, n), updated: n.updated };
   }
   if (url.searchParams.get('all') === '1') {
     if (!link.tpl) throw new Fail(403, 'not_template');
@@ -1079,9 +1090,10 @@ function folderPublic(link, req, url) {
     if (link.tpl_login && !user) throw new Fail(401, 'need_account', 'This template asks for an account');
     const ip = clientIp(req);
     rate('tplall:' + ip, 60, 60000, 'too_many');
-    let bytes = 0;
-    const notes = rows.map((n) => { const text = unseal(n.text, n.e, 'notes.text'); bytes += Buffer.byteLength(text); return { path: rel(n), text, updated: n.updated }; });
-    if (bytes > TPL_BYTES_MAX) throw new Fail(413, 'too_large');
+    // Lo que pesa se sabe antes de leer nada (size cuenta caracteres: nunca más que los bytes).
+    if (rows.reduce((sum, n) => sum + (n.size || 0), 0) > TPL_BYTES_MAX) throw new Fail(413, 'too_large');
+    let bytes = 0; const notes = [];
+    for (const n of rows) { const text = folderText(link, n); bytes += Buffer.byteLength(text); if (bytes > TPL_BYTES_MAX) throw new Fail(413, 'too_large'); notes.push({ path: rel(n), text, updated: n.updated }); }
     mark('tplgot:' + link.id + ':' + ip); // quien después avisa que copió, primero se la llevó
     return Object.assign(head, { notes });
   }
