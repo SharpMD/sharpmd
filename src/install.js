@@ -12,7 +12,7 @@
 
   // Dónde se consigue la extensión. La de Android queda vacía hasta que la app esté publicada: sin dirección, su renglón no aparece.
   const EXTENSION_URL = 'https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek';
-  const ANDROID_URL = '';
+  const ANDROID_URL = 'https://play.google.com/store/apps/details?id=app.sharpmd';
   const HELP_URL = new URL('../?site#faq', LMD.WEB_APP_URL).href;
 
   // ---------- Instalar la app ----------
@@ -420,7 +420,7 @@
       html += head('Abrir los .md con doble clic') +
         '<ol class="lmd-inst-steps"><li>' + esc(T(MAC ? 'En Finder: clic derecho en un .md, Obtener información, Abrir con, Chrome, Cambiar todo.' : 'Clic derecho en un .md, Abrir con, Elegir otra aplicación, Chrome, Siempre.')) + '</li>' +
         '<li>' + esc(T(fileAccess === true ? 'El acceso a archivos ya está activado.' : 'En los detalles de la extensión, activá "Permitir acceso a URL de archivo".')) + '</li></ol>' +
-        '<div class="lmd-inst-links">' + out(HELP_URL, 'Ayuda', 'lmd-link') + '</div>';
+        '<div class="lmd-inst-links">' + out(HELP_URL, 'Ayuda', 'lmd-link') + (ANDROID_URL ? out(ANDROID_URL, 'App de Android', 'lmd-link') : '') + '</div>';
     }
     // Un PDF abierto desde el disco, en el visor de SharpMD en vez del visor del navegador. Viene apagado, y solo
     // existe donde corre la extensión: prenderlo registra pdfopen.js sobre file:///*.pdf (bridge-sw.js, syncPdf).
@@ -429,7 +429,7 @@
     // Qué puede leer la app web por la extensión al abrir un enlace a un archivo del disco. Se maneja solo desde la
     // extensión: la web no puede prenderlo ni sumar carpetas.
     if (EXT && desktop) html += head('Carpetas de las que la app web puede abrir archivos') + '<div data-inst-files></div>';
-    if (ANDROID_URL) html += head('App de Android') + line(esc(T('La misma app en el teléfono, con tus notas de la nube.')), out(ANDROID_URL, 'Conseguir la app'));
+    if (ANDROID_URL && !desktop && LMD.storeApp !== true) html += head('App de Android') + line(esc(T('La misma app en el teléfono, con tus notas de la nube.')), out(ANDROID_URL, 'Conseguir la app'));
     box.innerHTML = html;
 
     box.querySelectorAll('input[name=lmd-open-in]').forEach((input) => input.addEventListener('change', () => { if (input.checked) LMD.patch({ openIn: input.value }); }));
