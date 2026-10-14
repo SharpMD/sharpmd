@@ -2346,6 +2346,7 @@
       "Desfijar": "Unpin",
       "Fijadas": "Pinned",
       "Las notas que fijaste. Se sueltan desde su menú.": "The notes you pinned. Unpin them from their menu.",
+      "Sin red": "Offline",
   };
   let current = 'es';
   function setLang(pref) {
