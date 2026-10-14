@@ -16,7 +16,13 @@ If another program creates or deletes a file, the explorer notices on its own wi
 
 Chrome, Edge and Brave open folders and save in place. Firefox and Safari open one file at a time, and saving downloads a copy.
 
-What you already opened stays under **Recent**.
+## Open
+
+Every file or folder you open from your disk stays under **Open**, at the top of the explorer. A single file is one row and a folder unfolds. Opening another one adds it to the list, and the list is still there in another tab or when you come back another day.
+
+To remove one, hover over it and click the cross, or pick **Close** in its menu. Closing takes it off the list: nothing is deleted from your disk.
+
+When you come back another day, the browser may ask for the permission again. The item shows dimmed, and one click asks for it. In Firefox and Safari what you open is a copy: it is listed while the tab stays open.
 
 ## In this browser
 

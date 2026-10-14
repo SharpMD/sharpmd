@@ -13,6 +13,7 @@ On a Mac, `Ctrl` is `⌘` and `Alt` is `⌥`. The app shows them that way.
 | `Ctrl+B` and `Ctrl+I` | Bold and italic |
 | `Ctrl+K` | Insert or edit a link |
 | `Ctrl+Shift+F` | Search the note or the folder |
+| `Alt+Shift+E` | Go to the file explorer. The arrows move and `Enter` opens |
 | `Ctrl+P` | Print or save as PDF |
 | `F2` | Rename the note |
 | `Esc` | Close a menu, a dialog or the search box |

@@ -666,7 +666,7 @@
       text: T(rec.kind === 'dir' ? 'Para guardar en esta carpeta, el navegador te va a pedir permiso. El cuadro es del navegador y sale en su idioma: elegí la opción de guardar los cambios.' : 'Para guardar en este archivo, el navegador te va a pedir permiso. El cuadro es del navegador y sale en su idioma: elegí la opción de guardar los cambios.'),
       // El pedido sale del clic sobre el botón: el navegador lo exige.
       act: (d) => { let p = null; try { p = rec.handle.requestPermission({ mode: 'readwrite' }); } catch (e) { p = Promise.resolve('denied'); } Promise.resolve(p).then((s) => d.close(s === 'granted'), () => d.close(false)); } });
-    paintWrite(); if (ui.paneFiles && ui.paneFiles.dataset.loaded) loadTree();
+    paintWrite(); if (ui.paneFiles && ui.paneFiles.dataset.loaded) loadTree(true);
     return ok === true;
   }
   // Si se puede escribir ahí; si no, lo pide (quiet: solo contesta, sin preguntar). Lo que no es del disco no pregunta.
@@ -1538,8 +1538,9 @@
           '<div class="lmd-zone-head"><button type="button" class="lmd-zone-tog" data-zone-tog="files"><span class="lmd-node-chev">' + ICON.chevron + '</span><span>' + T('Archivos') + '</span></button>' +
             '<button type="button" class="lmd-zone-btn lmd-tree-only" data-act="tree-only" aria-pressed="false">' + ICON.md + '</button>' +
             '<button type="button" class="lmd-zone-btn lmd-tree-refresh" data-act="tree-refresh" title="' + T('Actualizar la lista de archivos') + '" aria-label="' + T('Actualizar la lista de archivos') + '">' + ICON.reload + '</button>' +
-            (APP ? '<button type="button" class="lmd-zone-btn lmd-tree-add" title="' + T('Crear') + '">' + ICON.plus + '</button>' : '') +
-            '<button type="button" class="lmd-zone-btn lmd-tree-open" title="' + T(APP ? 'Abrir otra carpeta o archivo' : 'Abrir otro archivo o carpeta') + '">' + ICON.open + '</button></div>' +
+            // Crear y abrir, cada uno con su palabra al lado en escritorio: un + y una carpeta solos se confunden.
+            (APP ? '<button type="button" class="lmd-zone-btn lmd-zone-word lmd-tree-add" title="' + T('Crear una nota o una carpeta') + '" aria-label="' + T('Crear una nota o una carpeta') + '">' + ICON.plus + '<span>' + T('Nueva') + '</span></button>' : '') +
+            '<button type="button" class="lmd-zone-btn lmd-zone-word lmd-tree-open" title="' + T(APP ? 'Abrir un archivo o una carpeta del disco' : 'Abrir otro archivo o carpeta en SharpMD') + '" aria-label="' + T(APP ? 'Abrir un archivo o una carpeta del disco' : 'Abrir otro archivo o carpeta en SharpMD') + '">' + ICON.open + '<span>' + T('Abrir') + '</span></button></div>' +
           '<div class="lmd-pane lmd-pane-files" data-pane="files"><div class="lmd-tree-box"></div><div class="lmd-results" hidden></div></div>' +
         '</section>' +
       '</div>' +
@@ -1559,8 +1560,8 @@
         // Al centro, lo que cambia el modo de trabajo: ver o editar, insertar y guardar.
         '<div class="lmd-top-mid lmd-doc-only">' +
           '<div class="lmd-modeseg" role="radiogroup" aria-label="' + T('Modo') + '">' +
-            '<button type="button" role="radio" data-act="mode-read" aria-checked="true" class="lmd-on" aria-label="' + T('Ver') + '">' + ICON.eye + '</button>' +
-            '<button type="button" role="radio" data-act="mode-edit" aria-checked="false" aria-label="' + T('Editar') + '">' + ICON.pencil + '</button>' +
+            '<button type="button" role="radio" data-act="mode-read" aria-checked="true" class="lmd-on" title="' + T('Ver') + '" aria-label="' + T('Ver') + '">' + ICON.eye + '</button>' +
+            '<button type="button" role="radio" data-act="mode-edit" aria-checked="false" title="' + T('Editar') + '" aria-label="' + T('Editar') + '">' + ICON.pencil + '</button>' +
           '</div>' +
           '<button class="lmd-icon-btn lmd-insert" data-act="insert" title="' + T('Insertar un bloque (también con clic derecho)') + '">' + ICON.plus + '</button>' +
           '<button class="lmd-icon-btn lmd-save" data-act="save" title="' + T('Guardar (Ctrl+S)') + '" hidden>' + ICON.save + '</button>' +
@@ -1627,7 +1628,7 @@
     // El cartel de una copia de un archivo del disco (paintCopy), arriba de la nota.
     ui.copyBar = el('div', { class: 'lmd-copybar', role: 'status', hidden: '' });
     ui.article.parentNode.insertBefore(ui.copyBar, ui.article);
-    document.addEventListener('click', (e) => { const b = e.target.closest('[data-fs=grant]'); if (b) { e.preventDefault(); fsGrant(!!b.closest('.lmd-copybar')); } const w = e.target.closest('[data-write]'); if (w && diskRoot) { e.preventDefault(); askWrite(diskRoot); } });
+    document.addEventListener('click', (e) => { const b = e.target.closest('[data-fs=grant]'); if (b) { e.preventDefault(); fsGrant(!!b.closest('.lmd-copybar')); } const w = e.target.closest('[data-write]'); const wr = w && ((w.dataset.write && roots[w.dataset.write]) || diskRoot); if (wr && wr.handle) { e.preventDefault(); askWrite(wr); } });
     ui.rawPre = ui.main.querySelector('pre.lmd-raw');
     ui.rawEdit = ui.main.querySelector('.lmd-raw-edit');
     ui.status = ui.main.querySelector('.lmd-status');
@@ -1643,6 +1644,9 @@
     ui.searchInput = ui.searchBox.querySelector('input');
     ui.searchCount = ui.searchBox.querySelector('.lmd-search-count');
 
+    // Cada botón de ícono de la barra de arriba y de la cabecera del explorador dice qué hace al pasar el mouse
+    // (title) y a quien usa un lector de pantalla (aria-label). Los que cambian de texto se ponen al día donde cambian.
+    document.querySelectorAll('.lmd-topbar button, .lmd-zone-head .lmd-zone-btn, .lmd-to-top').forEach((b) => { if (b.title && !b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title.replace(/ \([^()]*\)$/, '')); });
     ui.home = ui.main.querySelector('.lmd-home');
     ui.more = ui.main.querySelector('.lmd-more');
     watchBar();
@@ -1787,6 +1791,8 @@
       // Ctrl+F en el visor: su buscador, que recorre todo el documento. La segunda vez pasa el del navegador.
       if (LMD.mod(e) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f' && !noDoc && isBin() && LMD.viewer && LMD.viewer.find()) e.preventDefault();
       if (window.__MDT_WEB && e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyT') { e.preventDefault(); flipTheme(); }
+      // Alt+Shift+E: el foco va al explorador, a la nota abierta o al primer renglón. De ahí, flechas y Enter.
+      if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyE' && !document.querySelector('.lmd-ask, .lmd-dgm, .lmd-pres') && ui.panel.hidden) { e.preventDefault(); focusTree(); }
       if (LMD.mod(e) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' && editMode && !rawMode && docKind() === 'md') { e.preventDefault(); LMD.links.open(); }
       // La hoja de atajos: "?" fuera de un campo de texto, o Ctrl+/ en cualquier lado. Por la letra y no por la tecla:
       // en un teclado en español la barra va con Shift, y su tecla sola con Ctrl es el zoom del navegador.
@@ -1801,6 +1807,11 @@
     ui.searchInput.addEventListener('input', () => document.documentElement.classList.toggle('lmd-searching', !!ui.searchInput.value.trim()));
     ui.searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); stepSearch(e.shiftKey ? -1 : 1); }
+      // Flecha abajo: del buscador a los resultados, o al explorador si no se está buscando.
+      if (e.key === 'ArrowDown' && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const to = Array.from((ui.results.hidden ? ui.treeBox : ui.results).querySelectorAll('a, button.lmd-node, .lmd-root-tog, .lmd-res-doc')).find((n) => n.offsetParent);
+        if (to) { e.preventDefault(); to.focus(); }
+      }
     });
 
     // Ancho de la barra lateral
@@ -1849,10 +1860,12 @@
     // El explorador con el teclado: las flechas recorren lo que está a la vista, derecha e izquierda despliegan y
     // pliegan una carpeta (o van a la que contiene al archivo), Inicio y Fin van a las puntas. Enter abre, como siempre.
     ui.treeBox.addEventListener('keydown', (e) => {
-      const cur = e.target.closest && e.target.closest('.lmd-node');
+      const cur = e.target.closest && e.target.closest('.lmd-node, .lmd-root-tog');
       if (!cur || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
-      const all = Array.from(ui.treeBox.querySelectorAll('.lmd-node')).filter((n) => n.offsetParent);
-      const at = all.indexOf(cur); const dir = cur.classList.contains('lmd-node-dir'); const open = cur.classList.contains('lmd-open');
+      // La cabecera de una raíz (Abiertos, una carpeta abierta, En este navegador, Nube) se recorre como una carpeta más.
+      const all = Array.from(ui.treeBox.querySelectorAll('.lmd-node, .lmd-root-tog')).filter((n) => n.offsetParent);
+      const head = cur.classList.contains('lmd-root-tog');
+      const at = all.indexOf(cur); const dir = head || cur.classList.contains('lmd-node-dir'); const open = head ? cur.getAttribute('aria-expanded') === 'true' : cur.classList.contains('lmd-open');
       let to = null;
       // Plegar y desplegar es cosa del triángulo: el clic sobre el nombre abre la página de la carpeta.
       const fold = () => (cur.querySelector('.lmd-node-chev') || cur).click();
@@ -1862,10 +1875,25 @@
       else if (e.key === 'End') to = all[all.length - 1];
       else if (e.key === 'ArrowRight') { if (dir && !open) fold(); else if (dir) to = all[at + 1]; }
       else if (dir && open) fold();
-      else { const kids = cur.closest('.lmd-node-kids'); let up = kids && kids.previousElementSibling; while (up && !up.classList.contains('lmd-node-dir')) up = up.previousElementSibling; to = up; }
+      else {
+        const kids = cur.closest('.lmd-node-kids'); let up = kids && kids.previousElementSibling; while (up && !up.classList.contains('lmd-node-dir')) up = up.previousElementSibling;
+        // Un renglón de arriba de todo vuelve a la cabecera de su raíz; una cabecera, a la de la sección que la contiene.
+        const sec = head ? cur.closest('.lmd-xroot').parentNode.closest('.lmd-xroot') : cur.closest('.lmd-xroot');
+        to = up || (sec && sec.querySelector('.lmd-root-tog'));
+      }
       e.preventDefault();
       if (to) { to.focus(); to.scrollIntoView({ block: 'nearest' }); }
     });
+  }
+
+  // Lleva el foco al explorador: lo deja a la vista (también en pantalla chica) y se para en la nota abierta, o en
+  // el primer renglón si no hay ninguna.
+  function focusTree() {
+    showFiles('');
+    if (LMD.touch.small()) setDrawer(true);
+    const seen = (n) => !!n && !!n.offsetParent;
+    const to = [ui.treeBox.querySelector('.lmd-node.lmd-active'), ui.treeBox.querySelector('.lmd-root-tog.lmd-active')].find(seen) || Array.from(ui.treeBox.querySelectorAll('.lmd-node, .lmd-root-tog')).find(seen);
+    if (to) { to.focus(); to.scrollIntoView({ block: 'nearest' }); }
   }
 
   // ---------- Pantalla chica: la barra lateral como panel y el menú "más" ----------
@@ -3089,7 +3117,7 @@
   // El lector de un archivo del disco también muestra la nube (CLOUDY): le habla al servidor por la extensión.
   const CLOUDY = APP || isFile;
   const teamUrl = () => { const t = CLOUDY ? LMD.cloud.teamNow() : null; return t ? VBASE + 'cloud/~' + t.space + '/' : ''; };
-  const sectionOf = (url) => { if (!APP && !url.startsWith(VBASE)) return isFile ? 'disk' : ''; const r = rootOf(url); if (!r) return ''; if (r.kind === 'cloud') return teamUrl() && url.startsWith(teamUrl()) ? 'team' : 'cloud'; return r.kind === 'local' ? 'local' : r.kind === 'fs' ? 'fs' : r.kind === 'guide' ? 'guide' : r.kind === 'pub' ? 'pub' : 'disk'; };
+  const sectionOf = (url) => { if (!APP && !url.startsWith(VBASE)) return isFile ? 'disk' : ''; const r = rootOf(url); if (!r) return ''; if (r.kind === 'cloud') return teamUrl() && url.startsWith(teamUrl()) ? 'team' : 'cloud'; return r.kind === 'local' ? 'local' : r.kind === 'fs' ? 'fs' : r.kind === 'guide' ? 'guide' : r.kind === 'pub' ? 'pub' : r.kind === 'file' ? 'open' : 'disk'; };
   // Las notas que nacen con la fecha por nombre se listan por su primer renglón.
   const STAMP_RE = /^(nota|note)-\d{8}-\d{4}(-\d+)?\.md$/i;
 
@@ -3123,23 +3151,118 @@
     }
     return dir;
   }
-  // La carpeta del disco más reciente que todavía tiene permiso: es la que se muestra al entrar.
+  // La carpeta del disco más reciente que todavía tiene permiso: es la que se muestra desplegada al entrar.
   async function recentDisk() {
     for (const r of await LMD.store.rootsAll()) {
+      if (r.kind !== 'dir' || r.ghost) continue;
       try { if ((await r.handle.queryPermission({ mode: 'read' })) === 'granted') return r; } catch (e) { /* permiso vencido */ }
     }
     return null;
   }
 
+  // ---------- Abiertos ----------
+  // Lo que la persona abrió del disco, en una sola sección del explorador: un archivo suelto es un renglón (nunca una
+  // raíz con él mismo adentro) y una carpeta se despliega. Abrir otro lo suma. Quedan guardados en el navegador (los
+  // permisos, en store.js) y vuelven en cualquier pestaña, hasta que se cierran con la cruz o desde su menú. Cerrar
+  // saca de la lista: en el disco no se toca nada. Lo que llegó sin acceso al disco (Firefox, Safari, un archivo
+  // soltado en la ventana) es una copia en memoria: figura mientras dure la pestaña, y se dice.
+  let fsOpen = null; // los archivos abiertos por enlace (los lee la extensión): sus direcciones, como están guardadas
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  // Otra pestaña abrió o cerró algo: la lista se vuelve a leer ahí también.
+  const bumpOpen = () => LMD.store.openBump();
+  async function openItems() {
+    const out = [];
+    for (const r of await LMD.store.rootsAll()) {
+      if (r.kind !== 'dir' && r.kind !== 'file') continue;
+      // El permiso se mira, no se pide: al cargar la página no sale ningún cuadro del navegador.
+      let state = 'ghost';
+      if (!r.ghost) { state = 'prompt'; try { state = await r.handle.queryPermission({ mode: 'read' }); } catch (e) { /* vencido: se pide al tocarlo */ } }
+      const rec = roots[r.id] && roots[r.id].root ? roots[r.id] : r;
+      if (!r.ghost) roots[r.id] = rec; // así su árbol se puede listar sin haber abierto antes una nota suya
+      out.push({ key: r.key, kind: r.kind, name: r.name, rec, state, f: r.kind === 'file' ? r.id + '/' + encodeURIComponent(r.name) : r.id + '/' });
+    }
+    LMD.store.memAll().forEach((m) => out.push({ key: 'mem:' + m.name, kind: 'file', name: m.name, state: 'granted', copy: true, f: 'mem/' + encodeURIComponent(m.name) }));
+    heldFiles.forEach((file, name) => out.push({ key: 'bin:' + name, kind: 'file', name, state: 'granted', copy: true, f: 'bin/' + encodeURIComponent(name) }));
+    if (!fsOpen) fsOpen = new Set(await LMD.store.fsOpenAll());
+    fsOpen.forEach((f) => { const name = unesc(f.split('/').pop() || ''); if (name) out.push({ key: 'fs:' + f, kind: 'file', name, state: 'granted', copy: true, f }); });
+    // Orden fijo, por nombre y con los archivos arriba: abrir una nota no mueve los renglones de lugar.
+    return out.sort((a, b) => (a.kind === 'dir') - (b.kind === 'dir') || byName(a, b));
+  }
+  const closeTip = (it) => T(it.kind === 'dir' ? 'Cerrar. La carpeta no se borra.' : 'Cerrar. El archivo no se borra.');
+  const closeX = (it) => { const tip = closeTip(it); return el('button', { type: 'button', class: 'lmd-node-x lmd-open-x', 'data-close': it.key, title: tip, 'aria-label': tip }, ICON.close); };
+  // Qué le falta a ese elemento para abrirse, en una palabra y en una frase.
+  const openState = (it) => (it.state === 'ghost' ? [T('Reconectar'), T(it.kind === 'dir' ? 'Esta carpeta se abrió desde el otro lado. Elegila una vez acá y queda.' : 'Este archivo se abrió desde el otro lado. Elegilo una vez acá y queda.')]
+    : it.state !== 'granted' ? [T('Permitir'), T('Falta el permiso del navegador. Tocá para darlo.')]
+      : it.copy ? [T('Copia'), T('Copia en memoria. Dura mientras esta pestaña esté abierta.')] : null);
+  // El renglón de un archivo suelto: su ícono, su nombre y la cruz.
+  function openRow(it) {
+    const row = el('div', { class: 'lmd-open-row', 'data-key': it.key });
+    const st = openState(it); const locked = it.state !== 'granted';
+    const a = el('a', { class: 'lmd-node' + (locked ? ' lmd-node-locked' : ''), href: APP_URL + '?f=' + encodeURIComponent(it.f), title: st ? it.name + '. ' + st[1] : it.name });
+    a.dataset.url = VBASE + it.f; a.dataset.kind = fileKind(it.name);
+    a.innerHTML = '<span class="lmd-node-ico">' + fileIcon(it.name) + '</span><span class="lmd-node-name"></span>' + (st ? '<span class="lmd-node-sub">' + (locked && it.state !== 'ghost' ? ICON.lock : '') + '<span></span></span>' : '');
+    a.querySelector('.lmd-node-name').textContent = it.name;
+    if (st) a.querySelector('.lmd-node-sub span').textContent = st[0];
+    // Se abrió del otro lado (la web o la extensión): acá todavía falta elegirlo una vez.
+    if (it.state === 'ghost') { a.dataset.ghost = it.key; a.classList.add('lmd-node-ghost'); }
+    else if (locked) a.dataset.ask = it.rec.id;
+    row.append(a, closeX(it));
+    return row;
+  }
+  // Pide el permiso de lectura de un elemento guardado, con el mismo toque que lo quiso abrir (el navegador exige
+  // que el pedido salga de un clic). Si la persona dice que no, sigue en la lista: se puede volver a tocar o cerrar.
+  function askOpen(id) {
+    const rec = roots[id]; if (!rec || !rec.handle) return;
+    let p = null; try { p = rec.handle.requestPermission({ mode: 'read' }); } catch (e) { p = Promise.resolve('denied'); }
+    Promise.resolve(p).then((s) => s === 'granted', () => false).then(async (ok) => {
+      // Sin nota abierta el pie no está a la vista: lo dice el inicio.
+      if (!ok) { const say = T('Sin el permiso no se puede abrir "{a}". Sigue en la lista.', { a: rec.name }); if (noDoc) LMD.home.say(say); else flash(say, 'warn'); return; }
+      if (rec.kind === 'dir') { openDirs.add(VBASE + rec.id + '/'); await loadTree(true); return; }
+      await loadTree(true);
+      go(rec.id + '/' + encodeURIComponent(rec.name));
+    });
+  }
+  // Cierra un elemento de "Abiertos": sale de la lista y de lo guardado, y en el disco no cambia nada. Si es lo que
+  // está a la vista, primero se guarda lo pendiente (o se pregunta, como al salir de cualquier nota) y se vuelve al inicio.
+  async function closeOpen(key) {
+    const here = noDoc ? '' : HERE.slice(VBASE.length).split('#')[0];
+    const rec = /^root:/.test(key) ? (await LMD.store.rootsAll()).find((r) => r.key === key) || null : null;
+    const name = key.slice(4);
+    const mine = !noDoc && (rec ? !!appRoot && appRoot.id === rec.id : /^fs:/.test(key) ? here === key.slice(3) : here === key.slice(0, 3) + '/' + encodeURIComponent(name));
+    if (mine && !(await leaveDoc())) return false;
+    if (rec) {
+      await LMD.store.handlesDelete(key);
+      delete roots[rec.id]; delete lastTree[rec.id]; openDirs.delete(VBASE + rec.id + '/');
+      if (diskRoot && diskRoot.id === rec.id) { diskRoot = null; treeRoot = ''; diskTried = true; }
+    } else if (/^root:/.test(key)) await LMD.store.handlesDelete(key); // ya no estaba: que no quede nada
+    else if (/^mem:/.test(key)) LMD.store.memDrop(name);
+    else if (/^bin:/.test(key)) heldFiles.delete(name);
+    else if (/^fs:/.test(key)) { if (fsOpen) fsOpen.delete(key.slice(3)); await LMD.store.fsOpenDrop(key.slice(3)); }
+    bumpOpen();
+    if (mine) await go('', { discard: true });
+    await loadTree(true);
+    return true;
+  }
+
+  // o.item: un elemento de "Abiertos" (una carpeta): lleva su cruz y, si le falta el permiso, lo dice. o.lazy: la
+  // dirección de una carpeta abierta que no es la de la nota a la vista: arranca plegada y se lista al desplegarla.
   function rootSection(key, o) {
-    const sec = el('section', { class: 'lmd-xroot' + (side.shut[key] ? ' lmd-shut' : ''), 'data-root': key });
+    const shut = o.lazy ? !openDirs.has(o.lazy) || !o.url : !!side.shut[key];
+    const it = o.item || null; const st = it ? openState(it) : null;
+    const sec = el('section', { class: 'lmd-xroot' + (shut ? ' lmd-shut' : '') + (it ? ' lmd-open-dir' : ''), 'data-root': key });
+    if (o.lazy) sec.dataset.lazy = o.lazy;
+    if (it) sec.dataset.key = it.key;
     const head = el('div', { class: 'lmd-tree-head' });
-    const tog = el('button', { type: 'button', class: 'lmd-root-tog', 'aria-expanded': String(!side.shut[key]), title: o.title || o.name },
-      '<span class="lmd-node-chev">' + ICON.chevron + '</span><span class="lmd-root-ico">' + o.icon + '</span><span class="lmd-tree-path"></span>');
+    const tog = el('button', { type: 'button', class: 'lmd-root-tog' + (st && it.state !== 'granted' ? ' lmd-node-locked' : ''), 'aria-expanded': String(!shut), title: st ? o.name + '. ' + st[1] : o.title || o.name },
+      '<span class="lmd-node-chev">' + ICON.chevron + '</span><span class="lmd-root-ico">' + o.icon + '</span><span class="lmd-tree-path"></span>' + (st ? '<span class="lmd-node-sub">' + (it.state !== 'ghost' ? ICON.lock : '') + '<span></span></span>' : ''));
     tog.querySelector('.lmd-tree-path').textContent = o.name;
+    if (st) tog.querySelector('.lmd-node-sub span').textContent = st[0];
+    if (it && it.state === 'ghost') { tog.dataset.ghost = it.key; tog.classList.add('lmd-node-ghost'); } else if (it && it.state !== 'granted') tog.dataset.ask = it.rec.id;
     head.appendChild(tog);
-    if (o.up) head.appendChild(el('button', { class: 'lmd-tree-up', type: 'button', title: T('Subir a la carpeta superior') }, ICON.up));
-    if (o.add) head.appendChild(el('button', { class: 'lmd-tree-up lmd-tree-new', type: 'button', title: T('Crear acá') }, ICON.plus));
+    const tip = (b, text) => { b.title = text; b.setAttribute('aria-label', text); return b; };
+    if (o.up) head.appendChild(tip(el('button', { class: 'lmd-tree-up', type: 'button' }, ICON.up), T('Subir a la carpeta superior')));
+    if (o.add) head.appendChild(tip(el('button', { class: 'lmd-tree-up lmd-tree-new', type: 'button' }, ICON.plus), T('Crear acá')));
+    if (it) head.appendChild(closeX(it));
     const list = el('div', { class: 'lmd-tree' });
     if (o.url) list.dataset.url = o.url;
     sec.append(head, list);
@@ -3168,13 +3291,30 @@
     }
   }
   let treeTurn = 0;
-  async function loadTree() {
+  // soft: la estructura cambió pero las carpetas son las mismas (se pasó de una nota a otra, se cerró algo, se dio un
+  // permiso). Lo que ya está dibujado de cada raíz no se arma de nuevo: sus renglones pasan tal cual a la sección
+  // nueva, con sus carpetas desplegadas, sus números y el foco, y después se pone al día solo lo que haya cambiado.
+  // Sin soft (se creó, se movió o se borró algo, cambió un ajuste) todo se lista y se dibuja otra vez.
+  async function loadTree(soft) {
     const turn = ++treeTurn;
     ui.paneFiles.dataset.loaded = '1';
+    const stat = document.documentElement; stat.dataset.lmdTreeLoads = String((+stat.dataset.lmdTreeLoads || 0) + 1);
     // Quien entró por el enlace de una sesión en vivo ve solo esa nota: no hay explorador que mostrarle.
     if (APP && LMD.cloud.guest()) { ui.treeBox.replaceChildren(); return; }
-    const secs = []; const fills = [];
-    const add = (key, o) => { const sec = rootSection(key, o); secs.push(sec); const list = sec.querySelector('.lmd-tree'); if (o.url) fills.push(fillDir(list, o.url, 0)); return list; };
+    const secs = []; const fills = []; const moves = [];
+    const kept = new Map();
+    if (soft === true) ui.treeBox.querySelectorAll('.lmd-xroot > .lmd-tree[data-url]').forEach((l) => { if (l._dir === l.dataset.url && l._sig != null && l.querySelector('.lmd-node')) kept.set(l.dataset.url, l); });
+    // into: la sección va dentro de otra (una carpeta, dentro de "Abiertos").
+    const add = (key, o, into) => {
+      const sec = rootSection(key, o); if (into) into.appendChild(sec); else secs.push(sec);
+      const list = sec.querySelector('.lmd-tree');
+      if (!o.url) return list;
+      const old = kept.get(o.url);
+      if (old) moves.push([list, old]);
+      // Una carpeta plegada que todavía no se listó espera a que la desplieguen.
+      else if (!(o.lazy && sec.classList.contains('lmd-shut'))) fills.push(fillDir(list, o.url, 0));
+      return list;
+    };
     const leaf = (u) => decodeURIComponent(u.replace(/\/$/, '').split('/').pop() || u);
     if (!APP) {
       add('disk', { name: leaf(treeRoot), title: decodeURIComponent(treeRoot), icon: ICON.folder, url: treeRoot, up: new URL('..', treeRoot).href !== treeRoot });
@@ -3192,20 +3332,34 @@
         if (r && !diskRoot) { diskRoot = roots[r.id] || r; roots[r.id] = diskRoot; }
       }
       await LMD.cloud.ready();
-      const others = (await LMD.store.rootsAll()).filter((r) => !diskRoot || r.id !== diskRoot.id).slice(0, 8);
+      const items = await openItems();
       if (turn !== treeTurn) return;
       // Una carpeta compartida por enlace (o una plantilla) que se está leyendo: sus notas, arriba de todo.
       const pk = inPub();
       if (pk) add('pub', { name: pk.info.name, title: T(pk.info.template ? 'Plantilla · solo lectura' : 'Carpeta compartida · solo lectura'), icon: ICON.folder, url: VBASE + pubPath(pk.ref, '') + '/' });
-      if (diskRoot) {
-        const top = VBASE + diskRoot.id + '/';
-        if (!treeRoot || !treeRoot.startsWith(top)) treeRoot = top;
-        const atTop = treeRoot === top;
-        const diskList = add('disk', { name: atTop ? diskRoot.name : leaf(treeRoot), title: diskRoot.name + (atTop ? '' : '/' + vParts(treeRoot).join('/')), icon: diskRoot.kind === 'dir' ? ICON.folder : ICON.file, url: treeRoot, up: !atTop, add: diskRoot.kind === 'dir' });
-        // De un vistazo: abierta en solo lectura, con la forma de permitir guardar ahí mismo.
-        if (diskRoot.handle && !diskRoot.ghost && !(await canWrite(diskRoot.handle, false))) diskList.before(el('button', { type: 'button', class: 'lmd-link lmd-root-hint lmd-root-ro', 'data-write': '', text: T('Solo lectura · Permitir guardar') }));
-        if (turn !== treeTurn) return;
+      // Abiertos: los archivos sueltos como renglones y, debajo, cada carpeta. La de la nota a la vista (o la última
+      // que se usó) va desplegada, con subir y crear; las demás, plegadas hasta que se las toca.
+      if (items.length) {
+        const sec = rootSection('open', { name: T('Abiertos'), title: T('Lo que abriste del disco. Queda acá hasta que lo cierres.'), icon: ICON.open });
+        secs.push(sec);
+        const box = sec.querySelector('.lmd-tree'); box.classList.add('lmd-open-list');
+        if (items.some((it) => it.copy)) box.appendChild(el('p', { class: 'lmd-empty lmd-open-note', text: T(window.showOpenFilePicker ? 'Las copias duran mientras esta pestaña esté abierta.' : 'Este navegador abre copias: duran mientras esta pestaña esté abierta.') }));
+        for (const it of items) {
+          if (it.kind !== 'dir') { box.appendChild(openRow(it)); continue; }
+          const top = VBASE + it.rec.id + '/'; const ok = it.state === 'granted';
+          if (ok && diskRoot && diskRoot.id === it.rec.id) {
+            diskRoot = it.rec;
+            if (!treeRoot || !treeRoot.startsWith(top)) treeRoot = top;
+            const atTop = treeRoot === top;
+            const diskList = add('disk', { name: atTop ? it.name : leaf(treeRoot), title: it.name + (atTop ? '' : '/' + vParts(treeRoot).join('/')), icon: ICON.folder, url: treeRoot, up: !atTop, add: true, item: it }, box);
+            // De un vistazo: abierta en solo lectura, con la forma de permitir guardar ahí mismo.
+            if (!(await canWrite(it.rec.handle, false))) diskList.before(el('button', { type: 'button', class: 'lmd-link lmd-root-hint lmd-root-ro', 'data-write': it.rec.id, text: T('Solo lectura · Permitir guardar') }));
+            if (turn !== treeTurn) return;
+          } else add('dir-' + it.rec.id, { name: it.name, icon: ICON.folder, url: ok ? top : '', lazy: top, item: it }, box);
+        }
       }
+      // La carpeta que estaba desplegada ya no está en la lista (se cerró en otra pestaña) o perdió el permiso.
+      if (diskRoot && !items.some((it) => it.kind === 'dir' && it.rec.id === diskRoot.id && it.state === 'granted')) { diskRoot = null; treeRoot = ''; }
       // Un archivo del disco abierto por enlace: su rama, desde un par de carpetas más arriba, con el camino completo
       // en el título. Debajo, cómo abrir la carpeta de verdad (para ver todo y poder guardar).
       if (!noDoc && appRoot && appRoot.kind === 'fs') {
@@ -3218,34 +3372,56 @@
       }
       add('local', { name: T('En este navegador'), icon: ICON.browser, url: VBASE + 'local/', add: true });
       cloudRoots(add, fills);
-      // La guía, al final: a la vista mientras la persona todavía no tiene nada propio (ni notas en este navegador,
-      // ni carpeta o archivo abierto, ni sesión), y mientras está leyendo una de sus notas.
-      const bare = !diskRoot && !others.length && !LMD.cloud.signedIn() && !(await LMD.store.notesAll()).length;
-      if (turn !== treeTurn) return;
-      if (inGuide() || bare) add('guide', { name: T('Guía'), title: T('Cómo funciona SharpMD'), icon: ICON.book, url: VBASE + 'guide/' });
-      // Las otras carpetas y archivos del disco que se abrieron antes: un clic los trae de vuelta.
-      if (others.length) {
-        const list = add('recent', { name: T('Recientes'), icon: ICON.clock });
-        others.forEach((r) => {
-          const row = el('div', { class: 'lmd-recent' });
-          const go = el('a', { class: 'lmd-node', href: APP_URL + '?f=' + encodeURIComponent(r.last || r.id + '/'), title: r.name });
-          go.innerHTML = '<span class="lmd-node-ico">' + (r.kind === 'dir' ? ICON.folder : fileIcon(r.name)) + '</span><span class="lmd-node-name"></span><span class="lmd-node-sub"></span>';
-          go.querySelector('.lmd-node-name').textContent = r.name;
-          go.querySelector('.lmd-node-sub').textContent = r.ghost ? T('Reconectar') : r.kind === 'dir' ? decodeURIComponent((r.last || '').split('/').slice(1).join('/')) : '';
-          // Se abrió del otro lado (la web o la extensión): acá todavía falta elegirla una vez.
-          if (r.ghost) { go.dataset.ghost = r.key; go.classList.add('lmd-node-ghost'); }
-          const del = el('button', { type: 'button', class: 'lmd-node-x', title: T('Quitar de la lista'), 'data-key': r.key }, ICON.close);
-          row.append(go, del); list.appendChild(row);
-        });
-      }
+      // La guía no aparece sola: se llega desde "Ver cómo funciona" del inicio y desde Ajustes. Su raíz está a la vista
+      // mientras se lee una de sus notas, para pasar de una a otra, y se va al salir.
+      if (inGuide()) add('guide', { name: T('Guía'), title: T('Cómo funciona SharpMD'), icon: ICON.book, url: VBASE + 'guide/' });
     }
     // Lo que se lista rápido entra ya dibujado, sin parpadeo; lo lento (la nube) se completa después.
     await Promise.race([Promise.all(fills), new Promise((resolve) => setTimeout(resolve, 200))]);
     if (turn !== treeTurn) return;
     const y = ui.paneFiles.scrollTop;
+    const focused = ui.treeBox.contains(document.activeElement) ? document.activeElement : null;
+    moves.forEach(([list, old]) => { list.textContent = ''; list.append(...old.childNodes); list._dir = old._dir; list._depth = old._depth; list._sig = old._sig; });
     ui.treeBox.replaceChildren(...secs);
     ui.paneFiles.scrollTop = y;
+    // El foco sigue en el renglón donde estaba: quien recorre el explorador con el teclado no lo pierde.
+    if (focused && document.activeElement !== focused) {
+      const again = focused.isConnected ? focused : focused.dataset && focused.dataset.url ? ui.treeBox.querySelector('.lmd-node[data-url="' + CSS.escape(focused.dataset.url) + '"]') : null;
+      if (again) again.focus({ preventScroll: true });
+    }
+    if (moves.length) { await revealHere(); if (turn !== treeTurn) return; }
     markActive();
+    if (moves.length) freshen(moves.map((m) => m[0]), turn);
+  }
+  // Despliega, en lo que ya está dibujado, las carpetas que llevan hasta la nota abierta (y las que la persona dejó
+  // desplegadas). Devuelve true si la nota quedó a la vista.
+  async function revealHere() {
+    const here = noDoc ? '' : HERE;
+    for (let pass = 0; pass < 24; pass++) {
+      const next = Array.from(ui.treeBox.querySelectorAll('.lmd-node-dir')).find((n) => n._open && !n.classList.contains('lmd-open') && !n.classList.contains('lmd-vault-shut') && n.offsetParent && ((here && here.startsWith(n.dataset.url)) || openDirs.has(n.dataset.url)));
+      if (next) { await next._open(); if (!next.classList.contains('lmd-open')) break; continue; }
+      // Todo el camino está desplegado: se espera a lo que todavía se está listando.
+      const busy = Array.from(ui.treeBox.querySelectorAll('.lmd-node-dir.lmd-open')).map((n) => n._busy).filter(Boolean);
+      if (!busy.length) break;
+      await Promise.all(busy);
+    }
+    return !!here && !!ui.treeBox.querySelector('.lmd-node[data-url="' + CSS.escape(here) + '"]');
+  }
+  // Pone al día lo que se conservó: cada carpeta ya listada se vuelve a leer, y solo si cambió se toca. La del disco,
+  // renglón por renglón; las demás (la nube, las notas del navegador) se dibujan de nuevo ellas solas.
+  async function freshen(lists, turn) {
+    for (const list of lists) {
+      const boxes = [list].concat(Array.from(list.querySelectorAll('.lmd-node-kids'))).filter((b) => b._dir && b._sig != null);
+      for (const box of boxes) {
+        if (!box.isConnected) continue;
+        let rows = null; try { rows = await listDir(box._dir); } catch (e) { rows = null; }
+        if (turn !== treeTurn) return;
+        if (!box.isConnected || rows == null || rowSig(rows) === box._sig) continue;
+        if (watchable(box._dir)) patchDir(box, rows); else await fillDir(box, box._dir, box._depth);
+        if (turn !== treeTurn) return;
+        markActive();
+      }
+    }
   }
   // Marca en el árbol la nota abierta. Devuelve false si no está a la vista.
   function markActive() {
@@ -3263,18 +3439,21 @@
   let rootTurn = 0;
   async function syncTree(fresh) {
     const turn = ++rootTurn;
-    if (APP && !noDoc && appRoot.root) {
+    // Un archivo suelto es un renglón de "Abiertos": la carpeta desplegada sigue siendo la que era.
+    if (APP && !noDoc && appRoot.root && appRoot.kind === 'dir') {
       const top = VBASE + appRoot.id + '/';
       if (!diskRoot || diskRoot.id !== appRoot.id) {
-        // Al volver a una carpeta que ya se usó en esta sesión, el árbol queda donde estaba.
-        if (diskRoot && treeRoot) lastTree[diskRoot.id] = treeRoot;
-        treeRoot = lastTree[appRoot.id] || ''; fresh = true;
+        // Al volver a una carpeta que ya se usó en esta sesión, el árbol queda donde estaba. La que se deja sigue
+        // desplegada, si lo estaba.
+        if (diskRoot && treeRoot) { lastTree[diskRoot.id] = treeRoot; if (!side.shut.disk) openDirs.add(VBASE + diskRoot.id + '/'); }
+        treeRoot = lastTree[appRoot.id] || ''; fresh = fresh || 'soft';
       }
       diskRoot = appRoot;
       if (!treeRoot || !treeRoot.startsWith(top) || !HERE.startsWith(treeRoot)) {
         const next = await startRoot(HERE, top);
         if (turn !== rootTurn) return;
-        treeRoot = next; fresh = true;
+        if (next !== treeRoot) fresh = fresh || 'soft';
+        treeRoot = next;
       }
     }
     // Sobre un archivo abierto directo, si el que se abrió quedó fuera del árbol, el árbol se vuelve a ubicar.
@@ -3285,15 +3464,28 @@
     }
     // La raíz de la nota abierta se despliega sola.
     const key = noDoc ? '' : sectionOf(HERE);
-    if (key && side.shut[key]) { delete side.shut[key]; saveSide(); fresh = true; }
+    if (key && side.shut[key]) { delete side.shut[key]; saveSide(); fresh = fresh || 'soft'; }
+    // Una carpeta abierta vive dentro de "Abiertos": esa sección también se despliega.
+    if ((key === 'disk' || key === 'open') && APP && side.shut.open) { delete side.shut.open; saveSide(); fresh = fresh || 'soft'; }
+    // Lo que se abre como archivo suelto (del disco, por enlace o como copia) tiene su renglón en "Abiertos": si
+    // todavía no está, la lista se arma de nuevo.
+    const loose = APP && !noDoc && !inDir() && (key === 'open' || (key === 'fs' && !!fsOpen && fsOpen.has(HERE.slice(VBASE.length).split('#')[0])));
+    if (loose && !ui.treeBox.querySelector('.lmd-open-row > .lmd-node[data-url="' + CSS.escape(HERE.split('#')[0]) + '"]')) fresh = fresh || 'soft';
     // La rama de un archivo abierto por enlace se arma con cada nota, y se va al pasar a otra cosa.
-    if (key === 'fs' || ui.treeBox.querySelector('.lmd-xroot[data-root=fs]')) fresh = true;
-    // La raíz de la guía también: aparece al abrir una de sus notas y se va al pasar a otra cosa, si ya hay algo propio.
-    if ((key === 'guide') !== !!ui.treeBox.querySelector('.lmd-xroot[data-root=guide]')) fresh = true;
+    if (key === 'fs' || ui.treeBox.querySelector('.lmd-xroot[data-root=fs]')) fresh = fresh || 'soft';
+    // La raíz de la guía también: aparece al abrir una de sus notas y se va al pasar a otra cosa.
+    if ((key === 'guide') !== !!ui.treeBox.querySelector('.lmd-xroot[data-root=guide]')) fresh = fresh || 'soft';
     // Y la de una carpeta compartida por enlace: es la de la nota abierta, y se va con ella.
     const pubSec = ui.treeBox.querySelector('.lmd-xroot[data-root=pub] .lmd-tree');
-    if ((key === 'pub') !== !!pubSec || (pubSec && !HERE.startsWith(pubSec.dataset.url))) fresh = true;
-    if (fresh || !markActive()) loadTree();
+    if ((key === 'pub') !== !!pubSec || (pubSec && !HERE.startsWith(pubSec.dataset.url))) fresh = fresh || 'soft';
+    // true: se creó, se movió o se borró algo, y todo se lista otra vez. 'soft': cambió qué raíces hay, no lo que tienen.
+    // Mientras el árbol se arma de nuevo, la marca no queda en la nota anterior.
+    if (fresh) { markActive(); loadTree(fresh === 'soft'); return; }
+    if (markActive()) return;
+    // La nota está dentro de una carpeta plegada (se llegó por un enlace o por la búsqueda): se despliega el camino
+    // hasta ella, en el lugar. Solo si no aparece se arma el árbol de nuevo.
+    if (!noDoc && await revealHere()) { if (turn === rootTurn) markActive(); return; }
+    if (turn === rootTurn) loadTree(true);
   }
   // Sube el árbol del disco una carpeta, y lo recuerda para la carpeta de la nota abierta.
   function treeUp() {
@@ -3312,24 +3504,35 @@
   function sideClick(e) {
     const zone = e.target.closest('[data-zone-tog]');
     if (zone) { const k = zone.dataset.zoneTog + 'Shut'; side[k] = !side[k]; applySide(); saveSide(); return true; }
+    // La cruz de un elemento de "Abiertos": lo cierra. Va antes que todo: está dentro de su renglón.
+    const shutBtn = e.target.closest('[data-close]');
+    if (shutBtn) { e.preventDefault(); closeOpen(shutBtn.dataset.close); return true; }
     const tog = e.target.closest('.lmd-root-tog');
     if (tog) {
       const sec = tog.closest('.lmd-xroot'); const list = sec.querySelector('.lmd-tree'); const url = (list && list.dataset.url) || '';
+      // Una carpeta abierta que todavía no se puede leer: se reconecta, o se pide el permiso con este mismo toque.
+      if (tog.dataset.ghost) { LMD.bridge.reconnect(tog.dataset.ghost, homeCtx()).then(() => loadTree(true)); return true; }
+      if (tog.dataset.ask) { askOpen(tog.dataset.ask); return true; }
       // El triángulo pliega y despliega. El nombre abre la página de la raíz y la deja desplegada; en pantalla chica
       // solo despliega (la página se abre desde su menú).
       const page = pagesByName(e) && !!url && canOpenDir(url);
       if (page) openDir(url);
       if (page && !sec.classList.contains('lmd-shut')) return true;
       const shut = sec.classList.toggle('lmd-shut');
+      tog.setAttribute('aria-expanded', String(!shut));
+      // Una carpeta abierta que no es la de la nota a la vista: plegada o no, vale mientras dure la pestaña, y se lista
+      // recién la primera vez que se despliega.
+      if (sec.dataset.lazy) { if (shut) openDirs.delete(sec.dataset.lazy); else { openDirs.add(sec.dataset.lazy); if (url && !list._dir) fillDir(list, url, 0); } return true; }
       if (shut) side.shut[sec.dataset.root] = true; else delete side.shut[sec.dataset.root];
-      tog.setAttribute('aria-expanded', String(!shut)); saveSide();
+      saveSide();
       return true;
     }
     if (e.target.closest('.lmd-tree-up:not(.lmd-tree-new)')) { treeUp(); return true; }
     const ghost = e.target.closest('a[data-ghost]');
-    if (ghost && !e.target.closest('.lmd-node-x')) { e.preventDefault(); LMD.bridge.reconnect(ghost.dataset.ghost, homeCtx()).then(() => loadTree()); return true; }
-    const x = e.target.closest('.lmd-node-x');
-    if (x) { LMD.store.handlesDelete(x.dataset.key).then(() => loadTree()); return true; }
+    if (ghost) { e.preventDefault(); LMD.bridge.reconnect(ghost.dataset.ghost, homeCtx()).then(() => loadTree(true)); return true; }
+    // Un archivo guardado al que le falta el permiso: se pide con este mismo toque, y si se da, se abre.
+    const ask = e.target.closest('a[data-ask]');
+    if (ask) { e.preventDefault(); askOpen(ask.dataset.ask); return true; }
     if (e.target.closest('.lmd-root-hint:not([data-write]):not([data-fs])')) { signIn(); return true; }
     const bin = e.target.closest('[data-trash]');
     if (bin) { setDrawer(false); LMD.extras.trash(bin.dataset.trash); return true; }
@@ -3412,9 +3615,12 @@
           if (!kids.hidden && !kids.dataset.loaded) { kids.dataset.loaded = '1'; await fillDir(kids, row.url, depth + 1); }
         };
         item.addEventListener('click', open);
+        // Desplegarla sin un clic (revealHere): plegada, la despliega y espera a que esté listada.
+        const run = () => { const p = open().catch(() => {}); item._busy = p; p.then(() => { if (item._busy === p) item._busy = null; }); return p; };
+        item._open = () => (kids.hidden ? run() : item._busy || Promise.resolve());
         showCount(item, row.url);
         if (row.url === here) item.classList.add('lmd-active');
-        if (!shut && ((here && here.startsWith(row.url)) || openDirs.has(row.url))) open();
+        if (!shut && ((here && here.startsWith(row.url)) || openDirs.has(row.url))) run();
       } else {
         // Sobre un archivo abierto directo, lo que no es Markdown lleva la dirección que lo abre dentro de SharpMD
         // (también en otra pestaña); el Markdown y lo que SharpMD no dibuja, la suya.
@@ -3434,7 +3640,7 @@
   // búsqueda quedan como estaban. Donde el navegador lo ofrece, FileSystemObserver avisa enseguida y el sondeo queda
   // de respaldo. Lo plegado no se lee: se pone al día al desplegarlo.
   const TREE_POLL = 4000; const TREE_POLL_DIRS = 40; const NEW_MARK = 8000;
-  const rowSig = (rows) => rows.map((r) => (r.dir ? 'd' : 'f') + r.url).join('\n');
+  const rowSig = (rows) => rows.map((r) => (r.dir ? 'd' : 'f') + r.url + (r.label ? '\t' + r.label : '') + (r.vault ? '\t' + (LMD.vault.isOpen(r.vault) ? 'o' : 's') + (r.vault.ai ? 'a' : '') : '')).join('\n');
   const watchable = (url) => (APP ? (rootOf(url) || {}).kind === 'dir' : isFile && !url.startsWith(VBASE));
   let treePolling = false; let goneDoc = ''; let fsObs = null; let fsObsRoot = null;
   function watchDisk() {
@@ -3669,6 +3875,8 @@
     if (!APP) return [{ key: 'disk', name: leaf(treeRoot), icon: ICON.folder, url: treeRoot }];
     const out = [];
     if (diskRoot && treeRoot && !side.shut.disk) out.push({ key: 'disk', name: treeRoot === VBASE + diskRoot.id + '/' ? diskRoot.name : leaf(treeRoot), icon: ICON.folder, url: treeRoot });
+    // Las otras carpetas abiertas del disco, si están desplegadas: se busca en lo que se ve.
+    if (!side.shut.open) ui.treeBox.querySelectorAll('.lmd-open-dir[data-lazy]:not(.lmd-shut) > .lmd-tree[data-url]').forEach((l) => out.push({ key: l.parentNode.dataset.root, name: l.parentNode.querySelector('.lmd-tree-path').textContent, icon: ICON.folder, url: l.dataset.url }));
     if (!side.shut.local) out.push({ key: 'local', name: T('En este navegador'), icon: ICON.browser, url: VBASE + 'local/' });
     if (LMD.cloud.enabled() && LMD.cloud.signedIn() && !side.shut.cloud) out.push({ key: 'cloud', name: T('Nube'), icon: ICON.cloud, url: VBASE + 'cloud/' });
     if (LMD.cloud.enabled() && LMD.cloud.signedIn() && teamUrl() && !side.shut.team) out.push({ key: 'team', name: LMD.cloud.teamNow().name || T('Equipo'), icon: ICON.people, url: teamUrl() });
@@ -3784,7 +3992,7 @@
   function showFiles(key) {
     if (settings.sidebarHidden) LMD.patch({ sidebarHidden: false });
     if (side.filesShut) { side.filesShut = false; applySide(); }
-    if (key && side.shut[key]) { delete side.shut[key]; loadTree(); }
+    if (key && side.shut[key]) { delete side.shut[key]; loadTree(true); }
     saveSide();
   }
   // Enlace a una sección para pegar en otro lado: la dirección completa si el documento tiene una pública
@@ -4808,7 +5016,7 @@
     open: (url, opt) => go(url.slice(VBASE.length), opt),
     close: (opt) => go('', opt),
     // Un texto como nota nueva sin guardar: vive en la sesión hasta que se elige dónde guardarla (import.js).
-    openText: (name, text) => { try { sessionStorage.setItem('mdt-mem', JSON.stringify({ name, text, disk: '' })); } catch (e) { return Promise.resolve(false); } return go('mem/' + encodeURIComponent(name), { edit: 'doc' }); },
+    openText: (name, text) => { LMD.store.memKeep(name); try { sessionStorage.setItem('mdt-mem', JSON.stringify({ name, text, disk: '' })); } catch (e) { return Promise.resolve(false); } return go('mem/' + encodeURIComponent(name), { edit: 'doc' }); },
     get HERE() { return HERE; }, get docName() { return DOC_NAME; }, get noDoc() { return noDoc; },
     openApp: (query) => bg({ type: 'openApp', query }),
     openPanel: (tab, why) => openPanel(tab, why),
@@ -4844,6 +5052,8 @@
     get docKind() { return noDoc || inDir() ? '' : docKind(); }, res: (url) => resFile(url),
     // Dónde se crea desde la cabecera del explorador cuando hace falta una carpeta: la del disco, si hay una abierta.
     diskDir: () => (APP && diskRoot && diskRoot.kind === 'dir' ? treeRoot : ''),
+    // Cerrar un elemento de "Abiertos" por su clave (el menú del explorador, extras.js).
+    closeOpen: (key) => closeOpen(key),
     newNote: (opt) => LMD.home.create(homeCtx(), opt),
     pick: (what) => LMD.home.pick(homeCtx(), what),
     diskPath, diskHref, canViewFolder, viewFolder, fsGrant: () => fsGrant(), allowWrite: (url) => allowWrite(url),
@@ -5062,6 +5272,7 @@
           flash(T('Este navegador no deja escribir el archivo: se descargó una copia'), 'warn');
           if (appRoot && appRoot.id === 'mem') {
             diskText = raw; dirty = false; updateSaveState();
+            LMD.store.memKeep(name);
             try { sessionStorage.setItem('mdt-mem', JSON.stringify({ name, text: raw })); } catch (e) { /* demasiado grande para la sesión */ }
           }
           return false;
@@ -5295,9 +5506,9 @@
     }
     if (id === 'mem') {
       // Navegador sin acceso a archivos: el documento viaja en la sesión y se guarda descargando una copia.
-      let mem = null;
-      try { mem = JSON.parse(sessionStorage.getItem('mdt-mem') || 'null'); } catch (e) { /* sesión vacía */ }
-      if (!mem || mem.name !== name) return fail('');
+      // Si es una de las copias que esperaban en "Abiertos", pasa a ser la que está a la vista (store.js).
+      const mem = LMD.store.memTake(name);
+      if (!mem) return fail('');
       // disk es lo último que quedó guardado; un archivo nuevo todavía no tiene nada en el disco.
       return { root: { id, kind: 'file', name: mem.name, handle: { kind: 'file', name: mem.name, getFile: async () => ({ text: async () => mem.text, lastModified: 0, size: mem.text.length }) } },
         raw: mem.text, disk: mem.disk != null ? mem.disk : mem.text };
@@ -5382,6 +5593,8 @@
       const doc = f ? await loadDoc(f) : null;
       if (seq !== navSeq) return false;
       // Un archivo del disco abierto por enlace del que la web ya tiene la carpeta: se abre el archivo real.
+      // La copia que figuraba en "Abiertos" deja su lugar al archivo real.
+      if (doc && doc.goto && /^fs\//.test(f)) { const was = f.split('#')[0]; if (fsOpen) fsOpen.delete(was); LMD.store.fsOpenDrop(was); }
       if (doc && doc.goto) return go(doc.goto, Object.assign({}, opt, { discard: true }));
       if (doc && doc.fail != null) {
         // No se pudo abrir: con una nota a la vista se avisa y queda esa; si no, lo dice el estado vacío.
@@ -5400,6 +5613,7 @@
 
   function setDoc(f, doc, opt) {
     const wasEditing = editMode;
+    const wasFs = !noDoc && !!appRoot && appRoot.kind === 'fs'; // se venía de otro archivo de la misma rama del disco
     dropDoc();
     // Se creó, se movió o se borró un archivo: el árbol y lo que se sabía de la carpeta se vuelven a leer.
     if (opt.tree) { fileCache.clear(); folderIndex.clear(); clearCounts(); wikiIndex = null; linkIndex = null; }
@@ -5423,6 +5637,9 @@
       if (opt.replace || opt.boot || LMD.touch.backMark()) history.replaceState(null, '', href); else if (href !== location.href) history.pushState(null, '', href);
     }
     if (doc && appRoot.root) { appRoot.last = f; appRoot.at = Date.now(); handlesPut(appRoot); }
+    // Un archivo del disco abierto por enlace (lo lee la extensión) también queda en "Abiertos", hasta que se cierra.
+    // El que se abrió, no cada nota de su carpeta por la que se pase después siguiendo enlaces o el árbol.
+    if (doc && appRoot.kind === 'fs' && !isDirAddr(f) && !wasFs) { const at = f.split('#')[0]; if (fsOpen) fsOpen.add(at); LMD.store.fsOpenAdd(at).then((fresh) => { if (fresh) { if (fsOpen) fsOpen.add(at); bumpOpen(); } }); }
     paintDoc();
     paintCopy();
     paintWrite();
@@ -5623,6 +5840,8 @@
     }
 
     chrome.storage.onChanged.addListener((changes, area) => {
+      // Otra pestaña abrió o cerró un archivo o una carpeta: "Abiertos" se pone al día acá también.
+      if (area === 'local' && APP && changes.openRev && !LMD.store.openMine(changes.openRev.newValue) && ui.paneFiles.dataset.loaded) { fsOpen = null; loadTree(true); }
       if (area !== 'local' || !changes.settings) return;
       const prev = settings;
       settings = LMD.merge(changes.settings.newValue);

@@ -597,6 +597,8 @@ pre.lmd-mermaid-error { border-color: #dc2626; }
 .lmd-home-actions .lmd-btn-fill, .lmd-home-actions .lmd-btn-fill:hover { flex: 1 0 100%; padding: 13px 16px; border-radius: 12px; background: var(--accent-fill); color: var(--accent-fg); font-size: 15.5px; }
 .lmd-home-actions .lmd-btn-fill:hover { filter: brightness(1.06); }
 .lmd-home-actions .lmd-btn:active { transform: translateY(1px); }
+/* Crear arriba; abajo, con su rótulo, abrir algo que ya está en el disco. */
+.lmd-home-label { flex: 1 0 100%; margin: 10px 0 0; color: var(--fg-faint); font-size: 12.5px; text-align: center; }
 .lmd-home-more { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 5px; color: var(--fg-faint); font-size: 12.5px; line-height: 1.5; }
 .lmd-home-more:empty { display: none; }
 .lmd-home-hint, .lmd-home-notes { margin: 0; }
@@ -1144,6 +1146,9 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
 .lmd-zone-btn { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: inherit; display: grid; place-items: center; cursor: pointer; }
 .lmd-zone-btn:hover { background: var(--bg-soft); color: var(--fg); }
 .lmd-zone-btn svg { width: 15px; height: 15px; }
+/* Crear y abrir llevan su palabra al lado: un + y una carpeta solos se confunden. En pantalla chica quedan los íconos. */
+.lmd-zone-btn.lmd-zone-word { width: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 6px 0 4px; font: inherit; font-size: 11.5px; white-space: nowrap; }
+.lmd-zone-word svg { flex: none; }
 .lmd-split { flex: none; height: 7px; margin: -3px 0 -4px; position: relative; z-index: 3; cursor: row-resize; }
 .lmd-split:hover, .lmd-splitting .lmd-split { background: var(--accent-soft); }
 .lmd-zones.lmd-one .lmd-split, .lmd-nodoc .lmd-split, .lmd-nodoc .lmd-zone-outline { display: none; }
@@ -1169,12 +1174,23 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
 .lmd-node-where { flex: none; margin-left: 4px; color: var(--fg-faint); opacity: 0.75; }
 .lmd-node-where svg { width: 13px; height: 13px; margin-top: 3px; }
 .lmd-node.lmd-active .lmd-node-where { color: inherit; }
-.lmd-recent { display: flex; align-items: center; gap: 2px; }
-.lmd-recent .lmd-node { flex: 1; min-width: 0; }
-.lmd-recent .lmd-node-name { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Abiertos: lo que se abrió del disco. Un archivo suelto es un renglón; cada carpeta, debajo, se despliega. */
+.lmd-open-row { display: flex; align-items: center; gap: 2px; }
+.lmd-open-row .lmd-node { flex: 1; min-width: 0; align-items: center; padding-left: 26px; } /* el ícono, debajo del de las carpetas */
+.lmd-open-row .lmd-node svg { margin-top: 0; }
+.lmd-open-row .lmd-node-name { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lmd-open-list > .lmd-xroot { margin-bottom: 0; }
+.lmd-open-list > .lmd-open-note { padding-top: 0; }
+.lmd-open-dir > .lmd-tree-head { padding-left: 2px; }
+/* Sin permiso todavía: atenuado, con el candado y la palabra que dice qué hace el toque. */
+.lmd-node-locked .lmd-node-ico, .lmd-node-locked .lmd-node-name, .lmd-node-locked .lmd-root-ico, .lmd-node-locked .lmd-tree-path { opacity: .55; }
+.lmd-node-locked .lmd-node-sub { color: var(--accent); }
+.lmd-node-sub svg { width: 12px; height: 12px; margin: 0 3px -2px 0; }
+.lmd-root-tog .lmd-node-sub { flex: none; }
+.lmd-root-tog .lmd-node-sub svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .lmd-node-sub { flex: 1; min-width: 0; color: var(--fg-faint); font-size: 12px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lmd-node-x { flex: none; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--fg-faint); display: grid; place-items: center; cursor: pointer; opacity: 0; }
-.lmd-recent:hover .lmd-node-x, .lmd-node-x:focus-visible { opacity: 1; }
+.lmd-open-row:hover .lmd-node-x, .lmd-open-dir > .lmd-tree-head:hover .lmd-node-x, .lmd-node-x:focus-visible { opacity: 1; }
 .lmd-node-x:hover { background: var(--bg-soft); color: var(--fg); }
 .lmd-node-x svg { width: 13px; height: 13px; }
 /* Resultados: primero la nota abierta, después cada raíz con su nombre */
@@ -1265,6 +1281,8 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
   .lmd-zone-head { height: 40px; }
   .lmd-zone-tog { font-size: 12px; }
   .lmd-zone-btn { width: 40px; height: 36px; }
+  .lmd-zone-btn.lmd-zone-word { width: 40px; padding: 0; justify-content: center; }
+  .lmd-zone-word > span { display: none; }
   .lmd-zone-btn svg { width: 17px; height: 17px; }
   .lmd-root-tog { height: 40px; }
   .lmd-xroot .lmd-tree-up { width: 40px; height: 36px; }
@@ -1316,7 +1334,9 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
   .lmd-home-logo { width: 56px; height: 56px; }
   .lmd-home-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
   .lmd-home-actions .lmd-btn { justify-content: center; gap: 7px; min-height: 46px; padding: 8px 6px; font-size: 14.5px; }
-  .lmd-home-actions .lmd-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* Crear en un renglón y abrir en otro, con su rótulo en el medio. El botón que queda solo en su renglón lo ocupa entero. */
+  .lmd-home-label, .lmd-home-actions .lmd-btn:last-child[data-home=file], .lmd-home-actions .lmd-btn:nth-child(odd):has(+ .lmd-home-label) { grid-column: 1 / -1; }
+  .lmd-home-label { margin-top: 6px; }
   .lmd-perks { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .lmd-perks dd { margin-bottom: 8px; }
 

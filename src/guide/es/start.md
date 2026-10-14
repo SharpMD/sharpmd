@@ -9,7 +9,7 @@ Esta guía viene con la app y se lee sin conexión. Sus notas son de solo lectur
 Desde la pantalla de inicio:
 
 - **Nueva nota** crea una nota que se guarda sola en este navegador.
-- **Abrir archivo** abre un `.md` de tu disco. No se sube a ningún lado.
+- **Abrir archivo** abre un `.md` de tu disco. No se sube a ningún lado, y queda en el explorador hasta que lo cerrás.
 - **Abrir carpeta** abre una carpeta entera, con su árbol de archivos y su búsqueda. Está en Chrome, Edge y Brave.
 
 **Desde una plantilla** arranca la nota con una estructura ya armada. En la computadora también podés arrastrar un archivo o una carpeta a la ventana.

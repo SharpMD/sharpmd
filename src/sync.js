@@ -76,6 +76,7 @@
     // Quiénes están se ve en la tira de avatares de al lado (live.js): acá queda el estado de la nube.
     btn.innerHTML = icon;
     btn.title = title + (others.length ? ' · ' + T('También acá: {a}', { a: others.map((m) => (core.presentNames && core.presentNames[m]) || m).join(', ') }) : '');
+    btn.setAttribute('aria-label', btn.title);
     loadAccount();
   }
 

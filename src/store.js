@@ -103,5 +103,45 @@
   const aiPut = (rec) => handlesPut(Object.assign({}, rec, { key: 'ai:key', ai: true }));
   const aiDelete = () => handlesDelete('ai:key');
 
-  LMD.store = { handlesAll, handlesPut, handlesDelete, canWrite, walk, rootsAll, notesAll, noteGet, notePut, noteDelete, noteHandle, cloudAll, cloudGet, cloudPut, cloudDelete, vaultsGet, vaultsPut, vkeyGet, vkeyPut, vkeyDelete, vkeyClear, aiGet, aiPut, aiDelete };
+  // Archivos abiertos como copia, sin acceso al disco (Firefox, Safari, o un texto recién importado): viven en la
+  // sesión de la pestaña. 'mdt-mem' es el que está a la vista; los demás esperan en 'lmd-mem-more' para volver a él.
+  const memRead = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const memMore = () => { const m = memRead('lmd-mem-more'); return Array.isArray(m) ? m.filter((x) => x && typeof x.name === 'string') : []; };
+  const memSave = (list) => { try { if (list.length) sessionStorage.setItem('lmd-mem-more', JSON.stringify(list)); else sessionStorage.removeItem('lmd-mem-more'); return true; } catch (e) { return false; } };
+  const memNow = () => { const m = memRead('mdt-mem'); return m && typeof m.name === 'string' ? m : null; };
+  const memAll = () => { const cur = memNow(); return (cur ? [cur] : []).concat(memMore().filter((m) => !cur || m.name !== cur.name)); };
+  // Antes de poner otro a la vista, el que estaba pasa a la espera. name: el que entra (no se guarda dos veces).
+  function memKeep(name) {
+    const cur = memNow(); if (!cur || cur.name === name) return;
+    memSave(memMore().filter((m) => m.name !== cur.name && m.name !== name).concat([cur]));
+  }
+  // Trae a la vista uno que estaba esperando. Devuelve lo guardado, o null si no está.
+  function memTake(name) {
+    const cur = memNow(); if (cur && cur.name === name) return cur;
+    const more = memMore(); const hit = more.find((m) => m.name === name); if (!hit) return null;
+    const rest = more.filter((m) => m.name !== name); if (cur) rest.push(cur);
+    try { sessionStorage.setItem('mdt-mem', JSON.stringify(hit)); } catch (e) { return null; }
+    memSave(rest);
+    return hit;
+  }
+  function memDrop(name) {
+    const cur = memNow(); if (cur && cur.name === name) { try { sessionStorage.removeItem('mdt-mem'); } catch (e) { /* sin sesión */ } }
+    memSave(memMore().filter((m) => m.name !== name));
+  }
+
+  // Los archivos del disco abiertos por enlace (los lee la extensión, sin permiso propio): la lista de sus direcciones,
+  // para que sigan en "Abiertos" al volver. Clave nueva; no guarda el texto.
+  const FS_MAX = 40;
+  const fsOpenAll = () => new Promise((resolve) => { try { chrome.storage.local.get('openFs', (r) => { void chrome.runtime.lastError; resolve(Array.isArray(r && r.openFs) ? r.openFs.filter((f) => typeof f === 'string') : []); }); } catch (e) { resolve([]); } });
+  const fsOpenSet = (list) => new Promise((resolve) => { try { chrome.storage.local.set({ openFs: list.slice(-FS_MAX) }, () => { void chrome.runtime.lastError; resolve(); }); } catch (e) { resolve(); } });
+  const fsOpenAdd = async (f) => { const all = await fsOpenAll(); if (all.includes(f)) return false; await fsOpenSet(all.concat([f])); return true; };
+  const fsOpenDrop = async (f) => { const all = await fsOpenAll(); if (!all.includes(f)) return false; await fsOpenSet(all.filter((x) => x !== f)); return true; };
+
+  // Se abrió o se cerró algo: las otras pestañas se enteran por el cambio de esta marca (no guarda nada más).
+  let openMark = '';
+  const openBump = () => { openMark = Date.now() + ':' + Math.random().toString(36).slice(2, 8); try { chrome.storage.local.set({ openRev: openMark }); } catch (e) { /* queda para esta pestaña */ } };
+  // Si esa marca la puso esta misma pestaña (que ya redibujó su lista).
+  const openMine = (mark) => !!mark && mark === openMark;
+
+  LMD.store = { memAll, memKeep, memTake, memDrop, fsOpenAll, fsOpenAdd, fsOpenDrop, openBump, openMine, handlesAll, handlesPut, handlesDelete, canWrite, walk, rootsAll, notesAll, noteGet, notePut, noteDelete, noteHandle, cloudAll, cloudGet, cloudPut, cloudDelete, vaultsGet, vaultsPut, vkeyGet, vkeyPut, vkeyDelete, vkeyClear, aiGet, aiPut, aiDelete };
 })();

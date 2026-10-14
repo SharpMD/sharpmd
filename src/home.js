@@ -125,11 +125,12 @@
 
   async function openPicked(handle, say, opt) {
     if (handle.kind === 'file' && imports(handle.name)) { LMD.import.run(await handle.getFile()); return; }
-    let rec = null;
+    // Lo que se abre se suma a "Abiertos" (el explorador) y queda ahí hasta que se cierra. Si ya estaba, es el mismo.
+    let rec = null; let fresh = false;
     for (const r of await rootsAll()) {
       try { if (await r.handle.isSameEntry(handle)) { rec = r; break; } } catch (e) { /* permiso vencido */ }
     }
-    if (!rec) { const id = Math.random().toString(36).slice(2, 10); rec = { key: 'root:' + id, root: true, id }; }
+    if (!rec) { const id = Math.random().toString(36).slice(2, 10); rec = { key: 'root:' + id, root: true, id }; fresh = true; }
     rec.kind = handle.kind === 'directory' ? 'dir' : 'file';
     rec.name = handle.name; rec.handle = handle; rec.at = Date.now();
     let path = encodeURIComponent(handle.name);
@@ -139,6 +140,7 @@
     }
     rec.last = rec.id + '/' + path;
     await handlesPut(rec);
+    if (fresh) LMD.store.openBump(); // las otras pestañas lo suman a su lista
     return ctx.open(rec.last, opt);
   }
 
@@ -153,7 +155,10 @@
     if (imports(file.name)) { LMD.import.run(file); return; }
     // Un PDF o un EPUB no entra en la sesión como texto: queda en memoria mientras dure la pestaña.
     if (VIEW_RE.test(file.name)) return ctx.view(file);
-    try { sessionStorage.setItem('mdt-mem', JSON.stringify({ name: file.name, text: await file.text() })); }
+    // Sin acceso al disco es una copia en memoria: la que estaba a la vista sigue en "Abiertos" mientras dure la pestaña.
+    const text = await file.text();
+    LMD.store.memKeep(file.name);
+    try { sessionStorage.setItem('mdt-mem', JSON.stringify({ name: file.name, text })); }
     catch (e) { say(T('No se pudo abrir. Probá de nuevo.')); return; }
     return ctx.open('mem/' + encodeURIComponent(file.name));
   }
@@ -387,6 +392,8 @@
   }
 
   let dropBound = false;
+  // Un botón del inicio: su ícono, su rótulo y, al pasar el mouse o con un lector de pantalla, qué hace.
+  const btn = (what, icon, label, tip, cls) => '<button type="button" class="lmd-btn' + (cls || '') + '" data-home="' + what + '" title="' + T(tip) + '" aria-label="' + T(label) + '. ' + T(tip) + '">' + icon + '<span>' + T(label) + '</span></button>';
   const GUIDE = 'guide/start.md'; // la primera nota de la guía (src/guide/, la lista está en content.js)
   async function home(note) {
     const box = ctx.box;
@@ -397,11 +404,13 @@
         '<img class="lmd-home-logo" src="' + chrome.runtime.getURL('icons/icon128.png') + '" alt="">' +
         // En pantalla chica no hay nada "a la izquierda": la lista de notas está detrás del botón de la barra.
         '<p class="lmd-home-sub">' + T(LMD.touch.small() ? 'Empezá una nota nueva o abrí una que ya tengas.' : 'Elegí una nota de la izquierda o empezá una nueva.') + '</p>' +
+        // Arriba, crear; abajo y con su rótulo, abrir algo que ya está en el disco. Cada botón dice qué hace al pasar el mouse.
         '<div class="lmd-home-actions">' +
-          '<button type="button" class="lmd-btn lmd-btn-fill" data-home="new">' + ICON.plus + '<span>' + T('Nueva nota') + '</span></button>' +
-          '<button type="button" class="lmd-btn" data-home="tpl">' + ICON.doc + '<span>' + T('Desde una plantilla') + '</span></button>' +
-          '<button type="button" class="lmd-btn" data-home="file">' + ICON.file + '<span>' + T('Abrir archivo') + '</span></button>' +
-          (window.showDirectoryPicker ? '<button type="button" class="lmd-btn" data-home="dir">' + ICON.folder + '<span>' + T('Abrir carpeta') + '</span></button>' : '') +
+          btn('new', ICON.plus, 'Nueva nota', 'Crear una nota en blanco', ' lmd-btn-fill') +
+          btn('tpl', ICON.doc, 'Desde una plantilla', 'Crear una nota a partir de una plantilla') +
+          '<p class="lmd-home-label">' + T('O abrí algo de tu disco') + '</p>' +
+          btn('file', ICON.file, 'Abrir archivo', canPick() ? 'Abrir un archivo de tu disco. Queda en Abiertos hasta que lo cierres.' : 'Abrir una copia de un archivo de tu disco') +
+          (window.showDirectoryPicker ? btn('dir', ICON.open, 'Abrir carpeta', 'Abrir una carpeta entera de tu disco, con todas sus notas') : '') +
         '</div>' +
         // Con el dedo no hay nada que arrastrar a la ventana: ese renglón solo dice lo que hace falta saber.
         '<div class="lmd-home-more">' +
