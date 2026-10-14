@@ -115,7 +115,7 @@ async function disk(files, opt) {
   }, [Object.entries(Object.assign({ 'inicio.md': '# Inicio\n\nLa nota que queda abierta.\n' }, files)), PNG]);
   await Promise.all([page.waitForNavigation(), page.click('[data-home=dir]')]);
   await page.waitForSelector('.lmd-tree .lmd-node-dir', { state: 'attached' }); await sleep(400); // en el teléfono la barra lateral arranca cerrada
-  const base = await page.evaluate(() => /^https:\/\/lmd\.local\/[^/]+\//.exec(document.querySelector('.lmd-tree').dataset.url)[0]);
+  const base = await page.evaluate(() => /^https:\/\/lmd\.local\/[^/]+\//.exec(document.querySelector('.lmd-tree[data-url]').dataset.url)[0]);
   await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
   await page.evaluate(() => LMD.extras.folderExport(''));
   return { ctx, page, base, close: async () => { await ctx.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) { /* Windows lo suelta después */ } } };

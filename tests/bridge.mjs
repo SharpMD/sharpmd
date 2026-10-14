@@ -202,7 +202,7 @@ try {
   const wp = await paneOf(web);
   check('en la web con la extensión: dónde abrir, la extensión instalada, la app y el doble clic', J(wp.heads) === J(['Open SharpMD in', 'Chrome extension', 'Install as an app', 'Open .md files with a double click']) && wp.text.includes('Installed, version ' + real.version), wp.heads);
   check('las dos opciones, con la web elegida y su texto', J(wp.radios) === J(['web*', 'ext']) && wp.opts[0] === 'Web app (recommended). Offline it opens in the extension, with the same notes.' && wp.opts[1] === 'The extension', wp.opts);
-  check('sin renglón de Android mientras no haya dirección, sin signos de admiración ni rayas', !/Android/.test(wp.text) && !/[!¡—–]/.test(wp.text) && wp.wide <= 0 && wp.tall <= 0, [wp.wide, wp.tall]);
+  check('la app de Android figura como un enlace, sin sumar una sección, sin signos de admiración ni rayas', /Android/.test(wp.text) && !/[!¡—–]/.test(wp.text) && wp.wide <= 0 && wp.tall <= 0, [wp.wide, wp.tall]);
   await web.click('input[name=lmd-open-in][value=ext]');
   check('elegir "La extensión" en la web cambia la preferencia de la extensión', !!(await until(async () => (await bg(() => LMD.load())).openIn === 'ext')));
   await web.click('[data-act=close-panel]');
