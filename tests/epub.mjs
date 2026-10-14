@@ -1,6 +1,9 @@
 // EPUB: la estructura del libro, sin navegador. Se arma con el zip de docx.js (con un LMD mínimo) y se revisa por dentro.
 import { createRequire } from 'node:module';
-import assert from 'node:assert/strict';
+import assertStrict from 'node:assert/strict';
+// Cuenta cada aserción que se ejecuta, para dar el total al final como las otras pruebas.
+let pasaron = 0;
+const assert = new Proxy(assertStrict, { get: (t, k) => (typeof t[k] === 'function' ? (...a) => { const r = t[k](...a); pasaron++; return r; } : t[k]) });
 const require = createRequire(import.meta.url);
 globalThis.LMD = { t: (s) => s, kit: { el() {} }, lang: () => 'es' };
 const epub = require('../src/epub.js');
@@ -64,4 +67,4 @@ if (zip) {
   assert.equal(new TextDecoder().decode(bytes.subarray(30, 38)), 'mimetype');
   assert.equal(new TextDecoder().decode(bytes.subarray(38, 38 + 20)), 'application/epub+zip');
 } else console.log('epub: sin zip real, se probó con el de mentira');
-console.log('epub ok');
+console.log(pasaron + ' de ' + pasaron + ' pruebas pasaron');

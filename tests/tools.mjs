@@ -21,6 +21,7 @@ const suite = async (id, fn) => { if (!ONLY || ONLY === id) await fn(); };
 async function open(o) {
   o = o || {};
   const { ctx, page } = await R.open(o.who || null, o.ctx);
+  await page.addInitScript(() => { try { localStorage.setItem('lmd-tour-seen', '1'); } catch (e) { /* sin almacenamiento */ } }); // el recorrido del celular (src/tour.js) tapa los botones
   await page.addInitScript(([base, lang, tools]) => { try { if (localStorage.getItem('tools:listo')) return; localStorage.setItem('tools:listo', '1'); localStorage.setItem('mdtools:settings', JSON.stringify({ cloudUrl: base, language: lang, tools })); } catch (e) { /* página en blanco */ } }, [R.base, o.lang || 'en', o.tools || {}]);
   return { ctx, page };
 }
@@ -421,7 +422,7 @@ await suite('docx', async () => {
     check('el bloque de código va renglón por renglón, monoespaciado y con su tabulación', paraWith(doc, 'const a = 1;').includes('<w:pStyle w:val="Code"/>') && /<w:pStyle w:val="Code"\/>.*?<w:tab\/><w:t xml:space="preserve">if \(a &lt; 2\) \{ b\(\); \}<\/w:t>/.test(doc) && /w:styleId="Code">.*?Consolas/.test(styles) && !doc.includes('hljs'));
     const tbl = (/<w:tbl>.*?<\/w:tbl>/.exec(doc) || [''])[0];
     check('la tabla: fila de encabezado que se repite, celdas y alineación', (tbl.match(/<w:tr>/g) || []).length === 3 && (tbl.match(/<w:tblHeader\/>/g) || []).length === 1 && (tbl.match(/<w:tc>/g) || []).length === 6 && (tbl.match(/<w:gridCol /g) || []).length === 2 && /<w:tblHeader\/>.*?<w:b\/><w:bCs\/><\/w:rPr><w:t xml:space="preserve">Nombre/.test(tbl) && (tbl.match(/<w:jc w:val="right"\/>/g) || []).length === 3 && tbl.includes('>Luis<') && tbl.includes('<w:tblStyle w:val="TableGrid"/>'), tbl.slice(0, 300));
-    check('las fórmulas van como texto LaTeX', runsWith(doc, 'x^2').length === 1 && runsWith(doc, 'E=mc^2')[0].includes('CodeChar') && paraWith(doc, 'E=mc^2').includes('<w:jc w:val="center"/>'));
+    check('las fórmulas van como ecuaciones de Word (OMML): una en línea y una en bloque centrada', (doc.match(/<m:oMath>/g) || []).length >= 2 && (doc.match(/<m:oMathPara>/g) || []).length === 1 && (doc.match(/<m:sSup>/g) || []).length >= 2 && !doc.includes('E=mc^2'), (doc.match(/<m:oMath/g) || []).length);
     const media = z.files.filter((f) => f.name.startsWith('word/media/'));
     const embeds = [...doc.matchAll(/<a:blip r:embed="(rId\d+)"\/>/g)].map((m) => m[1]);
     const isPng = (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;

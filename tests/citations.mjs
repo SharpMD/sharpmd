@@ -50,7 +50,7 @@ try {
   }));
   add('las ecuaciones con etiqueta se numeran en orden y se dibujan', J(eq.n.map((x) => x.slice(0, 3))) === J([['uno', '1', true], ['dos', '2', true]]) && eq.n.every((x) => x[3]), eq.n);
   add('@eq: y \\eqref llevan el número, y una etiqueta sin definir sale (?)', J(eq.refs) === J([['(1)', '#eq-uno', false], ['(2)', '#eq-dos', false], ['(?)', null, true]]) || (eq.refs.length === 3 && eq.refs[0][0] === '(1)' && eq.refs[1][0] === '(2)' && eq.refs[2][0] === '(?)' && eq.refs[2][2]), eq.refs);
-  const macro = await app.evaluate(() => { const b = document.querySelector('.lmd-math-block[data-eq=uno]'); return { bad: b.classList.contains('lmd-math-bad'), html: !!b.querySelector('.katex-html') && /ℝ/.test(b.textContent) }; });
+  const macro = await app.evaluate(() => { const b = document.querySelector('.lmd-math-block[data-eq=uno]'); return { bad: b.classList.contains('lmd-math-bad'), html: !!b.querySelector('.katex-html') && !!b.querySelector('.katex-html .mathbb') }; });
   add('la macro de la cabecera se usa en la fórmula', !macro.bad && macro.html, macro);
 
   await write('cite1', 'doc.md', DOC2);

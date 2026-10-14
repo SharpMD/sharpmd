@@ -29,7 +29,7 @@ const R = await rig({ ALLOW_ORIGINS: '*' });
 const BOARD = '# Plan\n\n```kanban\n## To do\n- [ ] Write the guide {id=c1}\n\n## Done\n- [x] Ship it {id=c2}\n```\n';
 let bad = 1;
 try {
-  const ana = await R.signup('ana@example.test');
+  const ana = await R.signup('ana@example.test', true);
   const put = (p, text) => R.api('PUT', '/notes/' + encodeURIComponent(p), { text }, ana.s);
   const img = await fetch(R.base + '/files', { method: 'POST', headers: { authorization: 'Bearer ' + ana.s, 'content-type': 'image/png' }, body: PNG }).then((r) => r.json());
   await put('a.md', '# Alpha\n\nTop level.\n');

@@ -1,6 +1,9 @@
 // MathML a OMML: prueba pura de node, sin navegador. KaTeX (el del repo) da el MathML de cada fórmula.
 import { createRequire } from 'node:module';
-import assert from 'node:assert/strict';
+import assertStrict from 'node:assert/strict';
+// Cuenta cada aserción que se ejecuta, para dar el total al final como las otras pruebas.
+let pasaron = 0;
+const assert = new Proxy(assertStrict, { get: (t, k) => (typeof t[k] === 'function' ? (...a) => { const r = t[k](...a); pasaron++; return r; } : t[k]) });
 const require = createRequire(import.meta.url);
 const katex = require('../vendor/katex/katex.min.js');
 const omml = require('../src/omml.js');
@@ -59,4 +62,4 @@ const bien = (xml) => {
   assert.equal(t.length, 0);
 };
 for (const tex of ['\\frac{1}{2}', '\\sum_{k=0}^\\infty \\frac{x^k}{k!}', '\\begin{cases} a & b \\\\ c & d \\end{cases}', '\\sqrt{x^2+y^2}', '\\mathbb{R}']) bien(conv(tex, true));
-console.log('omml ok');
+console.log(pasaron + ' de ' + pasaron + ' pruebas pasaron');

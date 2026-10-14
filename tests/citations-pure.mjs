@@ -89,5 +89,5 @@ ok(q.startsWith('> linea uno\n> linea dos\n>') && q.includes('(mi%20libro%20%281
 ok(!/[—!]/.test(q), 'sin raya ni exclamacion');
 eq(Object.keys(C.parseBib('basura @@ {{{ ')).length, 0, 'basura no rompe');
 
-console.log(fail ? 'FALLARON ' + fail + ' de ' + (pass + fail) : 'OK ' + pass);
+console.log(fail ? (pass) + ' de ' + (pass + fail) + ' pruebas pasaron' : pass + ' de ' + pass + ' pruebas pasaron');
 process.exit(fail ? 1 : 0);

@@ -213,6 +213,8 @@ try {
   const i2 = await dlg(app); const cText = await textOf(pia, 'sub/c.md');
   check('la imagen sube como adjunto y la copia de la nube la nombra', i2.hints.includes('1 image was uploaded.') && /!\[dot\]\(https?:\/\/[^)]*\/f\/[0-9a-f]{40}\.png\)/.test(cText || ''), [i2.hints, cText]);
   check('los enlaces relativos entre las notas enviadas quedan como estaban', (cText || '').includes('[up](../b.md) and [deep](deep/d.md)') && (await textOf(pia, 'sub/deep/d.md')) === DOCS['sub/deep/d.md'], cText);
+  // Aviso de imagen pública (una vez por navegador): se cierra antes de seguir.
+  await app.waitForSelector('.lmd-dlg [data-dlg=ok]', { timeout: 3000 }).then(() => app.click('.lmd-dlg [data-dlg=ok]')).catch(() => {});
   await app.click('.lmd-send [data-sd=no]'); await app.waitForSelector('.lmd-send', { state: 'detached' });
 
   console.log('Arrastrar hasta la nube');
