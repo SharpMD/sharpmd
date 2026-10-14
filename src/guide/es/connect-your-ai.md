@@ -20,6 +20,87 @@ La dirección del servidor es `https://sync.sharpmd.app/mcp`. El token va como `
 
 Un token puede limitarse a una carpeta: tu IA solo ve lo que hay ahí. La conexión por MCP está incluida en el plan gratis, sobre las notas que tengas en la nube.
 
+## Por cliente
+
+Elegí el tuyo y copiá el bloque.
+
+### Claude Code
+
+En una terminal:
+
+```bash
+claude mcp add --transport http sharpmd https://sync.sharpmd.app/mcp --header "Authorization: Bearer TU_TOKEN"
+```
+
+### Cursor
+
+En `.cursor/mcp.json` del proyecto, o en `~/.cursor/mcp.json` para todos:
+
+```json
+{
+  "mcpServers": {
+    "sharpmd": {
+      "url": "https://sync.sharpmd.app/mcp",
+      "headers": {
+        "Authorization": "Bearer TU_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Codex
+
+En `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sharpmd]
+url = "https://sync.sharpmd.app/mcp"
+http_headers = { Authorization = "Bearer TU_TOKEN" }
+```
+
+### Claude Desktop
+
+Claude Desktop lee `claude_desktop_config.json` y habla con el servidor a través de `mcp-remote`, que hace falta tener disponible con `npx`:
+
+```json
+{
+  "mcpServers": {
+    "sharpmd": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://sync.sharpmd.app/mcp",
+        "--header",
+        "Authorization:${SHARPMD_AUTH}"
+      ],
+      "env": {
+        "SHARPMD_AUTH": "Bearer TU_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Otro cliente
+
+Cualquier cliente que acepte un servidor MCP por HTTP necesita dos datos:
+
+- Dirección: `https://sync.sharpmd.app/mcp`
+- Encabezado: `Authorization: Bearer TU_TOKEN`
+
+Cambiá `TU_TOKEN` por el token que creaste. Es una clave: no la pegues en notas, commits ni chats.
+
+## Rotar o revocar el token
+
+En **Ajustes** > **IA (MCP)**, cada token de la lista tiene dos botones.
+
+- **Regenerar** cambia el secreto y deja el mismo nombre, carpeta y permisos. Las conexiones que usan el token viejo dejan de andar: pegá el nuevo en tu IA.
+- **Revocar** borra el token. La IA que lo usa deja de entrar.
+
+Si un token se filtró, regeneralo o revocalo enseguida. No hay una fecha de vencimiento: dura hasta que lo cambies.
+
 ## Qué puede hacer
 
 | Para | Herramientas |

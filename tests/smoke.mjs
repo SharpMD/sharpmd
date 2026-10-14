@@ -354,8 +354,8 @@ try {
   // A o B la primera vez, lo recuerda en este navegador y pone el A antes de pintar. La portada publicada avisa al
   // servidor qué titular mostró y si se abrió la app o se fue a los planes: la variante y el evento, y nada más.
   {
-    const HERO = { en: { a: 'Edit Markdown without writing Markdown.', b: 'Markdown notes your AI writes and your team reads.', pa: /^Click a heading, a table or a diagram and change it right there/, pb: /^A Markdown editor in the cloud, with the MCP endpoint already running/ },
-      es: { a: 'Editá Markdown sin escribir Markdown.', b: 'Notas en Markdown que tu IA escribe y tu equipo lee.', pa: /^Hacés clic en un título, una tabla o un diagrama y lo cambiás ahí mismo/, pb: /^Un editor de Markdown en la nube, con la conexión MCP ya andando/ } };
+    const HERO = { en: { a: 'Edit Markdown without writing Markdown.', b: 'Markdown notes your AI writes and your team reads.', pa: /^Click a heading, a table or a diagram and change it right there/, pb: /^Write your notes on the page as they will look/ },
+      es: { a: 'Editá Markdown sin escribir Markdown.', b: 'Notas en Markdown que tu IA escribe y tu equipo lee.', pa: /^Hacés clic en un título, una tabla o un diagrama y lo cambiás ahí mismo/, pb: /^Escribís tus notas sobre la página tal como van a verse/ } };
     const pages = { en: fs.readFileSync(path.join(root, 'index.html'), 'utf8'), es: fs.readFileSync(path.join(root, 'es', 'index.html'), 'utf8') };
     const inHtml = ['en', 'es'].map((l) => { const h = pages[l]; const h1 = (h.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1]; const pick = h.indexOf("localStorage.getItem('sharpmd:hero')");
       return { l, h1, a: h.includes('<h1 data-a="' + HERO[l].a + '">'), title: !h.match(/<title>[^<]*<\/title>/)[0].includes(HERO[l].a), early: pick > 0 && pick < h.indexOf('<style>') && pick < h.indexOf('<body'),

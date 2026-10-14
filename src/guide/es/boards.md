@@ -54,6 +54,10 @@ Una tarjeta puede terminar con sus atributos entre llaves:
 {show=due,priority priority=low|medium|high}
 ```
 
+## Cuándo en una nota y cuándo `board.md`
+
+Usá un tablero dentro de una nota cuando las tareas son parte de un texto: un plan, unas actas, un informe con su estado. El tablero acompaña lo que leés. Usá una nota `board.md` cuando el tablero es el trabajo de un proyecto entero: ahí vive solo, y es el que tu IA lleva por MCP, con una tarjeta por tarea.
+
 ## Con tu IA y con otras apps
 
 Una IA conectada por MCP crea tableros, suma tarjetas y las mueve. Está en [Conectar tu IA por MCP](connect-your-ai.md). Un webhook avisa afuera cuando una tarjeta cambia: [Automatizaciones y webhooks](automations.md).

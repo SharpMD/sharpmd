@@ -20,6 +20,87 @@ The address of the server is `https://sync.sharpmd.app/mcp`. The token goes as `
 
 A token can be limited to one folder: your AI only sees what is in there. The MCP connection is included in the free plan, over the notes you have in the cloud.
 
+## By client
+
+Pick yours and copy the block.
+
+### Claude Code
+
+In a terminal:
+
+```bash
+claude mcp add --transport http sharpmd https://sync.sharpmd.app/mcp --header "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Cursor
+
+In `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for all of them:
+
+```json
+{
+  "mcpServers": {
+    "sharpmd": {
+      "url": "https://sync.sharpmd.app/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Codex
+
+In `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.sharpmd]
+url = "https://sync.sharpmd.app/mcp"
+http_headers = { Authorization = "Bearer YOUR_TOKEN" }
+```
+
+### Claude Desktop
+
+Claude Desktop reads `claude_desktop_config.json` and reaches the server through `mcp-remote`, which has to be available with `npx`:
+
+```json
+{
+  "mcpServers": {
+    "sharpmd": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://sync.sharpmd.app/mcp",
+        "--header",
+        "Authorization:${SHARPMD_AUTH}"
+      ],
+      "env": {
+        "SHARPMD_AUTH": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Another client
+
+Any client that accepts an MCP server over HTTP needs two things:
+
+- URL: `https://sync.sharpmd.app/mcp`
+- Header: `Authorization: Bearer YOUR_TOKEN`
+
+Replace `YOUR_TOKEN` with the token you created. It is a key: keep it out of notes, commits and chats.
+
+## Rotating or revoking the token
+
+In **Settings** > **AI (MCP)**, each token in the list has two buttons.
+
+- **Regenerate** changes the secret and keeps the same name, folder and permissions. Connections using the old token stop working: paste the new one into your AI.
+- **Revoke** deletes the token. The AI using it can no longer get in.
+
+If a token leaks, regenerate or revoke it right away. There is no expiry date: it lasts until you change it.
+
 ## What it can do
 
 | For | Tools |
