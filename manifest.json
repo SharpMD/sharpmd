@@ -116,6 +116,7 @@
         "src/explore.js",
         "src/jsonyaml.js",
         "src/import.js",
+        "src/importzip.js",
         "src/viewer.js",
         "src/codeview.js",
         "src/aikey.js",

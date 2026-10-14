@@ -23,8 +23,8 @@
     out: 12 * MB, // el Markdown que sale
     pace: 0, // pausa extra entre unidades (la usan las pruebas)
   };
-  const KINDS = { docx: 'docx', html: 'html', htm: 'html', xhtml: 'html', csv: 'csv', tsv: 'csv', xlsx: 'xlsx', pptx: 'pptx', epub: 'epub', pdf: 'pdf' };
-  const ACCEPT = '.docx,.xlsx,.pptx,.epub,.pdf,.html,.htm,.csv,.tsv';
+  const KINDS = { docx: 'docx', html: 'html', htm: 'html', xhtml: 'html', csv: 'csv', tsv: 'csv', xlsx: 'xlsx', pptx: 'pptx', epub: 'epub', pdf: 'pdf', zip: 'zip' };
+  const ACCEPT = '.docx,.xlsx,.pptx,.epub,.pdf,.html,.htm,.csv,.tsv,.zip';
   const extOf = (name) => (/\.([a-z0-9]+)$/i.exec(String(name || '')) || ['', ''])[1].toLowerCase();
   const takes = (name) => !!KINDS[extOf(name)];
   const fail = (code, extra) => Object.assign(new Error(code), { code }, extra || {});
@@ -973,6 +973,12 @@
       r.readAsArrayBuffer(file);
     });
   }
+  // Un PDF o un EPUB con muchos símbolos de matemática sueltos: las fórmulas casi seguro salieron mal.
+  const MATH_RE = /[∑∏∫∬∮∂√∛∞≤≥≠≈≡≅∝±∓×÷⋅∈∉∋⊂⊃⊆⊇∪∩∀∃∄∇∅⇒⇔→←↔⟨⟩⌈⌉⌊⌋ℝℕℤℚℂ]|(?<![\p{L}\p{N}])[α-ωΑ-Ω](?![\p{L}\p{N}])/gu;
+  function mathHeavy(md) {
+    const hits = (String(md).match(MATH_RE) || []).length;
+    return hits >= 15 && hits * 1000 >= 2 * String(md).length;
+  }
   const cleanName = (name) => String(name || '').replace(/[\\/:*?"<>|\u0000-\u001F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
   const baseName = (name) => cleanName(String(name || '').replace(/\.[^.]+$/, ''));
   // file: un File. opt: { job, onProgress, kind, html }. Devuelve { md, name, kind, units, warnings }.
@@ -1006,7 +1012,10 @@
     if (kind === 'xlsx' || kind === 'pptx') md = '# ' + mdText(name) + '\n\n' + md;
     if (md.length > LIMITS.out) { md = md.slice(0, md.lastIndexOf('\n', LIMITS.out) > 0 ? md.lastIndexOf('\n', LIMITS.out) : LIMITS.out); job.note('out'); }
     const units = res.units || ['words', md.split(/\s+/).filter(Boolean).length];
-    return { md: md + '\n', name, kind, units, warnings: warningsOf(job), worker: job.worker };
+    const warnings = warningsOf(job);
+    const math = (kind === 'pdf' || kind === 'epub') && mathHeavy(md);
+    if (math) warnings.push(T(kind === 'pdf' ? 'Revisá las fórmulas: el PDF no las trae como texto' : 'Revisá las fórmulas: el EPUB no las trae como texto'));
+    return { md: md + '\n', name, kind, units, warnings, math, worker: job.worker };
   }
   const UNIT = {
     pages: ['1 página convertida', '{a} páginas convertidas'], sheets: ['1 hoja convertida', '{a} hojas convertidas'], slides: ['1 diapositiva convertida', '{a} diapositivas convertidas'],
@@ -1037,6 +1046,7 @@
       '<div class="lmd-imp-out" hidden><p class="lmd-imp-sum"></p><ul class="lmd-imp-warn"></ul></div>' +
       '<p class="lmd-dlg-err lmd-imp-err" role="alert" hidden></p>' +
       '<div class="lmd-ask-actions"><button type="button" class="lmd-btn" data-imp="cancel" data-esc>' + esc(T('Cancelar')) + '</button>' +
+        '<button type="button" class="lmd-btn" data-imp="orig" hidden>' + esc(T('Abrir el original al lado')) + '</button>' +
         '<button type="button" class="lmd-btn" data-imp="insert" hidden>' + esc(T('Agregar a la nota abierta')) + '</button>' +
         '<button type="button" class="lmd-btn lmd-btn-fill" data-imp="new" hidden>' + esc(T('Abrir como nota nueva')) + '</button></div></div>';
     // El nombre del archivo es texto, nunca HTML.
@@ -1078,7 +1088,7 @@
         const ul = q('.lmd-imp-warn'); res.warnings.forEach((w) => ul.appendChild(el('li', { text: w }))); ul.hidden = !res.warnings.length;
         live.textContent = summaryOf(res.units) + (res.warnings.length ? ' ' + res.warnings.join(' ') : '');
         q('[data-imp=cancel]').textContent = T('Cerrar');
-        const fresh = q('[data-imp=new]'); fresh.hidden = false; q('[data-imp=insert]').hidden = !canInsert;
+        const fresh = q('[data-imp=new]'); fresh.hidden = false; q('[data-imp=insert]').hidden = !canInsert; q('[data-imp=orig]').hidden = !res.math;
         fresh.focus();
         return new Promise((resolve) => { choose = resolve; });
       },
@@ -1120,13 +1130,17 @@
     // force: lo pidió el menú de un PDF o un EPUB abierto en el visor, que no depende del interruptor de la herramienta.
     if (opt && opt.core && !core) core = opt.core;
     if ((!on && !(opt && opt.force)) || !core || !core.APP || busy || !file) return false;
+    // Un ZIP de Notion o de Obsidian: lo atiende importzip.js, con su propia ventana.
+    if (extOf(file.name) === 'zip') return LMD.importzip ? LMD.importzip.run(file, core) : false;
     busy = true;
     const dlg = dialog(file.name || '');
     const job = newJob(dlg.progress); dlg.onCancel = () => job.cancel();
     try {
       const res = await convert(file, Object.assign({}, opt, { job }));
       const what = await dlg.done(res, canInsert());
-      if (what === 'insert') insert(res.md); else if (what === 'new') await openNew(res);
+      // El original queda entre los abiertos y la nota al frente, para comparar las fórmulas.
+      if (what === 'orig') { try { await core.viewFile(file); } catch (e) { /* se abre solo la nota */ } await openNew(res); }
+      else if (what === 'insert') insert(res.md); else if (what === 'new') await openNew(res);
       return !!what;
     } catch (e) {
       if (e && e.code === 'cancel') { dlg.close(); core.flash(T('Importación cancelada')); return false; }
@@ -1228,9 +1242,16 @@
     if (navigator.clipboard && navigator.clipboard.read) row.appendChild(paste);
     row.appendChild(go);
     area.appendChild(row);
+    // Una bóveda de Obsidian es una carpeta: se elige acá. El ZIP de Notion se elige con "Elegir un archivo".
+    if (LMD.importzip && LMD.importzip.canPickVault()) {
+      const vrow = el('div', { class: 'lmd-row lmd-row-line' }); vrow.appendChild(el('span', { text: T('Bóveda de Obsidian (carpeta)') }));
+      const vb = el('button', { type: 'button', class: 'lmd-btn', 'data-imp-go': 'vault', text: T('Elegir una carpeta') });
+      vb.addEventListener('click', () => { api.close(); LMD.importzip.pickVault(core); });
+      vrow.appendChild(vb); area.appendChild(vrow);
+    }
   }
 
   LMD.import = { enable, disable, settings, convert, run, runHtml, pick, takes, accept: ACCEPT, limits: LIMITS, busy: () => busy, pdfLoaded: () => !!pdfLib,
     // Lo que el visor de PDF y EPUB (viewer.js) toma de acá: el cargador de pdf.js, el lector de zip y el de XML.
-    kit: { newJob, unzip, pdfjs, xml, all, resolve, dirOf, why } };
+    kit: { newJob, unzip, pdfjs, xml, all, resolve, dirOf, why, mathHeavy } };
 })();

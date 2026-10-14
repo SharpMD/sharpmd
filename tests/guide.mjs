@@ -27,7 +27,7 @@ const LMD = self.LMD; const toEn = (s) => { LMD.setLang('en'); return LMD.t(s); 
 const prose = (md) => md.replace(/<!--[\s\S]*?-->/g, '').replace(/^(`{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm, '').replace(/`[^`\n]*`/g, '');
 const h1 = (md) => (/^# (.+)$/m.exec(md) || [])[1] || '';
 
-check('entre 10 y 17 notas, las mismas en los dos idiomas, y solo Markdown', files.en.length >= 10 && files.en.length <= 17 && J(files.en) === J(files.es) && files.en.every((f) => /^[a-z0-9-]+\.md$/.test(f)), files);
+check('entre 10 y 18 notas, las mismas en los dos idiomas, y solo Markdown', files.en.length >= 10 && files.en.length <= 18 && J(files.en) === J(files.es) && files.en.every((f) => /^[a-z0-9-]+\.md$/.test(f)), files);
 check('la lista de la app (GUIDE en content.js) nombra esas notas, ni una más ni una menos', GUIDE.length === files.en.length && J(GUIDE.map((g) => g[0] + '.md').sort()) === J(files.en), GUIDE.map((g) => g[0]));
 const titles = GUIDE.map((g) => ({ id: g[0], es: h1(text('es', g[0] + '.md')), en: h1(text('en', g[0] + '.md')), list: g[1], listEn: toEn(g[1]) }));
 check('el título de cada nota es el que muestra el explorador, en español y en inglés', titles.every((t) => t.es === t.list && t.en === t.listEn && t.en !== t.es), titles.filter((t) => t.es !== t.list || t.en !== t.listEn || t.en === t.es));

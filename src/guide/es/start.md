@@ -39,6 +39,7 @@ Desde la pantalla de inicio:
 - [[extension-and-android|Extensión de Chrome y app de Android]]
 - [[shortcuts|Atajos de teclado]]
 - [[export-and-import|Exportar e importar]]
+- [[from-notion-obsidian|Venís de Notion u Obsidian]]
 - [[privacy|Privacidad]]
 - [[updates|Novedades]]: lo que se fue sumando, semana por semana.
 
