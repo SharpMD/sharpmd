@@ -2,6 +2,48 @@
 
 Lo que se fue sumando a SharpMD, semana por semana. Lo más nuevo está arriba.
 
+## Del 12 al 18 de octubre de 2026
+
+### Descargar todas tus notas
+
+En Ajustes > Nube, Descargar todas mis notas arma un ZIP con todo lo que tenés en la nube, con las mismas carpetas y las imágenes en `_images/`. Las carpetas protegidas se descifran en tu equipo. Antes de eliminar tu cuenta, SharpMD te ofrece bajarlo.
+
+### Traer tus notas de Notion u Obsidian
+
+Soltá la exportación de Notion o la bóveda de Obsidian y entra con los enlaces entre notas y las imágenes ya arreglados.
+
+### Citas y referencias
+
+Cargá un archivo BibTeX y citá con `[@clave]`: la nota arma sola la lista de Referencias. Las ecuaciones se numeran con `{#eq:id}` y se citan con `@eq:id`. Desde el lector de PDF, Citar en una nota copia la cita con su página.
+
+### Word con fórmulas y libros en EPUB
+
+Las fórmulas llegan a Word como ecuaciones que se pueden editar. Una carpeta sale también como libro EPUB. Y Palabras de la carpeta cuenta todo lo escrito, con una meta si la querés.
+
+### Más para equipos
+
+- Un enlace compartido puede vencer, y el de una carpeta puede pedir contraseña.
+- Una carpeta del equipo puede quedar solo para algunos miembros.
+- Sacar a alguien del equipo corta en el momento sus tokens, webhooks y direcciones de entrada.
+- Un correo cuando te asignan una tarjeta y un resumen diario de las vencidas. Se apagan en Ajustes > Plan.
+- Seis plantillas nuevas para agencias y equipos.
+
+### Escribir sin distracciones
+
+Alt+Shift+Z deja solo el texto; Esc vuelve. También podés fijar arriba las notas que más usás.
+
+### También esta semana
+
+- Una página de seguridad que cuenta qué se cifra, dónde y qué no.
+- La guía para conectar tu IA trae la configuración de Claude Code, Cursor, Codex y Claude Desktop.
+- Las carpetas protegidas nuevas piden 12 caracteres, y la clave de respaldo hay que guardarla antes de seguir.
+- Desbloquear una carpeta para tu IA dura 15 minutos si no elegís otra cosa.
+- En la app de Android, compartir archivos con SharpMD los guarda en tus notas.
+- En el teléfono, un recorrido corto la primera vez, y un aviso cuando estás sin conexión.
+- Una sección Abiertos en el explorador para los archivos y carpetas de tu disco.
+
+*Hasta la versión 2.88*
+
 ## Del 5 al 11 de octubre de 2026
 
 ### PDF, libros, imágenes, audio y video se abren dentro de SharpMD

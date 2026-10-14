@@ -2,6 +2,48 @@
 
 What was added to SharpMD, week by week. The newest is on top.
 
+## October 12 to 18, 2026
+
+### Download all your notes
+
+In Settings > Cloud, Download all my notes builds a ZIP of everything you have in the cloud, with the same folders and the images in `_images/`. Protected folders are decrypted on your device. Before you delete your account, SharpMD offers it to you.
+
+### Bring your notes from Notion or Obsidian
+
+Drop in a Notion export or an Obsidian vault and it comes in with the links between notes and the images already fixed.
+
+### Citations and references
+
+Load a BibTeX file and cite with `[@key]`: the note builds the References list by itself. Equations are numbered with `{#eq:id}` and cited with `@eq:id`. From the PDF reader, Quote in a note copies the citation with its page.
+
+### Word with formulas, and books in EPUB
+
+Formulas reach Word as equations you can edit. A folder can also come out as an EPUB book. And Folder word count counts everything written, with a goal if you want one.
+
+### More for teams
+
+- A shared link can expire, and a folder link can ask for a password.
+- A team folder can be limited to some members.
+- Removing someone from the team cuts off their tokens, webhooks and inbound addresses at once.
+- An email when a card is assigned to you and a daily digest of overdue ones. Turn them off in Settings > Plan.
+- Six new templates for agencies and teams.
+
+### Write without distractions
+
+Alt+Shift+Z leaves only the text; Esc brings everything back. You can also pin the notes you use most to the top.
+
+### Also this week
+
+- A security page that says what is encrypted, where, and what is not.
+- The guide to connect your AI has the setup for Claude Code, Cursor, Codex and Claude Desktop.
+- New protected folders need 12 characters, and the recovery key has to be saved before you go on.
+- Unlocking a folder for your AI lasts 15 minutes unless you pick something else.
+- In the Android app, sharing files with SharpMD saves them to your notes.
+- On the phone, a short tour the first time, and a notice when you are offline.
+- An Open section in the explorer for the files and folders on your disk.
+
+*Up to version 2.88*
+
 ## October 5 to 11, 2026
 
 ### PDFs, books, images, audio and video open inside SharpMD
