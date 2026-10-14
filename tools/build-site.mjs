@@ -124,6 +124,12 @@ const PAGES = {
       desc: 'Edit Markdown on the formatted page: paragraphs, tables, tasks, formulas and diagrams. The file stays plain Markdown. Free, with no account, and offline.' },
     es: { title: 'Editor de Markdown WYSIWYG online, sin sintaxis: SharpMD',
       desc: 'Editá Markdown sobre la página ya formateada: párrafos, tablas, tareas, fórmulas y diagramas. El archivo sigue siendo Markdown plano. Gratis y sin cuenta.' } },
+  // Qué se cifra y qué no, dónde van las imágenes y cómo irse. Cada frase se comprueba en privacy.html o server/README.md.
+  security: {
+    en: { title: 'Security: what SharpMD encrypts and what it does not',
+      desc: 'What is encrypted at rest, what is encrypted in your browser with a password, where images live, and how to take your notes with you. Plain Markdown files.' },
+    es: { title: 'Seguridad: qué cifra SharpMD y qué no',
+      desc: 'Qué se cifra en reposo, qué se cifra en tu navegador con contraseña, dónde viven las imágenes y cómo llevarte tus notas. Archivos de Markdown plano.' } },
   // El programa local (la carpeta local/): qué es, cómo se instala y cómo se empareja. La app enlaza acá.
   'local-tools': {
     en: { title: 'SharpMD Local: dev servers, worktrees and agent sessions',

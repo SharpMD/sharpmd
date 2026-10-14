@@ -40,7 +40,7 @@ Free and open source. No tracking: files are read in your browser and never uplo
 | **Files** | The outline on top and the explorer below, with the folder on disk, the notes kept in the browser and the cloud. Search across all of them, create from a template, rename, delete, and move files and whole folders by dragging. Drag a file from the explorer into the note you are editing and it becomes a link (or an image) where you drop it. Picking a file never reloads the page, also over a `.md` opened straight from disk: the folders you opened, the search and the focus stay where they were, and the arrow keys walk the list. The explorer notices on its own what changes in the folder: a file created by another program shows up within seconds, marked for a moment, and deleted or renamed ones go away. A Refresh button forces it. A `.txt`, `.json` or `.yaml` in the folder opens inside SharpMD and saves in its own format. |
 | **Links** | Ctrl+K links to a section of the note, to another file or to one of its sections, picked from a list. `[[name]]` works too. |
 | **Outline** | Built from the headings, with the current section and reading progress. |
-| **Notes** | New starts a note that saves itself in the browser, or in a folder you choose. 26 templates to start from. |
+| **Notes** | New starts a note that saves itself in the browser, or in a folder you choose. 35 templates to start from. |
 | **Emoji** | Type `:` and pick from the list. |
 | **Focus** | Focus mode dims everything but the block you are writing; typewriter mode keeps the line at mid height. |
 | **Export** | One standalone HTML file, or PDF through print. |

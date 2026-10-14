@@ -1142,6 +1142,7 @@
       "Día a día": "Day to day",
       "Proyectos": "Projects",
       "Equipo": "Team",
+      "Agencias y equipos": "Agencies and teams",
       "Producto y desarrollo": "Product and development",
       "Personal": "Personal",
       "Desde una plantilla": "From a template",

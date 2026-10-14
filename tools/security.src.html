@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Fuente de la página: los dos idiomas van juntos, cada uno en su bloque. La genera tools/build-site.mjs, que escribe
+     /security.html y /es/security.html con un solo idioma cada una. Los generados no se editan a mano.
+     Regla: cada frase de esta página tiene que poder comprobarse en privacy.html, en server/README.md o en la guía. -->
+<meta name="robots" content="noindex">
+<!--HEAD-->
+<style>
+/*SITE-CSS*/
+</style>
+</head>
+<body class="doc">
+<main>
+  <div class="top"><a class="brand" href="./"><img src="icons/logo.svg" alt="" width="26" height="26"><span><b>Sharp</b>MD</span></a><!--LANG--></div>
+
+  <div lang="en">
+    <h1>Security: what is encrypted, what is not, and how to leave</h1>
+    <p class="lede">Your notes are plain Markdown files. In the cloud they are encrypted at rest, and a folder with a password is encrypted in your browser so the server cannot read it. This page says which is which, and where each one stops.</p>
+    <p class="under">The details are in <a href="privacy.html">Privacy</a> and in the <a href="https://github.com/SharpMD/sharpmd/blob/main/server/README.md" rel="noopener">server README</a>, and the code is open on <a href="https://github.com/SharpMD/sharpmd" rel="noopener">GitHub</a>.</p>
+
+    <h2>Two layers, and they are different</h2>
+    <h3>Encryption at rest, for the whole cloud</h3>
+    <ul>
+      <li>The server stores the text of your notes, of their previous versions and of the comments you leave for the AI encrypted with AES-256-GCM.</li>
+      <li>That protects the database and its backups: a copy of the file is unreadable without the key.</li>
+      <li>It is not end-to-end encryption. The running server holds the key, because it has to read a note to share it and to serve your AI over MCP.</li>
+      <li>Sign-in codes, sessions and AI tokens are stored as hashes.</li>
+    </ul>
+    <h3>Folders with a password, encrypted in your browser</h3>
+    <ul>
+      <li>Everything inside a protected folder is encrypted in your browser before it is uploaded. The server stores text it cannot read.</li>
+      <li>Each folder has a random 256-bit key. Your password does not encrypt the notes: it wraps that key, with PBKDF2-SHA-256 and 600,000 rounds. Notes are encrypted with AES-256-GCM.</li>
+      <li>The password and the key do not leave your browser.</li>
+      <li>You can also protect your whole cloud with one password, from Settings, under Cloud.</li>
+      <li>Without the password and without the backup key the notes cannot be recovered. SharpMD cannot recover them either.</li>
+    </ul>
+
+    <h2>What stays visible even when a folder is protected</h2>
+    <ul>
+      <li>The names of its notes and folders, their size and when they changed.</li>
+      <li>Those notes cannot be shared, have no public links, take no comments for the AI and are left out of the server search.</li>
+      <li>If you unlock a folder for your AI, your browser sends its key to the server, which keeps it in memory only, for the time you chose. Locking the folder, the time running out or a server restart erases it. It is never written to disk.</li>
+      <li>Pages of a published site are public, so they are stored without encryption at rest.</li>
+    </ul>
+
+    <h2>Where images are kept</h2>
+    <ul>
+      <li>In a folder on your disk, the image is saved next to the document. In a note kept in the browser it stays inside the note. Neither leaves your device.</li>
+      <li>In a cloud note the image is uploaded to <code>sync.sharpmd.app</code> as an attachment. The server stores the file, its type, its size, a hash and the date, and not the name the file had.</li>
+      <li>Before saving, SharpMD makes the image smaller in your browser and removes its camera, date and location. With the quality set to Original, the metadata stays.</li>
+      <li>The address of a cloud image works like a public link: anyone who has it can see the image. It is long and random and nothing lists it, but sharing the note hands it to whoever reads the note.</li>
+      <li>Images in a protected folder are encrypted in your browser with the key of the folder, and they have no public address.</li>
+      <li>An image that no note uses is deleted after 30 days. Deleting your account deletes all of them.</li>
+    </ul>
+
+    <h2>Recovering what you lost</h2>
+    <ul>
+      <li>A deleted cloud note goes to the trash for 30 days and can be restored. A note from a protected folder stays encrypted there.</li>
+      <li>On the paid plan the previous versions of a note are kept for 30 days.</li>
+      <li>The backup key that the app offers when you protect a folder is the key of that folder: with it you can set a new password.</li>
+      <li>A copy of each cloud note you open is kept in your browser, so it opens without a connection.</li>
+    </ul>
+
+    <h2>If SharpMD closes</h2>
+    <ul>
+      <li>A note is a <code>.md</code> file. What you write in a folder on your disk is already yours, with nothing to export.</li>
+      <li>The Markdown stays Markdown: any editor opens it. A right-click on a folder in the explorer offers Export the folder, which puts all its notes into one PDF, HTML, Word or Markdown file.</li>
+      <li>The app is MIT and the sync server is AGPL, and the server is one file that you can host yourself. In Settings, Account, you can point the app at your own server, or turn the cloud off.</li>
+      <li>You can delete your account yourself in the app, and the server deletes your notes, history, trash, tokens, shares and sites.</li>
+    </ul>
+
+    <h2>Report a vulnerability</h2>
+    <p>Write to <a href="mailto:hello@sharpmd.app">hello@sharpmd.app</a> with what you found and the steps to repeat it. Please do not publish it until we have had the chance to fix it. The code is on <a href="https://github.com/SharpMD/sharpmd" rel="noopener">GitHub</a> for anyone who wants to read it.</p>
+
+    <p class="next"><a class="btn fill" href="src/app.html">Open the app</a></p>
+    <p>Everything else is on the <a href="./">SharpMD home page</a>.</p>
+  </div>
+
+  <div lang="es">
+    <h1>Seguridad: qué se cifra, qué no y cómo irte</h1>
+    <p class="lede">Tus notas son archivos de Markdown plano. En la nube se guardan cifradas, y una carpeta con contraseña se cifra en tu navegador, así que el servidor no puede leerla. Esta página dice cuál es cuál y dónde termina cada una.</p>
+    <p class="under">El detalle está en <a href="privacy.html">Privacidad</a> y en el <a href="https://github.com/SharpMD/sharpmd/blob/main/server/README.md" rel="noopener">README del servidor</a>, y el código está abierto en <a href="https://github.com/SharpMD/sharpmd" rel="noopener">GitHub</a>.</p>
+
+    <h2>Dos capas, y son distintas</h2>
+    <h3>Cifrado en reposo, para toda la nube</h3>
+    <ul>
+      <li>El servidor guarda el texto de tus notas, de sus versiones anteriores y de los comentarios que dejás para la IA cifrado con AES-256-GCM.</li>
+      <li>Eso protege la base de datos y sus copias de seguridad: una copia del archivo no se puede leer sin la llave.</li>
+      <li>No es cifrado de punta a punta. El servidor en marcha tiene la llave, porque tiene que leer una nota para compartirla y para atender a tu IA por MCP.</li>
+      <li>Los códigos de acceso, las sesiones y los tokens de IA se guardan como hashes.</li>
+    </ul>
+    <h3>Carpetas con contraseña, cifradas en tu navegador</h3>
+    <ul>
+      <li>Todo lo que hay en una carpeta protegida se cifra en tu navegador antes de subirse. El servidor guarda texto que no puede leer.</li>
+      <li>Cada carpeta tiene una llave al azar de 256 bits. Tu contraseña no cifra las notas: envuelve esa llave, con PBKDF2-SHA-256 y 600.000 vueltas. Las notas se cifran con AES-256-GCM.</li>
+      <li>La contraseña y la llave no salen de tu navegador.</li>
+      <li>También podés proteger toda tu nube con una sola contraseña, desde Ajustes, en Nube.</li>
+      <li>Sin la contraseña y sin la llave de respaldo, las notas no se pueden recuperar. SharpMD tampoco puede.</li>
+    </ul>
+
+    <h2>Lo que se sigue viendo aunque la carpeta esté protegida</h2>
+    <ul>
+      <li>Los nombres de sus notas y carpetas, su tamaño y cuándo cambiaron.</li>
+      <li>Esas notas no se pueden compartir, no tienen enlaces públicos, no aceptan comentarios para la IA y quedan fuera de la búsqueda del servidor.</li>
+      <li>Si desbloqueás una carpeta para tu IA, tu navegador le manda su llave al servidor, que la guarda solo en memoria, por el tiempo que elegiste. Bloquear la carpeta, que se acabe el tiempo o que el servidor se reinicie la borra. Nunca se escribe en disco.</li>
+      <li>Las páginas de un sitio publicado son públicas, así que se guardan sin cifrado en reposo.</li>
+    </ul>
+
+    <h2>Dónde se guardan las imágenes</h2>
+    <ul>
+      <li>En una carpeta de tu disco, la imagen se guarda junto al documento. En una nota del navegador queda dentro de la nota. Ninguna sale de tu dispositivo.</li>
+      <li>En una nota de la nube, la imagen se sube a <code>sync.sharpmd.app</code> como adjunto. El servidor guarda el archivo, su tipo, su tamaño, un hash y la fecha, y no el nombre que tenía el archivo.</li>
+      <li>Antes de guardarla, SharpMD achica la imagen en tu navegador y le quita la cámara, la fecha y la ubicación. Con la calidad en Original, los metadatos se quedan.</li>
+      <li>La dirección de una imagen de la nube funciona como un enlace público: quien la tiene puede ver la imagen. Es larga y al azar y nada la lista, pero compartir la nota se la entrega a quien lee la nota.</li>
+      <li>Las imágenes de una carpeta protegida se cifran en tu navegador con la llave de la carpeta, y no tienen dirección pública.</li>
+      <li>Una imagen que ninguna nota usa se borra a los 30 días. Eliminar tu cuenta las borra todas.</li>
+    </ul>
+
+    <h2>Recuperar lo que perdiste</h2>
+    <ul>
+      <li>Una nota de la nube que borrás va a la papelera por 30 días y se puede restaurar. Una nota de una carpeta protegida queda cifrada ahí.</li>
+      <li>En el plan pago, las versiones anteriores de una nota se guardan 30 días.</li>
+      <li>La llave de respaldo que te ofrece la app al proteger una carpeta es la llave de esa carpeta: con ella podés poner una contraseña nueva.</li>
+      <li>De cada nota de la nube que abrís queda una copia en tu navegador, para abrirla sin conexión.</li>
+    </ul>
+
+    <h2>Si SharpMD cierra</h2>
+    <ul>
+      <li>Una nota es un archivo <code>.md</code>. Lo que escribís en una carpeta de tu disco ya es tuyo, sin nada que exportar.</li>
+      <li>El Markdown sigue siendo Markdown: cualquier editor lo abre. Un clic derecho sobre una carpeta del explorador ofrece Exportar la carpeta, que junta todas sus notas en un solo PDF, HTML, Word o Markdown.</li>
+      <li>La app es MIT y el servidor de sincronización es AGPL, y el servidor es un solo archivo que podés alojar por tu cuenta. En Ajustes, Cuenta, podés apuntar la app a tu propio servidor o apagar la nube.</li>
+      <li>Podés eliminar tu cuenta vos mismo desde la app, y el servidor borra tus notas, historial, papelera, tokens, lo compartido y tus sitios.</li>
+    </ul>
+
+    <h2>Reportar una falla</h2>
+    <p>Escribí a <a href="mailto:hello@sharpmd.app">hello@sharpmd.app</a> con lo que encontraste y los pasos para repetirlo. Te pedimos que no lo publiques hasta que hayamos podido arreglarlo. El código está en <a href="https://github.com/SharpMD/sharpmd" rel="noopener">GitHub</a> para quien quiera leerlo.</p>
+
+    <p class="next"><a class="btn fill" href="src/app.html">Abrir la app</a></p>
+    <p>Todo lo demás está en la <a href="./">portada de SharpMD</a>.</p>
+  </div>
+  <p class="legal"><a href="./"><span lang="en">Home</span><span lang="es">Portada</span></a><a href="privacy.html"><span lang="en">Privacy</span><span lang="es">Privacidad</span></a><a href="[[updates.html||./updates.html]]"><span lang="en">What's new</span><span lang="es">Novedades</span></a><a href="terms.html"><span lang="en">Terms</span><span lang="es">Términos</span></a><a href="support.html"><span lang="en">Support</span><span lang="es">Ayuda</span></a></p>
+</main>
+</body>
+</html>
