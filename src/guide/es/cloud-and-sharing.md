@@ -58,6 +58,8 @@ Con el plan de equipo, las notas compartidas están bajo `@team/`. Quien adminis
 
 Una carpeta de arriba del equipo puede quedar para algunos miembros. En **Carpetas con acceso restringido** escribís su nombre, tocás **Restringir** y marcás quién la ve. Quien administra entra siempre. Para los demás la carpeta no existe: no la ven en el explorador, en la búsqueda, en su IA ni en la API. Los tokens del equipo tampoco entran.
 
+Los tableros del equipo avisan por correo. Cuando una tarjeta te nombra en un campo de persona, como `owner` o `responsable`, te llega un correo. Y una vez por día, un resumen con las tarjetas tuyas sin terminar que vencen según su campo `due` o `vence`. Los dos se apagan en **Ajustes** > **Plan**, en **Avisos por correo**.
+
 Cuando alguien se va del equipo:
 
 1. Sacalo desde **Ajustes** > **Plan**, con **Sacar**. En el mismo paso se revocan los tokens del equipo que creó, y sus webhooks y direcciones de entrada del espacio. Sus tokens personales dejan de llegar al equipo.

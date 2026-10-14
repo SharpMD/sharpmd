@@ -1054,6 +1054,57 @@ try {
     await fs1.stop(); wipe(fDir);
   }
 
+  // ---------- Equipos: avisos por correo de los tableros ----------
+  // Te asignan una tarjeta: te llega un correo. Una vez por día, otro con las tuyas que vencen. Los dos se apagan.
+  {
+    const mails = []; const box = http.createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { mails.push(JSON.parse(b)); res.writeHead(200); res.end('{}'); }); });
+    await new Promise((r) => box.listen(0, '127.0.0.1', r));
+    const nDir = tmp(); const ns = await boot(nDir, { MAIL_WEBHOOK: 'http://127.0.0.1:' + box.address().port }); const J = (v) => JSON.stringify(v);
+    const A = await ns.enter('jefa-avisos@ejemplo.test', true); const B = await ns.enter('beto-avisos@ejemplo.test'); const C = await ns.enter('caro-avisos@ejemplo.test');
+    await ns.ask('POST', '/admin/team', { email: 'jefa-avisos@ejemplo.test', seats: 5 }, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    const acct = async (who) => (await ns.ask('GET', '/account', undefined, who)).json;
+    for (const [who, mail] of [[B, 'beto-avisos@ejemplo.test'], [C, 'caro-avisos@ejemplo.test']]) { await ns.ask('POST', '/team/invite', { email: mail, role: 'editor' }, A); await ns.ask('POST', '/team/accept', { id: (await acct(who)).team.invites[0].id }, who); }
+    const space = (await acct(A)).team.mine.space;
+    const put = (who, p, text) => ns.ask('PUT', '/notes/' + encodeURIComponent(p) + '?o=' + space, { text }, who);
+    const wait = async (n) => { for (let i = 0; i < 50 && mails.filter((m) => !/code|código/i.test(m.subject)).length < n; i++) await new Promise((r) => setTimeout(r, 40)); return mails.filter((m) => !/code|código/i.test(m.subject)); };
+    const board = (cards) => '# Tablero\n\n```kanban\n## To do\n' + cards.join('\n') + '\n## Done\n- [x] Vieja {owner=beto-avisos due=2020-01-01}\n```\n';
+    const prefs = (await acct(B)).mail;
+    check('avisos: vienen prendidos y la cuenta los muestra', J(prefs) === J({ assign: true, due: true }), prefs);
+    mails.length = 0;
+    await put(A, 'Proyectos/tablero.md', board(['- [ ] Diseñar logo {owner=beto-avisos}', '- [ ] Llamar al cliente {owner="Jefa-avisos, caro-avisos@ejemplo.test"}']));
+    let got = await wait(2);
+    const toB = got.filter((m) => m.to === 'beto-avisos@ejemplo.test'); const toC = got.filter((m) => m.to === 'caro-avisos@ejemplo.test');
+    check('avisos: a quien le asignan una tarjeta le llega un correo, y no a quien la asignó', toB.length === 1 && /Diseñar logo/.test(toB[0].subject + toB[0].text) && toC.length === 1 && /Llamar al cliente/.test(toC[0].text) && !got.some((m) => m.to === 'jefa-avisos@ejemplo.test') && /jefa-avisos/.test(toB[0].text) && /Settings/.test(toB[0].text), got.map((m) => [m.to, m.subject]));
+    mails.length = 0;
+    const off = await ns.ask('PUT', '/account/mail', { assign: false, lang: 'es' }, C);
+    const badPrefs = await ns.ask('PUT', '/account/mail', { assign: 'no' }, C);
+    await put(A, 'Proyectos/tablero.md', board(['- [ ] Diseñar logo {owner=beto-avisos}', '- [ ] Llamar al cliente {owner="Jefa-avisos, caro-avisos@ejemplo.test"}', '- [ ] Presupuesto {owner="caro-avisos, beto-avisos" due=2099-01-01}']));
+    got = await wait(1); await new Promise((r) => setTimeout(r, 200)); got = mails.filter((m) => !/code|código/i.test(m.subject));
+    check('avisos: solo avisa a quien se suma, y quien los apagó en Ajustes no recibe nada', off.status === 200 && J(off.json.mail) === J({ assign: false, due: true }) && badPrefs.status === 400 && got.length === 1 && got[0].to === 'beto-avisos@ejemplo.test' && /Presupuesto/.test(got[0].text) && !/Diseñar logo/.test(got[0].text), [off.json.mail, badPrefs.status, got.map((m) => [m.to, m.subject])]);
+    // Vence hoy: el resumen junta en un correo por persona las tarjetas suyas sin terminar cuya fecha llegó.
+    const today = new Date().toISOString().slice(0, 10);
+    await put(A, 'Proyectos/tablero.md', board(['- [ ] Diseñar logo {owner=beto-avisos due=' + today + '}', '- [ ] Cerrar factura {owner=beto-avisos vence=' + today + '}', '- [ ] Mañana {owner=beto-avisos due=2099-12-31}', '- [ ] Revisar contrato {owner=caro-avisos due=' + today + '}']));
+    await new Promise((r) => setTimeout(r, 200)); mails.length = 0;
+    const noKey = await ns.ask('POST', '/admin/due-digest', {});
+    const run = await ns.ask('POST', '/admin/due-digest', {}, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    got = await wait(2);
+    const dB = got.filter((m) => m.to === 'beto-avisos@ejemplo.test'); const dC = got.filter((m) => m.to === 'caro-avisos@ejemplo.test');
+    check('avisos: el resumen diario manda un solo correo por persona con lo que le vence', noKey.status === 403 && run.status === 200 && run.json.sent === 2 && dB.length === 1 && /Diseñar logo/.test(dB[0].text) && /Cerrar factura/.test(dB[0].text) && !/Mañana|Vieja/.test(dB[0].text) && dC.length === 1 && /Vencen|Vence/.test(dC[0].subject), [run.json, got.map((m) => [m.to, m.subject, m.text.slice(0, 300)])]);
+    await ns.ask('PUT', '/account/mail', { due: false }, B); mails.length = 0;
+    const run2 = await ns.ask('POST', '/admin/due-digest', {}, undefined, { 'x-admin-key': 'clave-de-prueba' });
+    got = await wait(1); await new Promise((r) => setTimeout(r, 150)); got = mails.filter((m) => !/code|código/i.test(m.subject));
+    check('avisos: quien apagó el resumen no lo recibe', run2.json.sent === 1 && got.length === 1 && got[0].to === 'caro-avisos@ejemplo.test', [run2.json, got.map((m) => m.to)]);
+    // Una carpeta cerrada: quien no la ve no recibe avisos de lo que pasa adentro.
+    await ns.ask('PUT', '/account/mail', { assign: true }, C); mails.length = 0;
+    const cId = (await acct(A)).team.mine.members.find((x) => x.email === 'caro-avisos@ejemplo.test').id;
+    await ns.ask('PUT', '/team/folders', { folder: 'Clientes', members: [cId] }, A);
+    await put(A, 'Clientes/acme.md', board(['- [ ] Secreto {owner="beto-avisos, caro-avisos"}']));
+    got = await wait(1); await new Promise((r) => setTimeout(r, 150)); got = mails.filter((m) => !/code|código/i.test(m.subject));
+    check('avisos: no le avisa a quien no ve la carpeta', got.length === 1 && got[0].to === 'caro-avisos@ejemplo.test', got.map((m) => [m.to, m.subject]));
+    await ns.stop(); box.close(); wipe(nDir);
+  }
+
+
   // Una persona que abre una dirección del servidor en el navegador ve una página propia, con el mismo código.
   // Un cliente de la API recibe el JSON de siempre. (tests/security.mjs, "Páginas para personas", lo recorre entero.)
   console.log('Páginas para personas');

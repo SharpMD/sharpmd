@@ -181,6 +181,12 @@
     members.map((m) => '<label class="lmd-check"><input type="checkbox" data-t="fold-m" data-f="' + esc(f.folder) + '" data-id="' + m.id + '"' + (f.members.includes(m.id) ? ' checked' : '') + '><span>' + esc(m.email) + '</span></label>').join('') +
     '<button type="button" data-t="fold-open" data-f="' + esc(f.folder) + '">' + T('Abrir a todo el equipo') + '</button></span></li>';
   // Lo que se pide aparte después de dibujar: la lista de tokens del equipo y la de carpetas restringidas.
+  // Avisos por correo de los tableros del equipo: cada miembro prende o apaga los suyos.
+  function mailBlock(a) {
+    const p = (a && a.mail) || { assign: true, due: true };
+    const box = (k, label) => '<label class="lmd-check"><input type="checkbox" data-t="mail" data-k="' + k + '"' + (p[k] ? ' checked' : '') + '><span>' + label + '</span></label>';
+    return '<h4>' + T('Avisos por correo') + '</h4><div data-team="mail">' + box('assign', T('Cuando me asignan una tarjeta')) + box('due', T('Un resumen diario de mis tarjetas que vencen')) + '</div>';
+  }
   async function mount(box, a) {
     subMount(box, a && a.team && a.team.mine);
     const folders = box.querySelector('[data-team=folders]');
@@ -241,6 +247,7 @@
           '<button type="button" class="lmd-btn lmd-btn-fill" data-t="seats"' + (want === mine.seats ? ' disabled' : '') + '>' + T('Cambiar lugares') + '</button></div>' +
           '<p class="lmd-hint lmd-price" data-team="price">' + perSeat(t) + '</p>';
     }
+    out += mailBlock(a);
     out += policyBlock(mine, admin);
     out += subBlock(mine, admin);
     out += vaultBlock(mine, owner);
@@ -350,7 +357,7 @@
   const owns = (e, box) => { const b = e.target.closest && e.target.closest('[data-t]'); return !!b && box.contains(b) && !!b.closest('.lmd-team'); };
   // Lo que se cambia sin botón: el papel de alguien y los ajustes del equipo. redraw vuelve a dibujar el panel.
   async function change(e, box, a, redraw) {
-    const sel = e.target.closest && e.target.closest('.lmd-team [data-t=role], .lmd-team [data-t=fold-m], .lmd-team [data-p]'); if (!sel || !box.contains(sel)) return false;
+    const sel = e.target.closest && e.target.closest('.lmd-team [data-t=role], .lmd-team [data-t=fold-m], .lmd-team [data-t=mail], .lmd-team [data-p]'); if (!sel || !box.contains(sel)) return false;
     const C = LMD.cloud.team; const say = (text) => { const m = box.querySelector('.lmd-team-msg'); if (m) { m.hidden = false; m.textContent = text; } };
     try {
       if (sel.dataset.t === 'role') { await C.role(+sel.dataset.id, sel.value); said = T('Papel cambiado.'); }
@@ -359,6 +366,7 @@
         const ids = [...row.querySelectorAll('[data-t=fold-m]')].filter((x) => x.checked).map((x) => +x.dataset.id);
         await C.folderSet(sel.dataset.f, ids); said = T('Ajuste guardado.');
       }
+      else if (sel.dataset.t === 'mail') { await LMD.cloud.setMail({ [sel.dataset.k]: sel.checked, lang: LMD.lang() }); said = T('Ajuste guardado.'); }
       else {
         const k = sel.dataset.p;
         await C.policies({ [k]: sel.type === 'checkbox' ? sel.checked : k === 'history_days' ? +sel.value : sel.value.trim() });
@@ -384,7 +392,7 @@
       return true;
     }
     // Campos y listas: se leen al confirmar, o los atiende change.
-    if (['n', 'email', 'role', 'invite-role', 'tok-name', 'tok-folder', 'tok-write', 'tok-share', 'tok-new', 'tok-no', 'sub-name', 'fold-name', 'fold-m'].includes(kind)) return true;
+    if (['n', 'email', 'role', 'invite-role', 'tok-name', 'tok-folder', 'tok-write', 'tok-share', 'tok-new', 'tok-no', 'sub-name', 'fold-name', 'fold-m', 'mail'].includes(kind)) return true;
     // Un token nuevo: el formulario se abre en el lugar del botón, y crea al confirmar (kit.js atiende sus botones).
     if (kind === 'tok-open') {
       LMD.kit.tokenAsk(b.closest('[data-tok-new]'), tokenForm(), async (form) => {

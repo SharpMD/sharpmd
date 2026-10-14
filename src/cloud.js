@@ -776,6 +776,7 @@
     playVerify: (productId, purchaseToken) => api('POST', '/play/verify', { productId, purchaseToken }),
     freeNotes: () => freeNotes,
     setName: (name) => api('PUT', '/account', { name }),
+    setMail: (prefs) => api('PUT', '/account/mail', prefs),
     create: (path) => unlocked(() => putNote(path, '')).then((r) => { listCache = null; delete otherLists[split(path).owner]; return r; }),
     remove: (path) => api('DELETE', notePath(path)).then(async (r) => { listCache = null; delete otherLists[split(path).owner]; await S.cloudDelete(email, path); return r; }),
     // Papelera: lo eliminado de la nube, hasta que vence. owner es el espacio del equipo, o nada para lo propio.

@@ -9,6 +9,8 @@
 //   RESEND_API_KEY  manda el código de acceso por Resend (con MAIL_FROM)
 //   MAIL_WEBHOOK    o lo manda a un webhook propio: POST { to, subject, text }
 //   DEV_CODES=1     sin correo: el código vuelve en la respuesta (solo para pruebas)
+//   DIGEST_TZ, DIGEST_HOUR   zona horaria (UTC) y hora (9) del resumen diario de tarjetas que vencen, que sale por el mismo correo
+//   NOTICE_MAIL_PER_HOUR     avisos de tarjeta asignada por persona y por hora (20)
 //   FREE_NOTES      notas del plan gratis (10). El número sale solo de acá: la app y la IA lo reciben del servidor
 //   FREE_AGENTS     agentes activos a la vez en el plan gratis (2). El plan pago no tiene tope y guarda su historial
 //   AGENT_STALE_MS, AGENT_GONE_MS, AGENT_DONE_MS, AGENT_HISTORY_MS   los tiempos de los agentes (ver las constantes)
@@ -342,6 +344,7 @@ async function authStart(req, body) {
   q('INSERT OR REPLACE INTO codes (email, hash, expires, tries, sent) VALUES (?, ?, ?, 0, ?)').run(email, sha(email + ':' + code), now() + 15 * 60000, now());
   if (fixed) return { ok: true };
   statAdd('signin_start', statSource(body.src)); // one more code asked for, under the channel the app says: nothing about who
+  if (body.lang === 'es' || body.lang === 'en') q('UPDATE users SET mail_lang = ? WHERE email = ?').run(body.lang, email);
   await sendCode(email, code, body.lang);
   return env.DEV_CODES ? { ok: true, dev_code: code } : { ok: true };
 }
@@ -425,7 +428,24 @@ function accountName(user, body) {
 try { db.exec('ALTER TABLE users ADD COLUMN protect_seen INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* ya estaba */ }
 const protectSeen = (userId) => { const r = q('SELECT protect_seen FROM users WHERE id = ?').get(userId); return !!(r && r.protect_seen); };
 function protectSeenSet(user) { q('UPDATE users SET protect_seen = ? WHERE id = ? AND protect_seen = 0').run(now(), user.id); return { ok: true }; }
-const account = (user) => ({ id: user.id, protect_seen: protectSeen(user.id), share: shareAllowed(user), live: user.plan === 'pro' || !!env.LIVE_FREE, email: user.email, name: nameOf(user), name_default: !user.name, plan: user.plan, own_plan: user.own || user.plan, notes: countNotes(user), limit: user.plan === 'pro' ? null : FREE_NOTES, free_notes: FREE_NOTES, mcp: true, api: apiAllowed(user), mcp_url: PUBLIC_URL + '/mcp',
+// Avisos por correo de los tableros del equipo: cuando te asignan una tarjeta y, una vez por día, las tarjetas tuyas
+// que vencen. Los dos vienen prendidos y cada persona los apaga desde Ajustes. mail_lang: el idioma con el que entró
+// por última vez, para escribirle en el suyo.
+try { db.exec('ALTER TABLE users ADD COLUMN mail_assign INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* ya estaba */ }
+try { db.exec('ALTER TABLE users ADD COLUMN mail_due INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* ya estaba */ }
+try { db.exec("ALTER TABLE users ADD COLUMN mail_lang TEXT NOT NULL DEFAULT ''"); } catch (e) { /* ya estaba */ }
+const mailPrefs = (userId) => { const r = q('SELECT mail_assign, mail_due FROM users WHERE id = ?').get(userId); return { assign: !r || r.mail_assign !== 0, due: !r || r.mail_due !== 0 }; };
+// PUT /account/mail { assign?, due?, lang? }: true o false prende o apaga cada aviso.
+function accountMail(user, body) {
+  body = body || {};
+  for (const k of ['assign', 'due']) if (body[k] != null && typeof body[k] !== 'boolean') throw new Fail(400, 'bad_mail', 'assign and due are true or false');
+  if (body.assign != null) q('UPDATE users SET mail_assign = ? WHERE id = ?').run(body.assign ? 1 : 0, user.id);
+  if (body.due != null) q('UPDATE users SET mail_due = ? WHERE id = ?').run(body.due ? 1 : 0, user.id);
+  if (body.lang === 'es' || body.lang === 'en') q('UPDATE users SET mail_lang = ? WHERE id = ?').run(body.lang, user.id);
+  return account(userById(user.id));
+}
+
+const account = (user) => ({ id: user.id, protect_seen: protectSeen(user.id), mail: mailPrefs(user.id), share: shareAllowed(user), live: user.plan === 'pro' || !!env.LIVE_FREE, email: user.email, name: nameOf(user), name_default: !user.name, plan: user.plan, own_plan: user.own || user.plan, notes: countNotes(user), limit: user.plan === 'pro' ? null : FREE_NOTES, free_notes: FREE_NOTES, mcp: true, api: apiAllowed(user), mcp_url: PUBLIC_URL + '/mcp',
   // plan_from: quién cobra el plan pago propio ('paddle', 'play', 'admin' o vacío). play: lo que la app de Android
   // necesita para ofrecer la compra por Google Play, o false si está apagada.
   plan_from: (user.own || user.plan) === 'pro' ? user.plan_from || '' : '', play: PLAY ? { package: PLAY_PACKAGE, products: PLAY_PRODUCTS } : false,
@@ -3845,15 +3865,145 @@ function autoNoteSaved(owner, p, prev, text, saved, v) {
   if (v || text.startsWith(VAULT) || (prev != null && prev.startsWith(VAULT)) || prev === text) return;
   const data = { rev: saved.rev, size: saved.size, updated: iso(saved.updated) };
   autoEmit(owner, prev == null ? 'note.created' : 'note.updated', p, data, { text });
-  if (prev == null || (!kbHas(prev) && !kbHas(text))) return;
+  if (!kbHas(text) && (prev == null || !kbHas(prev))) return;
   let events = [];
-  try { events = kbDiff(prev, text); } catch (e) { return; }
+  try { events = kbDiff(prev == null ? '' : prev, text); } catch (e) { return; }
+  try { noticeAssign(owner, p, events); } catch (e) { console.error('aviso de tarjeta asignada · ' + String(e && e.stack || e).slice(0, 600)); }
+  if (prev == null) return;
   for (const ev of events.slice(0, CARD_EVENTS_MAX)) autoEmit(owner, ev.type, p, Object.assign(ev.data, { rev: saved.rev }));
 }
 function autoNoteMoved(owner, from, to) {
   // Lo que apuntaba a esa nota (un webhook de una sola nota, una dirección de entrada) la sigue.
   try { q("UPDATE hooks SET scope_path = ? WHERE user = ? AND scope_kind = 'note' AND scope_path = ?").run(to, owner.id, from); q("UPDATE inboxes SET path = ? WHERE user = ? AND kind != 'create' AND path = ?").run(to, owner.id, from); } catch (e) { /* el evento sale igual */ }
   autoEmit(owner, 'note.moved', to, { from: (isSpace(owner) ? TEAM_PRE : '') + from, to: (isSpace(owner) ? TEAM_PRE : '') + to }, { from });
+}
+
+// ---------- Avisos por correo de los tableros del equipo ----------
+// Una tarjeta es de alguien cuando un campo de persona (owner, responsable, asignado...) lo nombra: por su nombre
+// visible, su correo o lo que va antes de la arroba. Vence según un campo de fecha (due, vence...) en AAAA-MM-DD.
+// Los mismos nombres de campo que reconoce el tablero de la app. Solo en el espacio de un equipo activo, solo a
+// quien ve la carpeta de la nota y nunca a quien hizo el cambio.
+const KB_PERSON_KEY = /^(owners?|assignees?|responsables?|asignad[oa]s?|persona|person)$/i;
+const KB_DUE_KEY = /^(due|vence|deadline|fecha-limite)$/i;
+const NOTICE_PER_HOUR = Math.max(1, +(env.NOTICE_MAIL_PER_HOUR || 20));
+const kbPeople = (v) => String(v == null ? '' : v).split(',').map((s) => s.trim().replace(/^@/, '').toLowerCase()).filter(Boolean);
+const kbPeopleOf = (attrs) => { const out = new Set(); for (const k of Object.keys(attrs || {})) if (KB_PERSON_KEY.test(k)) for (const x of kbPeople(attrs[k])) out.add(x); return out; };
+const kbDueOf = (attrs) => { for (const k of Object.keys(attrs || {})) if (KB_DUE_KEY.test(k) && /^\d{4}-\d{2}-\d{2}$/.test(String(attrs[k]).trim())) return String(attrs[k]).trim(); return null; };
+// Los miembros del equipo que pueden recibir avisos de una nota: con lo que hace falta para reconocerlos y saber si la ven.
+function noticeMembers(team, p) {
+  if (!team || team.status !== 'active') return [];
+  return q('SELECT u.id, u.email, u.name, u.mail_assign, u.mail_due, u.mail_lang, m.role FROM team_members m JOIN users u ON u.id = m.user WHERE m.team = ?').all(team.id)
+    .filter((u) => { const hide = teamClosed(team, { id: u.id, team: Object.assign({}, team, { my_role: u.role }) }); return !hide || !hide.has(topFolder(p)); })
+    .map((u) => Object.assign(u, { keys: new Set([String(u.email).toLowerCase(), String(u.email).split('@')[0].toLowerCase(), nameOf(u).toLowerCase()]) }));
+}
+const noticeWho = (members, names) => members.filter((u) => Array.from(names).some((n) => u.keys.has(n)));
+const NOTICE = {
+  en: { assignSubject: (n, t) => (n === 1 ? 'Card assigned to you: ' + t : n + ' cards assigned to you'), assignLead: (by, note) => (by ? '<b>' + by + '</b> assigned you' : 'You were assigned') + ' in <b>' + note + '</b>:',
+    dueSubject: (n) => (n === 1 ? 'A card of yours is due' : n + ' cards of yours are due'), dueLead: (team) => 'These cards assigned to you in the team <b>' + team + '</b> are due:', due: 'due', go: 'Open the board', goAll: 'Open SharpMD',
+    note: (team) => 'You get this because you are in the team ' + team + ' on SharpMD. You can turn these emails off in Settings, Plan.' },
+  es: { assignSubject: (n, t) => (n === 1 ? 'Te asignaron una tarjeta: ' + t : 'Te asignaron ' + n + ' tarjetas'), assignLead: (by, note) => (by ? '<b>' + by + '</b> te asignó' : 'Te asignaron') + ' en <b>' + note + '</b>:',
+    dueSubject: (n) => (n === 1 ? 'Vence una tarjeta tuya' : 'Vencen ' + n + ' tarjetas tuyas'), dueLead: (team) => 'Vencen estas tarjetas a tu nombre en el equipo <b>' + team + '</b>:', due: 'vence', go: 'Abrir el tablero', goAll: 'Abrir SharpMD',
+    note: (team) => 'Te llega porque estás en el equipo ' + team + ' en SharpMD. Podés apagar estos correos en Ajustes, Plan.' },
+};
+const noticeText = (lead, items, link, note) => lead.replace(/<\/?b>/g, '') + '\n\n' + items.map((it) => '- ' + it.title + (it.sub ? ' (' + it.sub + ')' : '')).join('\n') + '\n\n' + link + '\n\n' + note;
+const noticeHtml = (lead, items, go, link, note) => '<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f4f3ee;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1d2026">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">' +
+  '<table role="presentation" width="420" cellpadding="0" cellspacing="0" style="max-width:420px;width:100%;background:#ffffff;border:1px solid #dedbd2;border-radius:14px">' +
+  '<tr><td style="padding:28px 32px 8px;font-size:17px;font-weight:700;letter-spacing:-0.01em"><span style="color:#4d7c0f">#</span> SharpMD</td></tr>' +
+  '<tr><td style="padding:8px 32px 0;font-size:15px;line-height:1.5;color:#1d2026;overflow-wrap:anywhere">' + lead + '</td></tr>' +
+  '<tr><td style="padding:10px 32px 0;font-size:14.5px;line-height:1.5;overflow-wrap:anywhere"><ul style="margin:0;padding-left:18px">' +
+  items.map((it) => '<li style="margin:4px 0">' + (it.href ? '<a href="' + html(it.href) + '" style="color:#1d2026">' + html(it.title) + '</a>' : html(it.title)) + (it.sub ? ' <span style="color:#8a909c">' + html(it.sub) + '</span>' : '') + '</li>').join('') + '</ul></td></tr>' +
+  '<tr><td style="padding:18px 32px 6px"><a href="' + html(link) + '" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#4d7c0f;color:#ffffff;font-size:15px;font-weight:650;text-decoration:none">' + go + '</a></td></tr>' +
+  '<tr><td style="padding:12px 32px 28px;font-size:13.5px;line-height:1.5;color:#8a909c">' + html(note) + '</td></tr>' +
+  '</table><div style="padding-top:14px;font-size:12px;color:#8a909c">sharpmd.app</div></td></tr></table></body></html>';
+const noticeSend = (to, subject, text, htmlBody) => sendMail({ to, subject, text, html: htmlBody }).catch((e) => console.error('aviso por correo: no salió · ' + String(e && e.message || e).slice(0, 200)));
+// Te asignaron: las personas que una tarjeta suma (al crearla o al cambiarle el campo de persona) reciben un correo
+// con las tarjetas de ese guardado. Hasta NOTICE_MAIL_PER_HOUR correos por hora por persona.
+function noticeAssign(owner, p, events) {
+  const team = teamOfSpace(owner); if (!team) return;
+  const added = [];
+  for (const ev of events) {
+    const card = ev.data.card; if (card.done) continue;
+    let names = null;
+    if (ev.type === 'card.created') names = kbPeopleOf(card.attrs);
+    else if (ev.type === 'card.updated') {
+      const keys = Object.keys(ev.data.changes).filter((k) => KB_PERSON_KEY.test(k)); if (!keys.length) continue;
+      const was = new Set(); for (const k of keys) for (const x of kbPeople(ev.data.changes[k].from)) was.add(x);
+      names = new Set(Array.from(kbPeopleOf(card.attrs)).filter((x) => !was.has(x)));
+    }
+    if (names && names.size) added.push({ card, names });
+  }
+  if (!added.length) return;
+  const st = reqCtx.getStore() || {}; const actor = st.user && !st.user.teamToken ? st.user : null;
+  const members = noticeMembers(team, p); const per = new Map();
+  for (const a of added) for (const u of noticeWho(members, a.names)) {
+    if ((actor && u.id === actor.id) || u.mail_assign === 0) continue;
+    if (!per.has(u.id)) per.set(u.id, { u, cards: [] });
+    if (!per.get(u.id).cards.includes(a.card)) per.get(u.id).cards.push(a.card);
+  }
+  const link = autoUrl(owner, p); const noteName = p.split('/').pop().replace(/\.md$/i, '');
+  for (const { u, cards } of per.values()) {
+    try { rate('notice:' + u.id, NOTICE_PER_HOUR, HOUR, 'too_many'); } catch (e) { continue; }
+    const m = NOTICE[u.mail_lang === 'es' ? 'es' : 'en']; const by = actor ? nameOf(actor) : '';
+    const items = cards.slice(0, 20).map((c) => ({ title: c.title, sub: [c.column, kbDueOf(c.attrs) ? m.due + ' ' + kbDueOf(c.attrs) : ''].filter(Boolean).join(', ') }));
+    const lead = m.assignLead(html(by), html(noteName)); const note = m.note(team.name || 'Team');
+    noticeSend(u.email, m.assignSubject(cards.length, cards[0].title.slice(0, 120)), noticeText(lead, items, link, note), noticeHtml(lead, items, m.go, link, note));
+  }
+}
+// El resumen diario: a cada persona, en un solo correo, las tarjetas suyas sin terminar cuya fecha llegó desde el
+// último resumen (la primera vez, las de hoy). El día se cuenta en DIGEST_TZ (por defecto UTC) y sale a partir de
+// DIGEST_HOUR (por defecto las 9). meta.due_digest_day guarda el último día mandado: un reinicio no lo repite.
+const DIGEST_TZ = env.DIGEST_TZ || 'UTC';
+const DIGEST_HOUR = Math.min(23, Math.max(0, +(env.DIGEST_HOUR == null ? 9 : env.DIGEST_HOUR)));
+const digestDay = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: DIGEST_TZ });
+const digestHour = (t) => +new Date(t).toLocaleString('en-US', { timeZone: DIGEST_TZ, hour: '2-digit', hourCycle: 'h23' });
+async function dueDigest(today, since) {
+  let sent = 0;
+  for (const team of q("SELECT * FROM teams WHERE status = 'active'").all()) {
+    const space = userById(team.space); if (!space) continue;
+    const per = new Map();
+    for (const n of q('SELECT path, text, e FROM notes WHERE user = ?').all(space.id)) {
+      let text; try { text = unseal(n.text, n.e, 'notes.text'); } catch (e) { continue; }
+      if (typeof text !== 'string' || text.startsWith(VAULT) || !kbHas(text)) continue;
+      let members = null;
+      for (const b of kbBlocks(text).blocks) {
+        const doneCol = kbDoneColumn(b.board);
+        for (const col of b.board.columns) for (const card of col.cards) {
+          if (card.done || col === doneCol) continue;
+          const due = kbDueOf(card.attrs); if (!due || due > today || (since ? due <= since : due !== today)) continue;
+          const names = kbPeopleOf(card.attrs); if (!names.size) continue;
+          if (!members) members = noticeMembers(team, n.path);
+          for (const u of noticeWho(members, names)) {
+            if (u.mail_due === 0) continue;
+            if (!per.has(u.id)) per.set(u.id, { u, items: [] });
+            per.get(u.id).items.push({ title: card.text, due, href: autoUrl(space, n.path), note: n.path.split('/').pop().replace(/\.md$/i, '') });
+          }
+        }
+      }
+    }
+    for (const { u, items } of per.values()) {
+      const m = NOTICE[u.mail_lang === 'es' ? 'es' : 'en']; const note = m.note(team.name || 'Team'); const lead = m.dueLead(html(team.name || 'Team'));
+      items.sort((a, b) => a.due.localeCompare(b.due));
+      const list = items.slice(0, 40).map((it) => ({ title: it.title, sub: it.note + ', ' + m.due + ' ' + it.due, href: it.href }));
+      await noticeSend(u.email, m.dueSubject(items.length), noticeText(lead, list, APP_URL, note), noticeHtml(lead, list, m.goAll, APP_URL, note));
+      sent++;
+    }
+  }
+  return sent;
+}
+let digestBusy = false;
+async function dueDigestTick(force) {
+  if (digestBusy) return null;
+  const t = now(); const today = digestDay(t);
+  const row = q("SELECT value FROM meta WHERE key = 'due_digest_day'").get(); const last = row ? row.value : '';
+  if (!force && (last >= today || digestHour(t) < DIGEST_HOUR)) return null;
+  digestBusy = true;
+  try {
+    q("INSERT OR REPLACE INTO meta (key, value) VALUES ('due_digest_day', ?)").run(today);
+    // Si el servidor estuvo apagado unos días, junta lo que venció en el medio (hasta una semana).
+    const since = last && last < today ? (last > digestDay(t - 7 * DAY) ? last : digestDay(t - 7 * DAY)) : (force && last === today ? digestDay(t - DAY) : '');
+    return { day: today, sent: await dueDigest(today, since) };
+  } catch (e) { console.error('resumen de vencimientos · ' + String(e && e.stack || e).slice(0, 600)); return null; } finally { digestBusy = false; }
 }
 
 // ---------- Destinos: nada de red privada ----------
@@ -6546,7 +6696,7 @@ async function route(req, url) {
   if (p === '/paddle/webhook' && m === 'POST') return paddleWebhook(req);
   if (p === '/play/notifications' && m === 'POST') return playNotify(req);
   if (p === '/feedback' && m === 'POST') return feedback(req, await readBody(req));
-  if (((p === '/admin/plan' || p === '/admin/team') && m === 'POST') || p === '/admin/gallery' || p === '/admin/sites' || p === '/admin/subdomains' || ((p === '/admin/landing' || p === '/admin/funnel' || p === '/admin/feedback') && m === 'GET')) {
+  if (((p === '/admin/plan' || p === '/admin/team') && m === 'POST') || p === '/admin/gallery' || p === '/admin/sites' || p === '/admin/subdomains' || ((p === '/admin/landing' || p === '/admin/funnel' || p === '/admin/feedback') && m === 'GET') || (p === '/admin/due-digest' && m === 'POST')) {
     // La misma respuesta sin clave configurada, sin clave en el pedido o con una equivocada. Diez fallos por hora por IP.
     const ip = 'admin:' + clientIp(req);
     limit(ip, 10, HOUR, 'too_many');
@@ -6557,6 +6707,7 @@ async function route(req, url) {
     if (p === '/admin/landing') return landingAdmin(url);
     if (p === '/admin/funnel') return funnelAdmin(url);
     if (p === '/admin/feedback') return feedbackAdmin(url);
+    if (p === '/admin/due-digest') return (await dueDigestTick(true)) || { ok: false, busy: true };
     const b = await readBody(req);
     if (p === '/admin/team') {
       // Un equipo armado a mano, sin cobro: para quien aloja su propio servidor. seats: 0 lo deja sin plan pago.
@@ -6650,6 +6801,7 @@ async function route(req, url) {
   if (p === '/play/verify' && m === 'POST') return playVerify(user, await readBody(req));
   if (p === '/account' && m === 'PUT') return accountName(user, await readBody(req));
   if (p === '/account/protect-seen' && m === 'POST') return protectSeenSet(user);
+  if (p === '/account/mail' && m === 'PUT') return accountMail(user, await readBody(req));
   if (p === '/account' && m === 'DELETE') return accountDelete(req, user, await readBody(req));
   if (p === '/trash' || p.startsWith('/trash/')) return trashRoute(user, p, m, url, m === 'POST' ? await readBody(req) : {});
   if (p === '/vaults' && m === 'GET') return vaultsOf(user.id).map(vaultView);
@@ -6863,6 +7015,8 @@ setInterval(() => {
   trashSweep(); feedbackSweep();
   q('DELETE FROM sessions WHERE seen < ?').run(now() - SESSION_DAYS * DAY);
 }, 6 * HOUR).unref();
+// El resumen diario de vencimientos: se fija cada diez minutos si ya toca.
+setInterval(() => { dueDigestTick(false); }, +(env.DIGEST_CHECK_MS || 600000)).unref();
 setInterval(() => { for (const k of marks.keys()) if (!recent(k, DAY).length) marks.delete(k); for (const [k, w] of windows) if (now() - w.t > HOUR) windows.delete(k); }, 600000).unref();
 // Sesiones en vivo: los invitados que se fueron sin avisar dejan su lugar, y la sesión sin nadie conectado vence.
 setInterval(() => {

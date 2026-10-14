@@ -58,6 +58,8 @@ With the team plan, the shared notes are under `@team/`. Whoever administers the
 
 A top-level folder of the team can be kept for some members. In **Folders with restricted access** you type its name, tap **Restrict** and check who can see it. Admins always have access. For everyone else the folder does not exist: they do not see it in the explorer, in search, in their AI or in the API. Team tokens do not reach it either.
 
+Team boards send email notices. When a card names you in a person field, such as `owner` or `assignee`, you get an email. And once a day, a digest with your unfinished cards that are due by their `due` field. You can turn either off in **Settings** > **Plan**, under **Email notices**.
+
 When someone leaves the team:
 
 1. Remove them from **Settings** > **Plan**, with **Remove**. In the same step, the team tokens they created and their webhooks and inbound addresses on the space are revoked. Their personal tokens stop reaching the team.
