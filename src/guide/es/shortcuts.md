@@ -35,6 +35,7 @@ En una Mac, `Ctrl` es `⌘` y `Alt` es `⌥`. La app los muestra así.
 |---|---|
 | `Alt+Shift+T` | Cambiar el tema |
 | `Alt+Shift+F` | Plegar o desplegar la sección del cursor |
+| `Alt+Shift+Z` | Modo sin distracciones: solo el texto, `Esc` sale |
 | `Alt+Shift+B` | Mostrar u ocultar la barra lateral, con la extensión |
 | `Alt+Shift+C` | Centrar o no el contenido, con la extensión |
 

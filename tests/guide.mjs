@@ -29,6 +29,8 @@ const h1 = (md) => (/^# (.+)$/m.exec(md) || [])[1] || '';
 
 check('entre 10 y 17 notas, las mismas en los dos idiomas, y solo Markdown', files.en.length >= 10 && files.en.length <= 17 && J(files.en) === J(files.es) && files.en.every((f) => /^[a-z0-9-]+\.md$/.test(f)), files);
 check('la lista de la app (GUIDE en content.js) nombra esas notas, ni una más ni una menos', GUIDE.length === files.en.length && J(GUIDE.map((g) => g[0] + '.md').sort()) === J(files.en), GUIDE.map((g) => g[0]));
+const swGuide = (/const GUIDE = [([sS]*?)];/.exec(fs.readFileSync(path.join(root, 'sw.js'), 'utf8')) || ['', ''])[1].match(/'([a-z0-9-]+)'/g) || [];
+check('el service worker guarda las mismas notas que tiene la guía', J(swGuide.map((s) => s.slice(1, -1) + '.md').sort()) === J(files.en) && J(files.es) === J(files.en));
 const titles = GUIDE.map((g) => ({ id: g[0], es: h1(text('es', g[0] + '.md')), en: h1(text('en', g[0] + '.md')), list: g[1], listEn: toEn(g[1]) }));
 check('el título de cada nota es el que muestra el explorador, en español y en inglés', titles.every((t) => t.es === t.list && t.en === t.listEn && t.en !== t.es), titles.filter((t) => t.es !== t.list || t.en !== t.listEn || t.en === t.es));
 check('la guía empieza por start.md, que enlaza a todas las demás', GUIDE[0][0] === 'start' && LANGS.every((l) => GUIDE.slice(1).every((g) => text(l, 'start.md').includes('[[' + g[0] + '|'))));

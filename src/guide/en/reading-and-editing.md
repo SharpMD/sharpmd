@@ -51,6 +51,18 @@ A read-only note, like the ones in this guide or one shared with you to view, ca
 
 Each heading folds with the small chevron in its margin. Folding does not change the file.
 
+## Focus mode
+
+The button with the four corners in the top bar, or `Alt+Shift+Z`, hides everything except the text. You can keep editing. `Esc` brings the bars back. If you are in the middle of editing a block, the first `Esc` closes that edit and the second leaves focus mode. On a small screen the button is in the **More** menu.
+
+## Pinned notes
+
+**Pin to the top** is in the note menu (**More**) and in the menu of each file in the sidebar. Pinned notes go to a **Pinned** section at the top of the sidebar and to the start screen. **Unpin** is in the same menus. Pins are kept in this browser only: the cloud account does not carry them to other devices.
+
+## Incoming links
+
+With the **Link map** tool turned on (in Settings, Tools), the foot of each note lists **Links to this note**: the notes that point to the open one. Click one to go there.
+
 What applies to one note only (page width, numbered headings, whether the outline shows) is in **Page settings** and is kept in the front matter of the note.
 
 Next: [Files and folders](files-and-folders.md). Every shortcut is in [Keyboard shortcuts](shortcuts.md).
