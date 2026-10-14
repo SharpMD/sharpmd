@@ -873,6 +873,7 @@ pre.lmd-mermaid-error { border-color: #dc2626; }
 .lmd-plan-buy { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; } .lmd-plan-buy .lmd-btn { padding: 6px 11px; font-size: 12.5px; text-decoration: none; }
 /* Plan de equipo: la tercera columna, y debajo la gestión (miembros, invitaciones, lugares). */
 .lmd-plans-3 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.lmd-plans-1 { grid-template-columns: 1fr; }
 .lmd-team h4 { margin: 18px 0 6px; font-size: 14px; } .lmd-team h4 small { font-weight: 500; color: var(--fg-muted); overflow-wrap: anywhere; }
 .lmd-team-list { max-height: 190px; }
 .lmd-team-list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
@@ -4015,3 +4016,14 @@ dialog.lmd-xp-full::backdrop { background: var(--bg); }
   .lmd-fp-rmeta { font-size: 12px; }
 }
 @media print { .lmd-fp-acts, .lmd-fp-edit, .lmd-fp-add, .lmd-fp-ro { display: none !important; } }
+
+/* Lo que llegó al compartir: la barra al pie para guardarlo en las notas o abrir cada archivo. Cierra con su cruz. */
+.lmd-shared { gap: 10px; padding-right: 10px; border-color: var(--line); }
+.lmd-shared ~ .lmd-room, .lmd-room ~ .lmd-shared { bottom: 84px; }
+.lmd-shared-rows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lmd-shared-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lmd-shared-row > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lmd-shared button:disabled { opacity: .6; cursor: default; }
+.lmd-shared .lmd-update-x { width: 30px; height: 30px; padding: 0; background: transparent; color: var(--fg-muted); }
+.lmd-shared .lmd-update-x:hover { background: var(--accent-soft); color: var(--fg); }
+.lmd-shared .lmd-update-x svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }

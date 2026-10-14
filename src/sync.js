@@ -35,16 +35,23 @@
     try { sessionStorage.setItem('lmd-room', kind); } catch (e) { /* sin sesión */ }
     const bar = el('div', { class: 'lmd-orphan lmd-room', role: 'status' });
     const vars = { n: a.notes, m: a.limit, a: left };
-    bar.appendChild(el('span', { text: !left ? T('El plan gratis está lleno: {n} de {m} notas.', vars) : left === 1 ? T('Plan gratis: {n} de {m} notas. Te queda 1.', vars) : T('Plan gratis: {n} de {m} notas. Te quedan {a}.', vars) }));
+    // Cuentan solo las notas de la nube: lo que está en el disco o en el navegador no entra en el tope. En el tope
+    // se dice qué hacer con la nueva. En la app de la tienda no hay botón a los planes: no se vende nada ahí.
+    const base = !left ? T('El plan gratis está lleno: {n} de {m} notas.', vars) : left === 1 ? T('Plan gratis: {n} de {m} notas. Te queda 1.', vars) : T('Plan gratis: {n} de {m} notas. Te quedan {a}.', vars);
+    bar.appendChild(el('span', { text: base + ' ' + (left ? T('Las del disco y las del navegador no cuentan, solo las de la nube.') : T('Las del disco y las del navegador no cuentan, solo las de la nube. La nueva podés dejarla en este dispositivo, o liberar una de la nube.')) }));
     const go = el('button', { type: 'button', 'data-room': 'plans', text: T('Ver planes') });
     const later = el('button', { type: 'button', class: 'lmd-update-x', 'data-room': 'later', title: T('Ahora no'), 'aria-label': T('Ahora no') }, ICON.close);
     go.addEventListener('click', () => { bar.remove(); core.openPanel('plan'); });
     later.addEventListener('click', () => bar.remove());
-    bar.appendChild(go); bar.appendChild(later);
+    if (!LMD.storeApp) bar.appendChild(go);
+    bar.appendChild(later);
     document.body.appendChild(bar);
   }
   // En el tope: qué pasó y qué sigue andando. Se lee en Plan, arriba de los botones para pasar al pago.
-  const fullWhy = () => T('El plan gratis está lleno: no se guardó nada nuevo en la nube. Las notas que ya tenés se siguen leyendo y editando. El plan pago no tiene límite.');
+  // En la app de la tienda no se ofrece el plan pago: se dice qué hacer con la nota nueva.
+  const fullWhy = () => (LMD.storeApp
+    ? T('El plan gratis está lleno: no se guardó nada nuevo en la nube. Las notas que ya tenés se siguen leyendo y editando. Las del disco y las del navegador no cuentan: la nueva podés dejarla en este dispositivo, o liberar una de la nube.')
+    : T('El plan gratis está lleno: no se guardó nada nuevo en la nube. Las notas que ya tenés se siguen leyendo y editando. El plan pago no tiene límite.'));
   let loading = null;
   function loadAccount() {
     // Sobre un .md de un sitio no se consulta: ahí el servidor no responde (CORS). Sobre uno del disco sí, por la extensión.
@@ -830,7 +837,8 @@
     // Sobre un archivo abierto directo se paga en la app: los mismos botones la abren en una pestaña nueva, ya en los planes.
     const appBtn = (label, plain) => '<button type="button" class="lmd-btn' + (plain ? '' : ' lmd-btn-fill') + '" data-c="app" data-at="' + DIRECT_AT.plan + '">' + label + '</button>';
     const buy = core.APP ? btn : (url, label, kind, plain) => appBtn(label, plain);
-    const teamCol = LMD.team.column(a, buy);
+    // En la app de la tienda no hay equipos, y sin la compra de Google Play tampoco la columna de Pago ni sus precios.
+    const teamCol = LMD.storeApp ? '' : LMD.team.column(a, buy);
     const playBtn = (kind, unit, plain) => (play[kind] ? '<button type="button" class="lmd-btn' + (plain ? '' : ' lmd-btn-fill') + '" data-play="' + kind + '"' + (playBusy ? ' disabled' : '') + '>' + esc(playPrice(play[kind].price)) + ' / ' + T(unit) + '</button>' : '');
     const playBox = !play ? '' : (pro ? '' : '<div class="lmd-play-buy">' + playBtn('yearly', 'año') + playBtn('monthly', 'mes', !!play.yearly) + '</div>' +
       '<p class="lmd-hint lmd-play-terms">' + T('Se cobra por Google Play y se renueva sola. Se cancela desde Google Play.') + '</p>') +
@@ -851,16 +859,16 @@
     box.innerHTML =
       (state ? '<p class="lmd-paywait lmd-paywait-' + state + '" role="status"><span>' + T({ wait: 'Esperando la confirmación del pago…', late: 'La confirmación del pago todavía no llegó. Volvé a revisar en unos minutos.', done: wait.team ? 'Pago confirmado. Tu equipo está listo.' : 'Pago confirmado. Ya tenés el plan pago.' }[state]) + '</span>' +
         (state === 'late' ? '<button type="button" class="lmd-link" data-c="recheck">' + T('Revisar ahora') + '</button>' : '') + '</p>' : '') + note +
-      '<div class="lmd-plans' + (teamCol ? ' lmd-plans-3' : '') + '">' +
-        '<div class="lmd-plan' + (a && !pro ? ' lmd-plan-on' : '') + '"><h4>' + T('Gratis') + '</h4><ul><li>' + T('Todo el editor') + '</li><li>' + T('Hasta {n} notas en la nube', { n: LMD.cloud.freeNotes() }) + '</li><li>' + T('Notas en el navegador y en tu disco, sin límite') + '</li><li>' + T('Carpetas protegidas') + '</li><li>' + T('Conectar una IA por MCP') + '</li><li>' + T('Los 12 temas') + '</li></ul>' +
+      '<div class="lmd-plans' + (teamCol ? ' lmd-plans-3' : '') + (LMD.storeApp && !play ? ' lmd-plans-1' : '') + '">' +
+        '<div class="lmd-plan' + (a && !pro ? ' lmd-plan-on' : '') + '"><h4>' + T('Gratis') + '</h4><ul><li>' + T('Todo el editor') + '</li><li>' + T('Hasta {n} notas en la nube', { n: LMD.cloud.freeNotes() }) + '</li>' + (LMD.storeApp ? '' : '<li>' + T('Notas en el navegador y en tu disco, sin límite') + '</li>') + '<li>' + T('Carpetas protegidas') + '</li><li>' + T('Conectar una IA por MCP') + '</li><li>' + T('Los 12 temas') + '</li></ul>' +
           (a && !pro ? '<p class="lmd-hint">' + T('Es tu plan actual.') + '</p>' : '') + '</div>' +
-        '<div class="lmd-plan' + (own ? ' lmd-plan-on' : '') + '"><h4>' + T('Pago') + ' <small>' + YEAR + '</small></h4><ul><li>' + T('Notas en la nube sin límite') + '</li><li>' + T('Carpetas protegidas') + '</li><li>' + T('Compartir y editar entre varios') + '</li><li>' + T('Sesiones en vivo: quien invitás entra sin cuenta') + '</li><li>' + T('API y automatizaciones') + '</li><li>' + T('Historial de versiones de 30 días') + '</li><li>' + T('Colores, tipografía y CSS propio') + '</li></ul>' +
+        (LMD.storeApp && !play ? '' : '<div class="lmd-plan' + (own ? ' lmd-plan-on' : '') + '"><h4>' + T('Pago') + ' <small>' + YEAR + '</small></h4><ul><li>' + T('Notas en la nube sin límite') + '</li><li>' + T('Carpetas protegidas') + '</li><li>' + T('Compartir y editar entre varios') + '</li><li>' + T('Sesiones en vivo: quien invitás entra sin cuenta') + '</li><li>' + T('API y automatizaciones') + '</li><li>' + T('Historial de versiones de 30 días') + '</li><li>' + T('Colores, tipografía y CSS propio') + '</li></ul>' +
           (own ? '<p class="lmd-hint">' + T('Es tu plan actual.') + (a.manage ? ' <a' + (byPlay ? ' class="lmd-play-link"' : '') + ' href="' + esc(a.manage) + '" target="_blank" rel="noopener noreferrer">' + T(byPlay ? 'Administrar en Google Play' : 'Administrar la suscripción') + '</a>' : '') + '</p>'
             : pro ? '<p class="lmd-hint">' + T('Lo tenés con el equipo.') + '</p>'
             : a ? '<div class="lmd-plan-buy">' + buy(pay.yearly, YEAR) + buy(pay.monthly, MONTH, '', true) + '</div>'
-            : host.direct && LMD.cloud.enabled() ? '<div class="lmd-plan-buy">' + appBtn(YEAR) + appBtn(MONTH, true) + '</div>' : '') + playBox + '</div>' + teamCol + '</div>' +
-      // Dentro de la app de Android, una línea que informa para qué está pensada. No ofrece nada: sin enlace ni precio.
-      (LMD.storeApp ? '<p class="lmd-hint lmd-store-solo">' + T('Esta app es para uso individual. Los equipos trabajan en la versión web.') + '</p>' : '') + LMD.team.section(a);
+            : host.direct && LMD.cloud.enabled() ? '<div class="lmd-plan-buy">' + appBtn(YEAR) + appBtn(MONTH, true) + '</div>' : '') + playBox + '</div>') + teamCol + '</div>' +
+      // Dentro de la app de Android, sin la compra de Google Play, una línea que informa. No ofrece nada: sin enlace ni precio.
+      (LMD.storeApp && !play ? '<p class="lmd-hint lmd-store-solo">' + T('La suscripción dentro de la app todavía no está disponible.') + '</p>' : '') + LMD.team.section(a);
     LMD.team.mount(box, a);
     if (play && !pro) playRestore(play, a.play);
     box.onclick = async (e) => {

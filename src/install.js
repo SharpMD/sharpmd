@@ -158,13 +158,69 @@
     if (url && !text.includes(url)) parts.push('<' + url + '>');
     return parts.length ? parts.join('\n\n') + '\n' : '';
   }
+  // Lo recibido queda abierto como una copia, sin guardar. Esta barra al pie deja guardarlo en las notas con un toque
+  // (hasta que se cierre) y, si llegaron varios archivos, abrir cada uno. items: [{ file, name }]; at: el que está abierto.
+  // En el tope del plan gratis avisa antes de guardar y ofrece dejar la nota en este dispositivo.
+  const noteBase = (name) => String(name || '').replace(/\.[a-z0-9]{1,8}$/i, '').replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 80) || undefined;
+  async function saveShared(ctx, item) {
+    let target;
+    let a = null; try { a = LMD.sync && LMD.sync.me ? await LMD.sync.me() : null; } catch (e) { /* sin cuenta: se guarda en el dispositivo */ }
+    if (a && a.limit && a.notes >= a.limit) {
+      const ok = await LMD.dialog.confirm({ title: T('El plan gratis está lleno'), text: T('Tenés {n} de {m} notas en la nube. Las del disco y las del navegador no cuentan. Esta nota se puede dejar en este dispositivo.', { n: a.notes, m: a.limit }), ok: T('Dejarla en este dispositivo'), cancel: T('Ahora no') });
+      if (!ok) return false;
+      target = 'local';
+    }
+    await LMD.home.create(ctx, { text: await item.file.text(), name: noteBase(item.name), target, replace: true });
+    return true;
+  }
+  function offerShared(ctx, items, at) {
+    document.querySelectorAll('.lmd-shared').forEach((n) => n.remove());
+    if (!items.length) return;
+    const bar = el('div', { class: 'lmd-orphan lmd-shared', role: 'status' });
+    const rows = el('div', { class: 'lmd-shared-rows' });
+    const close = el('button', { type: 'button', class: 'lmd-update-x', 'data-shared': 'close', title: T('Ahora no'), 'aria-label': T('Ahora no') }, ICON.close);
+    close.addEventListener('click', () => bar.remove());
+    bar.append(rows, close);
+    let cur = at; let busy = false;
+    const paint = () => {
+      rows.textContent = '';
+      items.forEach((item, i) => {
+        const row = el('div', { class: 'lmd-shared-row' });
+        if (items.length > 1) row.appendChild(el('span', { text: item.name }));
+        if (i !== cur) {
+          const open = el('button', { type: 'button', 'data-shared': 'open', text: T('Abrir') });
+          open.addEventListener('click', async () => {
+            if (busy) return;
+            busy = true;
+            try { let failed = ''; await LMD.home.openFile(ctx, item.file, (t) => { failed = t; }); if (failed) ctx.say(failed); else { cur = i; paint(); } } finally { busy = false; }
+          });
+          row.appendChild(open);
+        }
+        const save = el('button', { type: 'button', 'data-shared': 'save', text: T('Guardar en mis notas') });
+        save.addEventListener('click', async () => {
+          if (busy) return;
+          busy = true; save.disabled = true;
+          try {
+            if (await saveShared(ctx, item)) { items.splice(i, 1); if (cur > i) cur -= 1; else if (cur === i) cur = -1; if (!items.length) bar.remove(); else paint(); }
+            else save.disabled = false;
+          } catch (e) { save.disabled = false; ctx.say(T('No se pudo guardar. Probá de nuevo.')); } finally { busy = false; }
+        });
+        row.appendChild(save);
+        rows.appendChild(row);
+      });
+    };
+    paint();
+    document.body.appendChild(bar);
+  }
   async function takeShared(ctx) {
     try { const u = new URL(location.href); u.searchParams.delete('share'); history.replaceState(history.state, '', u.href); } catch (e) { /* dirección rara */ }
-    let meta = null; let body = null;
+    let meta = null; let body = null; let extra = [];
     try {
       const cache = await caches.open(SHARE_CACHE); const at = (name) => new URL('share/' + name, location.href).href;
       const m = await cache.match(at('meta')); const f = await cache.match(at('file'));
       meta = m ? await m.json() : null; body = f ? await f.blob() : null;
+      // Todos los archivos que llegaron, para ofrecerlos (f0, f1…); un envío viejo trae solo el primero.
+      if (meta && Array.isArray(meta.files)) extra = await Promise.all(meta.files.map(async (x, i) => { const r = await cache.match(at('f' + i)); return { info: x, blob: r ? await r.blob() : null }; }));
       await caches.delete(SHARE_CACHE);
     } catch (e) { /* sin caché: no hay nada que recoger */ }
     // El envío no se pudo leer, o llegó vacío (pasa cuando el navegador descarta el archivo por su tipo).
@@ -180,6 +236,17 @@
       await LMD.home.openFile(ctx, got.file, (text) => { failed = text; });
       if (failed) return failed;
       ctx.warn(meta.count > 1 ? T('Llegaron {n} archivos. Se abrió el primero.', { n: meta.count }) : T(COPY_NOTE));
+      // Para guardar o abrir cada uno: los que se pueden leer como nota, y entre ellos el que ya está abierto.
+      const items = []; let at = -1;
+      for (const x of extra) {
+        if (!x.blob) continue;
+        const one = await asNote(x.blob, x.info.name, x.info.type, +x.info.size || 0);
+        if (one.why) continue;
+        if (at < 0 && x.info.name === file.name && x.info.size === file.size) at = items.length;
+        items.push({ file: one.file, name: one.file.name });
+      }
+      if (!items.length) { items.push({ file: got.file, name: got.file.name }); at = 0; }
+      offerShared(ctx, items, at);
       return true;
     }
     const text = sharedNote(meta);
@@ -245,7 +312,8 @@
   function filesFor(text, name) {
     const ext = ((/\.([a-z0-9]+)$/i.exec(name) || [])[1] || '').toLowerCase(); const type = MIME[ext] || 'text/markdown';
     const base = name.replace(/\.[a-z0-9]+$/i, '') || 'note';
-    const same = refused[ext] || (android() && !ANDROID_FILES.test(ext)) ? null : [new File([text], name, { type })].concat(type === 'text/plain' ? [] : [new File([text], name, { type: 'text/plain' })]).find(canFile) || null;
+    // En la app de Android un .md se prueba como archivo igual: si el sistema lo rechaza, queda anotado y se ofrece como texto.
+    const same = refused[ext] || (android() && !ANDROID_FILES.test(ext) && !(LMD.storeApp === true && type === 'text/markdown')) ? null : [new File([text], name, { type })].concat(type === 'text/plain' ? [] : [new File([text], name, { type: 'text/plain' })]).find(canFile) || null;
     const txt = ext === 'txt' || refused.txt ? null : [new File([text], base + '.txt', { type: 'text/plain' })].find(canFile) || null;
     return { ext: ext || 'md', same, txt };
   }
@@ -270,7 +338,7 @@
       return b;
     };
     const asFile = (ext) => T('Compartir como archivo {a}', { a: '.' + ext });
-    option('text', ICON.b_p, T('Compartir como texto'), T('Lo que mejor anda en WhatsApp y en los chats.'));
+    option('text', ICON.b_p, T('Compartir como texto'), !files.same && MIME[files.ext] === 'text/markdown' ? T('Este navegador no manda archivos .{a}: se manda como texto.', { a: files.ext }) : T('Lo que mejor anda en WhatsApp y en los chats.'));
     const plain = plainOf(text);
     if (plain && plain !== text.trim()) option('plain', ICON.txt, T('Compartir sin formato'), T('Solo el texto, sin los símbolos de Markdown.'));
     if (files.same) option('file', ICON.file, asFile(files.ext));
