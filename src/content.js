@@ -149,7 +149,7 @@
     ['voice', 'Dictado y lectura en voz alta'], ['ai-with-your-key', 'IA con tu propia clave'], ['cloud-and-sharing', 'La nube y compartir'],
     ['connect-your-ai', 'Conectar tu IA por MCP'], ['automations', 'Automatizaciones y webhooks'], ['api', 'Referencia de la API'],
     ['extension-and-android', 'Extensión de Chrome y app de Android'], ['shortcuts', 'Atajos de teclado'], ['export-and-import', 'Exportar e importar'],
-    ['privacy', 'Privacidad'], ['updates', 'Novedades'],
+    ['from-notion-obsidian', 'Venís de Notion u Obsidian'], ['privacy', 'Privacidad'], ['updates', 'Novedades'],
   ];
   const GUIDE_HOME = 'guide/start.md';
   const GUIDE_NEWS = 'updates.md'; // la nota de novedades: la escribe tools/build-updates.mjs
@@ -775,7 +775,7 @@
     linkmap: { js: ['src/linkmap.js'] },
     explore: { js: ['src/explore.js'] },
     jsonyaml: { js: ['src/jsonyaml.js'] },
-    import: { js: ['src/import.js'] },
+    import: { js: ['src/import.js', 'src/importzip.js'] },
     assistant: { js: ['src/aikey.js', 'src/assistant.js'] },
     agents: { js: ['src/agents.js'] },
     // Las tres que leen del programa local comparten archivo.
@@ -5072,7 +5072,7 @@
     tools,
     showFiles,
     // Para el visor (viewer.js): guardar la posición, cerrar el panel lateral del teléfono, y todo lo que hay en una carpeta.
-    savePos: () => savePosition(), drawer: (on) => setDrawer(on), listAll: (url) => listDir(url, true), relLink, importAt: (url) => importAt(url),
+    savePos: () => savePosition(), drawer: (on) => setDrawer(on), listAll: (url) => listDir(url, true), relLink, importAt: (url) => importAt(url), viewFile: (file) => viewFile(file),
     get viewing() { return !noDoc && isBin(); }, viewKind: () => viewKind(),
     listDir: (url, all) => listDir(url, all), // lo que hay en una carpeta, como lo muestra el explorador ("Mover a…", extras.js); con all, sin filtrar
     // Lo que "Enviar a la nube" (send.js) necesita: si el explorador muestra la nube, el texto de un archivo tal como

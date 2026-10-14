@@ -3205,6 +3205,13 @@ html.lmd-ai-open .lmd-ai-card { left: calc(50% - 190px); width: min(860px, calc(
 .lmd-ask-card p.lmd-imp-err { margin: 0 0 16px; }
 .lmd-imp-card .lmd-ask-actions { margin-top: 16px; justify-content: flex-end; }
 @media (prefers-reduced-motion: reduce) { .lmd-imp-bar i { transition: none; } }
+.lmd-imz-form[hidden] { display: none; }
+.lmd-imz-form .lmd-field { margin: 0 0 12px; }
+.lmd-imz-form select, .lmd-imz-form input[type=text] { width: 100%; }
+.lmd-ask-card p.lmd-imz-how { margin: 0 0 10px; color: var(--fg-muted); font-size: 13.5px; }
+.lmd-imz-dest { margin: 0 0 12px; padding: 0; border: 0; min-width: 0; }
+.lmd-imz-dest legend { padding: 0; margin: 0 0 4px; font-size: 13.5px; color: var(--fg-muted); }
+.lmd-imz-dest .lmd-send-img { margin: 0; }
 
 /* ---------- Varios bloques a la vez (blocks.js) ---------- */
 .lmd-article > .lmd-bsel { background: var(--accent-soft); box-shadow: 0 0 0 5px var(--accent-soft); outline: 1.5px solid color-mix(in srgb, var(--accent) 62%, transparent); outline-offset: 5px; border-radius: 3px; }

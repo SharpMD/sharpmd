@@ -39,6 +39,7 @@ From the start screen:
 - [[extension-and-android|Chrome extension and Android app]]
 - [[shortcuts|Keyboard shortcuts]]
 - [[export-and-import|Export and import]]
+- [[from-notion-obsidian|Coming from Notion or Obsidian]]
 - [[privacy|Privacy]]
 - [[updates|What's new]]: what was added, week by week.
 

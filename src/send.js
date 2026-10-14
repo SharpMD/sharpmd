@@ -723,5 +723,7 @@
   // Se engancha antes que los otros que miran lo que se suelta en la ventana (el visor, importar): va primero.
   function init(c) { core = c; bindDrop(); }
 
-  LMD.send = { init, can, start, target, drop: (url, dest) => start(url, { dest }), canUp, canDir, pick, template, notice, cleanName, again };
+  // upload: un árbol de nodos armado por otro módulo (importzip.js); el recorrido y el tope del plan son los de siempre.
+  const upload = (tops) => begin(fromNodes(tops), {});
+  LMD.send = { init, can, start, target, drop: (url, dest) => start(url, { dest }), canUp, canDir, pick, template, notice, cleanName, again, upload, reach };
 })();
