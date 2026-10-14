@@ -13,11 +13,13 @@ The **Export** button in the top bar offers:
 
 The **Copy** button copies the note as **Markdown**, **Formatted text** or **HTML**. Formatted text pastes well into an email or a document.
 
-With the **Export to Word** tool turned on, the menu adds Word (.docx). The file is built in your browser, with the headings, lists, tables, code and images. Formulas go as LaTeX text.
+Word (.docx) is always in the Export menu, with nothing to turn on. The file is built in your browser, with the headings, lists, tables, code and images. Formulas go as editable Word equations, and diagrams as images.
 
 ## A whole folder
 
-In the explorer, a right-click on a folder offers **Export the folder…**. It puts all its notes into one document, one after another: PDF, HTML, Word or a single Markdown file. Links between the notes become internal, and you can add a cover and a table of contents.
+In the explorer, a right-click on a folder offers **Export the folder…**. It puts all its notes into one document, one after another: PDF, HTML, Word, an EPUB book or a single Markdown file. Links between the notes become internal, and you can add a cover and a table of contents. In the EPUB each note is a chapter, in the folder order, with a contents page, title and author (taken from the notes' header or typed by you) and the images inside. If Word or the EPUB cannot be built, it tells you instead of handing over another format.
+
+A right-click on a folder also offers **Folder word count…**: the total, the words of each note and an optional goal with a progress bar. The goal is saved in this browser.
 
 ## Bringing in other formats
 

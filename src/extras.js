@@ -481,7 +481,7 @@
     const at = isDir ? url : parentOf(url);
     const page = isDir && !onPage && core.canOpenDir(url);
     // Quien solo lee en su equipo no crea, renombra ni elimina ahí: de una carpeta le queda abrirla y exportarla.
-    if (teamReader(url)) { if (isDir) showMenu(x, y, [page && OPEN_ITEM, ['fexp', 'Exportar la carpeta…']].filter(Boolean), (f) => { if (f === 'page') core.openDir(url); else folderExport(url); }); return; }
+    if (teamReader(url)) { if (isDir) showMenu(x, y, [page && OPEN_ITEM, ['fwords', 'Palabras de la carpeta…', false, 'doc'], ['fexp', 'Exportar la carpeta…']].filter(Boolean), (f) => { if (f === 'page') core.openDir(url); else if (f === 'fwords') folderWords(url); else folderExport(url); }); return; }
     // Una carpeta propia de la nube suma lo de las carpetas con contraseña: proteger, desbloquear, abrir para la IA.
     const folder = isDir && cloud ? core.pathOf(url) : '';
     showMenu(x, y, [
@@ -506,6 +506,8 @@
       folder && core.APP && LMD.sync.canLinkFolder(folder) && ['flink', 'Compartir la carpeta…', false, 'share'],
       // Todas las notas de la carpeta en un solo documento: PDF, HTML, Word o Markdown (folderexport.js).
       isDir && ['fexp', 'Exportar la carpeta…'],
+      // El total de palabras de la carpeta, nota por nota, y su meta con la barra de avance (folderexport.js).
+      isDir && ['fwords', 'Palabras de la carpeta…', false, 'doc'],
       // Una carpeta o una nota de la nube: avisar afuera cuando algo cambie ahí (automate.js).
       cloud && core.APP && core.pathOf(url) && ['auto', 'Automatizar…', false, 'spark'],
       // Una carpeta de la nube sin contraseña, en un servidor que publica sitios: publicarla (publish.js).
@@ -518,6 +520,7 @@
       else if (f === 'nosend') core.flash(T('Este archivo no se sube a la nube: las notas de la nube son texto. Se ve desde el disco.'), 'warn');
       else if (/^v-/.test(f)) LMD.vault.pick(f, folder);
       else if (f === 'fexp') folderExport(url);
+      else if (f === 'fwords') folderWords(url);
       else if (f === 'site') LMD.sync.publish(folder);
       else if (f === 'auto') core.ensure('automate').then((ok) => { if (ok) LMD.automate.wizard(core, { kind: isDir ? 'folder' : 'note', path: core.pathOf(url) }); });
       else if (f === 'new') newFile(at);
@@ -535,7 +538,7 @@
   // onPage: lo abrió la página de esa raíz, que ya está a la vista. more: entradas que se suman al final ({ items, pick }).
   function createMenu(x, y, dirUrl, whole, onPage, more) {
     const folderAt = dirUrl ? (canTree(dirUrl) ? dirUrl : '') : (core.diskDir() || (LMD.cloud.signedIn() ? core.urlOf('') : ''));
-    showMenu(x, y, [whole && dirUrl && !onPage && core.canOpenDir(dirUrl) && OPEN_ITEM, ['new', 'Nota en blanco'], ['tpl', 'Desde una plantilla…'], folderAt && ['dir', 'Carpeta']].concat(upItems(dirUrl), [whole && dirUrl && ['fexp', 'Exportar la carpeta…'],
+    showMenu(x, y, [whole && dirUrl && !onPage && core.canOpenDir(dirUrl) && OPEN_ITEM, ['new', 'Nota en blanco'], ['tpl', 'Desde una plantilla…'], folderAt && ['dir', 'Carpeta']].concat(upItems(dirUrl), [whole && dirUrl && ['fexp', 'Exportar la carpeta…'], whole && dirUrl && ['fwords', 'Palabras de la carpeta…', false, 'doc'],
       // La raíz entera a la nube: la carpeta abierta con sus subcarpetas, o todas las notas de este navegador.
       whole && dirUrl && LMD.send.can(dirUrl) && ['send', inLocal(dirUrl) ? 'Enviar todas a la nube' : 'Enviar la carpeta a la nube']], whole && dirUrl ? whereItems(dirUrl) : [], more ? more.items : []).filter(Boolean), (f) => {
       if (more && more.pick(f)) return;
@@ -543,6 +546,7 @@
       if (f === 'page') core.openDir(dirUrl);
       else if (f === 'send') LMD.send.start(dirUrl);
       else if (f === 'fexp') folderExport(dirUrl);
+      else if (f === 'fwords') folderWords(dirUrl);
       else if (f === 'dir') newFolder(folderAt);
       else if (f === 'tpl') fromTemplate(dirUrl);
       else if (dirUrl) newFile(dirUrl);
@@ -1247,6 +1251,12 @@
     if (!ok || !LMD.folderexport) { core.flash(T('No se pudo abrir. Probá de nuevo.'), 'error'); return false; }
     LMD.folderexport.bind(core);
     return dirUrl ? LMD.folderexport.open(core, dirUrl) : true;
+  });
+  // Las palabras de la carpeta: el mismo código, otro diálogo.
+  const folderWords = (dirUrl) => core.ensure('folderexport').then((ok) => {
+    if (!ok || !LMD.folderexport || !LMD.folderexport.words) { core.flash(T('No se pudo abrir. Probá de nuevo.'), 'error'); return false; }
+    LMD.folderexport.bind(core);
+    return LMD.folderexport.words(core, dirUrl);
   });
   // La carpeta de la nota abierta, si es de las que se exportan: del disco, de este navegador o de la nube.
   function folderHere() {
