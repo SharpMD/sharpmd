@@ -587,7 +587,7 @@
     await notePut(name, text);
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* el navegador decide */ }
     const done = await ctx.open('local/' + encodeURIComponent(name), how);
-    if (full) ctx.warn(T('El plan gratis llega a {n} notas en la nube. Esta quedó guardada en este navegador.', { n: LMD.cloud.freeNotes() }));
+    if (full) ctx.warn(T(LMD.storeApp ? 'El plan gratis llega a {n} notas en la nube. Esta quedó guardada solo en este teléfono.' : 'El plan gratis llega a {n} notas en la nube. Esta quedó guardada en este navegador.', { n: LMD.cloud.freeNotes() }));
     return done;
   }
 

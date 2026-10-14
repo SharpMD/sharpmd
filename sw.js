@@ -161,10 +161,12 @@ async function offline() {
 
 // "Compartir" desde otra app (share_target del manifiesto): llega un POST a src/share. No va a la red: lo recibido
 // queda en una caché aparte y la app lo recoge al abrir (takeShared en src/install.js). Anda sin conexión.
-// De varios archivos se guarda el primero que la app sabe abrir; más grande que el tope, solo queda anotado.
+// De varios archivos se abre el primero que la app sabe abrir, y hasta SHARE_FILES quedan guardados para ofrecerlos
+// todos (share/f<n>); más grande que el tope, solo queda anotado.
 // Sin este service worker (la primera vez, antes de abrir la app) el envío va a la red: un alojamiento estático no
 // recibe un POST, y lo que se puede mostrar ahí es src/share/index.html, que explica y lleva a la app.
 const SHARE_PATH = 'src/share'; const SHARE_CACHE = 'lmd-share'; const SHARE_MAX = 5 * 1024 * 1024;
+const SHARE_FILES = 8;
 const SHARE_EXT = /\.(md|markdown|mdx|mkd|mdown|txt|json|ya?ml)$/i;
 async function share(req, url) {
   const back = new URL('src/app.html', ROOT);
@@ -175,12 +177,14 @@ async function share(req, url) {
     const field = (name) => { const v = form.get(name); return typeof v === 'string' ? v.slice(0, SHARE_MAX) : ''; };
     const files = form.getAll('files').filter((f) => f && typeof f !== 'string' && (f.name || f.size));
     const file = files.find((f) => SHARE_EXT.test(f.name)) || files[0] || null;
+    const info = (f) => ({ name: String(f.name || ''), type: String(f.type || ''), size: f.size });
     const meta = { title: field('title'), text: field('text'), url: field('url'), count: files.length,
-      file: file ? { name: String(file.name || ''), type: String(file.type || ''), size: file.size } : null };
+      file: file ? info(file) : null, files: files.slice(0, SHARE_FILES).map(info) };
     await caches.delete(SHARE_CACHE); // un envío anterior que nadie recogió
     const cache = await caches.open(SHARE_CACHE);
     await cache.put(new URL(SHARE_PATH + '/meta', ROOT).href, new Response(JSON.stringify(meta), { headers: { 'content-type': 'application/json' } }));
     if (file && file.size <= SHARE_MAX) await cache.put(new URL(SHARE_PATH + '/file', ROOT).href, new Response(file, { headers: { 'content-type': 'application/octet-stream' } }));
+    for (let i = 0; i < meta.files.length; i++) if (files[i].size <= SHARE_MAX) await cache.put(new URL(SHARE_PATH + '/f' + i, ROOT).href, new Response(files[i], { headers: { 'content-type': 'application/octet-stream' } }));
   } catch (err) { await caches.delete(SHARE_CACHE).catch(() => {}); } // un envío que no se pudo leer: la app abre igual y dice que no llegó nada
   back.searchParams.set('share', '1');
   return Response.redirect(back.href, 303);
