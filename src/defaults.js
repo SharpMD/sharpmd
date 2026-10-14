@@ -34,6 +34,7 @@
     imageQuality: 'normal', // normal | high | original: cuánto se achica una imagen al insertarla
     refreshInterval: 1000, // ms
     sidebarHidden: false,
+    pins: [], // direcciones de las notas fijadas arriba del explorador y del inicio. Quedan en este navegador: la cuenta de la nube no sincroniza preferencias
     sidebarWidth: 300,
     filesOnlyMarkdown: false, // el explorador muestra todo lo que la app sabe abrir; prendido, solo Markdown y texto
     filesChosen: false, // la persona tocó ese ajuste: antes venía prendido, y un "true" guardado sin esto es el de fábrica de entonces
@@ -2339,6 +2340,12 @@
       "Modo sin distracciones": "Distraction-free mode",
       "Esc para salir": "Esc to exit",
       "Modo sin distracciones: solo el texto, Esc sale": "Distraction-free mode: only the text, Esc exits",
+      "Nota fijada arriba": "Note pinned to the top",
+      "Nota desfijada": "Note unpinned",
+      "Fijar arriba": "Pin to the top",
+      "Desfijar": "Unpin",
+      "Fijadas": "Pinned",
+      "Las notas que fijaste. Se sueltan desde su menú.": "The notes you pinned. Unpin them from their menu.",
   };
   let current = 'es';
   function setLang(pref) {

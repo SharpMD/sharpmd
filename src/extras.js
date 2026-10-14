@@ -471,6 +471,8 @@
   // Subir a una carpeta de la nube archivos o una carpeta entera de la computadora o del teléfono (send.js), sin
   // abrirlos antes en el explorador. Subir carpeta figura solo donde el navegador deja elegir una.
   const OPEN_ITEM = ['page', 'Abrir', false, 'open'];
+  // Fijar una nota arriba del explorador y del inicio, o soltarla.
+  const pinItem = (url) => ['pin', core.isPinned(url) ? 'Desfijar' : 'Fijar arriba', false, 'pin'];
   const upItems = (dirUrl) => (dirUrl && LMD.send.canUp(dirUrl) ? [['upf', 'Subir archivos'], LMD.send.canDir() && ['upd', 'Subir carpeta']] : []);
   const upPick = (f, dirUrl) => { if (f !== 'upf' && f !== 'upd') return false; LMD.send.pick(f === 'upd' ? 'dir' : 'files', dirUrl); return true; };
   // Lo que se ve en el visor o se convierte, pero no es una nota (kit.js: FILE_TYPES).
@@ -492,6 +494,7 @@
       !local && ['dir', 'Nueva carpeta'],
     ].concat(isDir && cloud ? upItems(url) : [], [
       (!isDir || cloud) && ['ren', 'Renombrar'],
+      !isDir && core.pinnable(url) && pinItem(url),
       // Lo mismo que arrastrarlo a una carpeta, sin arrastrar: sirve con el dedo y con el teclado.
       canTree(url) && ['mov', 'Mover a…'],
       // Un PDF, un libro o un documento de Office de una carpeta del disco: convertirlo en una nota (import.js).
@@ -511,6 +514,7 @@
       // Una carpeta de la nube sin contraseña, en un servidor que publica sitios: publicarla (publish.js).
       folder && core.APP && LMD.sync.canPublish(folder) && ['site', 'Publicar como sitio…'],
     ]).concat(folder ? LMD.vault.menu(folder) : []).filter(Boolean), (f) => {
+      if (f === 'pin') { core.togglePin(url); return; }
       if (wherePick(f, url) || upPick(f, url)) return;
       if (f === 'page') core.openDir(url);
       else if (f === 'imp') core.importAt(url);
@@ -561,7 +565,7 @@
     if (!ready) { showMenu(x, y, [shut], () => core.closeOpen(key)); return; }
     // Una carpeta: el menú de su raíz (crear ahí, exportarla, enviarla a la nube), más Cerrar.
     if (isDir) { createMenu(x, y, url, true, false, { items: [shut], pick: (f) => { if (f !== 'close') return false; core.closeOpen(key); return true; } }); return; }
-    showMenu(x, y, [['open', 'Abrir', false, 'open'], LMD.send.can(url) && ['send', 'Enviar a la nube']].concat(whereItems(url), [shut]).filter(Boolean), (f) => { if (f === 'close') core.closeOpen(key); else if (f === 'send') LMD.send.start(url); else if (f === 'open') node.click(); else wherePick(f, url); });
+    showMenu(x, y, [['open', 'Abrir', false, 'open'], core.pinnable(url) && pinItem(url), LMD.send.can(url) && ['send', 'Enviar a la nube']].concat(whereItems(url), [shut]).filter(Boolean), (f) => { if (f === 'close') core.closeOpen(key); else if (f === 'pin') core.togglePin(url); else if (f === 'send') LMD.send.start(url); else if (f === 'open') node.click(); else wherePick(f, url); });
   }
   // Abrir otra carpeta u otro archivo del disco, sin salir de la nota. Sobre un .md abierto directo, eso es abrir la app.
   function openMenu(x, y) {
@@ -575,9 +579,9 @@
   // sus carpetas. Devuelve false si no hay nada que ofrecer.
   function looseMenu(x, y, at, onPage) {
     const isDir = at.endsWith('/');
-    const items = [isDir && !onPage && core.canOpenDir(at) && OPEN_ITEM, LMD.send.can(at) && ['send', isDir ? 'Enviar la carpeta a la nube' : 'Enviar a la nube']].concat(upItems(at), whereItems(at)).filter(Boolean);
+    const items = [isDir && !onPage && core.canOpenDir(at) && OPEN_ITEM, !isDir && core.pinnable(at) && pinItem(at), LMD.send.can(at) && ['send', isDir ? 'Enviar la carpeta a la nube' : 'Enviar a la nube']].concat(upItems(at), whereItems(at)).filter(Boolean);
     if (!items.length) return false;
-    showMenu(x, y, items, (f) => { if (f === 'page') core.openDir(at); else if (f === 'send') LMD.send.start(at); else if (!upPick(f, at)) wherePick(f, at); });
+    showMenu(x, y, items, (f) => { if (f === 'page') core.openDir(at); else if (f === 'pin') core.togglePin(at); else if (f === 'send') LMD.send.start(at); else if (!upPick(f, at)) wherePick(f, at); });
     return true;
   }
   // El menú de una carpeta por su dirección, sin la entrada que abre su página: el de la página de esa carpeta. Es
@@ -650,9 +654,9 @@
   // El menú del nombre de arriba (clic derecho, o mantener apretado): lo mismo que el del archivo en el explorador.
   function titleMenu(x, y) {
     if (core.noDoc) return false;
-    const items = [canRename() && ['ren', 'Renombrar'], core.viewing && /^(pdf|epub|office)$/.test(LMD.kit.kindOf(core.docName)) && ['imp', 'Importar a Markdown', false, 'md']].concat(whereItems(core.HERE)).filter(Boolean);
+    const items = [canRename() && ['ren', 'Renombrar'], core.pinnable(core.HERE) && pinItem(core.HERE), core.viewing && /^(pdf|epub|office)$/.test(LMD.kit.kindOf(core.docName)) && ['imp', 'Importar a Markdown', false, 'md']].concat(whereItems(core.HERE)).filter(Boolean);
     if (!items.length) return false;
-    showMenu(x, y, items, (f) => { if (f === 'imp') core.importAt(core.HERE); else if (!wherePick(f, core.HERE)) editTitle(); });
+    showMenu(x, y, items, (f) => { if (f === 'imp') core.importAt(core.HERE); else if (f === 'pin') core.togglePin(core.HERE); else if (!wherePick(f, core.HERE)) editTitle(); });
     return true;
   }
 
@@ -1273,7 +1277,7 @@
       const at = node ? node.dataset.url : rootUrl(e.target);
       // Un archivo del disco abierto por su dirección: el enlace https que lo abre desde un chat o un documento.
       const disk = node && !core.APP && !node.classList.contains('lmd-node-dir') ? LMD.fileUrl(at || '') : '';
-      if (disk) { e.preventDefault(); showMenu(e.clientX, e.clientY, [['flink', 'Copiar enlace de SharpMD', false, 'link'], LMD.send.can(at) && ['send', 'Enviar a la nube']].concat(whereItems(disk)).filter(Boolean), (f) => { if (f === 'send') LMD.send.start(at); else if (!wherePick(f, disk)) core.copy(LMD.fileLink(disk)); }); return; }
+      if (disk) { e.preventDefault(); showMenu(e.clientX, e.clientY, [['flink', 'Copiar enlace de SharpMD', false, 'link'], core.pinnable(at) && pinItem(at), LMD.send.can(at) && ['send', 'Enviar a la nube']].concat(whereItems(disk)).filter(Boolean), (f) => { if (f === 'pin') core.togglePin(at); else if (f === 'send') LMD.send.start(at); else if (!wherePick(f, disk)) core.copy(LMD.fileLink(disk)); }); return; }
       if (!at) return;
       if (!(canTree(at) || inLocal(at))) {
         if (looseMenu(e.clientX, e.clientY, at, false)) e.preventDefault();

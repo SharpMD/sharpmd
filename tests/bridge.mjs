@@ -426,7 +426,7 @@ try {
   const titleItems = async (p) => { await p.click('.lmd-docname', { button: 'right' }); await p.waitForSelector('.lmd-menu-narrow', { timeout: 3000 }).catch(() => {}); return p.evaluate(() => [...document.querySelectorAll('.lmd-menu-narrow button')].map((b) => b.textContent.trim())); };
   const tm = await titleItems(lo);
   await lo.click('.lmd-menu-narrow [data-f=path]').catch(() => {}); await lo.waitForTimeout(300);
-  check('el menú del nombre ofrece renombrar, copiar la ruta y ver la carpeta; la ruta sale en el formato del sistema', J(tm) === J(['Rename', 'Copy path', 'Copy as file:// address', 'View the folder in the browser', 'Show in Explorer…']) && (await clipOf(lo)) === path.join(disk, 'links.md') && !/^file:/.test(await clipOf(lo)), [tm, await clipOf(lo)]);
+  check('el menú del nombre ofrece renombrar, copiar la ruta y ver la carpeta; la ruta sale en el formato del sistema', J(tm) === J(['Rename', 'Pin to the top', 'Copy path', 'Copy as file:// address', 'View the folder in the browser', 'Show in Explorer…']) && (await clipOf(lo)) === path.join(disk, 'links.md') && !/^file:/.test(await clipOf(lo)), [tm, await clipOf(lo)]);
   await titleItems(lo);
   const [folderTab] = await Promise.all([ctx.waitForEvent('page', { timeout: 8000 }).catch(() => null), lo.click('.lmd-menu-narrow [data-f=folder]').catch(() => {})]);
   check('"Ver la carpeta en el navegador" abre el listado de esa carpeta en una pestaña nueva, por la extensión', !!folderTab && folderTab.url().toLowerCase() === (pathToFileURL(disk).href + '/').toLowerCase() && lo.url().startsWith(WEB), folderTab && folderTab.url());

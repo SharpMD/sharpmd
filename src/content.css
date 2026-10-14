@@ -73,6 +73,14 @@
 @keyframes lmd-zen-hint { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 @media print { .lmd-zen-hint { display: none; } }
 
+/* ---------- Notas fijadas ---------- */
+.lmd-home-pins { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; text-align: left; }
+.lmd-home-pins .lmd-home-label { margin: 0 0 2px; }
+.lmd-home-pin { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--fg); text-decoration: none; background: var(--bg-soft); }
+.lmd-home-pin:hover { border-color: var(--accent-fill); }
+.lmd-home-pin svg { color: var(--accent); }
+.lmd-home-pin span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- Barra lateral ---------- */
 .lmd-sidebar {
   position: fixed; inset: 0 auto 0 0; width: var(--lmd-side-w);

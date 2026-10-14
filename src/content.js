@@ -66,7 +66,7 @@
   const isDark = () => LMD.theme.isDark(settings);
   let themePreview = ''; // el tema que se está mirando en Ajustes sin haberlo aplicado
   // Lo que el estado vacío (home.js) necesita del lector: dónde dibujarse y cómo abrir una nota sin recargar.
-  const homeCtx = () => ({ settings, APP_URL, box: ui.home, open: (f, opt) => go(f, opt), refresh: () => core.reloadTree(), say: (text) => flash(text, 'error'), warn: (text) => flash(text, 'warn'), plan: (why) => openPanel('plan', why),
+  const homeCtx = () => ({ settings, APP_URL, pins: () => pinList().filter((u) => pinnable(u) && u.startsWith(VBASE)).map((u) => ({ f: u.slice(VBASE.length), name: unesc(u.split('/').pop() || u) })), box: ui.home, open: (f, opt) => go(f, opt), refresh: () => core.reloadTree(), say: (text) => flash(text, 'error'), warn: (text) => flash(text, 'warn'), plan: (why) => openPanel('plan', why),
     // El pie de la barra lateral, donde vive la cuenta: dónde dibujarse, cómo quedar a la vista y cómo guardar antes de salir.
     // Un archivo del disco abierto por enlace: su dirección en la app, y si la web ya tiene su carpeta con permiso.
     view: (file) => viewFile(file),
@@ -2072,6 +2072,19 @@
     }
     const b = ui.main.querySelector('.lmd-zen-btn'); if (b) b.setAttribute('aria-pressed', String(zen));
   }
+  // Notas fijadas: arriba del explorador y del inicio. Se guardan en las preferencias de este navegador (settings.pins);
+  // la cuenta de la nube no sincroniza preferencias, así que no viajan con ella.
+  const PIN_MAX = 40;
+  const pinList = () => (Array.isArray(settings.pins) ? settings.pins : []);
+  const pinKey = (url) => String(url || '').split('#')[0];
+  const pinnable = (url) => { const k = pinKey(url); return !!k && !k.endsWith('/') && (APP ? k.startsWith(VBASE) : /^file:/.test(k)); };
+  const isPinned = (url) => pinList().includes(pinKey(url));
+  function togglePin(url) {
+    const k = pinKey(url); if (!pinnable(k)) return;
+    const on = pinList().includes(k);
+    LMD.patch({ pins: on ? pinList().filter((u) => u !== k) : pinList().concat(k).slice(-PIN_MAX) });
+    flash(T(on ? 'Nota desfijada' : 'Nota fijada arriba'));
+  }
   function openMore() {
     const md = docKind() === 'md'; const cloud = !!appRoot && appRoot.kind === 'cloud'; const bin = isBin(); const dir = inDir();
     // Lo que la barra todavía muestra no se repite acá: en una ventana angosta el selector de vista sigue en su lugar.
@@ -2083,6 +2096,7 @@
       editMode && md && !rawMode && !shown('.lmd-insert') && ['insert', ICON.plus, 'Insertar un bloque'],
       !bin && !shown('.lmd-view') && (rawMode ? ['view-doc', ICON.doc, 'Ver documento'] : ['view-raw', ICON.code, 'Ver código fuente']),
       !bin && !shown('.lmd-zen-btn') && ['zen', ICON.zen, 'Modo sin distracciones'],
+      !dir && pinnable(HERE) && ['pin', ICON.pin, isPinned(HERE) ? 'Desfijar' : 'Fijar arriba'],
       // Copiar y exportar abren acá mismo el menú que en escritorio cuelga de su botón.
       !bin && ['copy', ICON.copy, 'Copiar'],
       !dir && ['export', ICON.download, bin ? 'Archivo' : 'Exportar'],
@@ -2117,6 +2131,7 @@
     else if (act === 'sidebar') { if (LMD.touch.small()) setDrawer(!drawerOpen()); else LMD.patch({ sidebarHidden: !settings.sidebarHidden }); }
     else if (act === 'more') openMore();
     else if (act === 'zen') setZen(!zen);
+    else if (act === 'pin') togglePin(HERE);
     else if (act === 'page') { if (LMD.page) LMD.page.open(); }
     else if (act === 'copy') openCopy(source, keys);
     else if (act === 'export') openExport(source, keys);
@@ -3346,6 +3361,15 @@
       return list;
     };
     const leaf = (u) => decodeURIComponent(u.replace(/\/$/, '').split('/').pop() || u);
+    // Las notas fijadas, arriba de todo.
+    const pinned = pinList().filter((u) => pinnable(u));
+    if (pinned.length) {
+      const sec = rootSection('pins', { name: T('Fijadas'), title: T('Las notas que fijaste. Se sueltan desde su menú.'), icon: ICON.pin });
+      const box = sec.querySelector('.lmd-tree'); box.classList.add('lmd-pin-list');
+      const here = noDoc ? '' : HERE;
+      pinned.forEach((u) => rowNodes({ url: u, name: unesc(u.split('/').pop() || u) }, 0, null, here).forEach((n) => box.appendChild(n)));
+      secs.push(sec);
+    }
     if (!APP) {
       add('disk', { name: leaf(treeRoot), title: decodeURIComponent(treeRoot), icon: ICON.folder, url: treeRoot, up: new URL('..', treeRoot).href !== treeRoot });
       // Un archivo del disco: debajo de su carpeta, la nube de la cuenta, para ver a dónde va lo que se envía.
@@ -3435,7 +3459,7 @@
       if (!busy.length) break;
       await Promise.all(busy);
     }
-    return !!here && !!ui.treeBox.querySelector('.lmd-node[data-url="' + CSS.escape(here) + '"]');
+    return !!here && !!ui.treeBox.querySelector('.lmd-xroot:not([data-root=pins]) .lmd-node[data-url="' + CSS.escape(here) + '"]');
   }
   // Pone al día lo que se conservó: cada carpeta ya listada se vuelve a leer, y solo si cambió se toca. La del disco,
   // renglón por renglón; las demás (la nube, las notas del navegador) se dibujan de nuevo ellas solas.
@@ -5035,6 +5059,7 @@
     save: (interactive) => save(interactive),
     setEditMode: (on) => setEditMode(on),
     pathOf: (url) => vParts(url).join('/'),
+    isPinned: (url) => isPinned(url), pinnable: (url) => pinnable(url), togglePin: (url) => togglePin(url),
     // El nombre entero de una nota del navegador (con su carpeta, si está en una) y la dirección que la abre.
     localName: (url) => vParts(url).join('/'),
     localUrl: (name) => VBASE + 'local/' + String(name).split('/').map(encodeURIComponent).join('/'),
@@ -5887,6 +5912,7 @@
       if (panelStale && !ui.panel.hidden) { panelStale = false; openPanel(); }
       if (RENDER_KEYS.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(settings[k]))) render();
       if (TREE_KEYS.some((k) => prev[k] !== settings[k]) && ui.paneFiles.dataset.loaded) core.reloadTree();
+      else if (JSON.stringify(prev.pins) !== JSON.stringify(settings.pins)) { if (ui.paneFiles.dataset.loaded) loadTree(true); if (noDoc && !ui.home.hidden) showEmpty(); }
     });
   });
 })();
