@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>try{localStorage.setItem("mdtools:site-lang","en");if(localStorage.getItem("sharpmd:app")&&location.search.indexOf("site")<0&&!location.hash&&document.referrer.indexOf(location.origin)!==0){var d=localStorage.getItem("lmd:dark"),c=document.documentElement.classList;c.add("go");if(d==="0"||(d!=="1"&&window.matchMedia&&!matchMedia("(prefers-color-scheme: dark)").matches))c.add("go-light");location.replace("src/app.html")}}catch(e){}</script>
+<script>try{localStorage.setItem("mdtools:site-lang","en")}catch(e){}</script>
 <title>SharpMD: Markdown editor with your AI connected</title>
 <meta name="description" content="A Markdown editor in the cloud with MCP ready: your AI reads the notes and writes down what it did. Edit with no syntax, share by link, connect an API.">
 <link rel="canonical" href="https://sharpmd.app/">
@@ -86,13 +86,6 @@
   }
   @media (prefers-reduced-motion: reduce) { .btn, .lang a, .lang button { transition: none; } }
   /* What the line above brings: the fonts, the colors, the name, the language switch, the buttons and the small label (site/site.css). */
-  /* Quien ya usó la app va directo a ella: mientras tanto no se pinta la portada, sino el logo (icons/logo.svg, con el cursor que parpadea) sobre el fondo de la app. */
-  html.go body { background: #121418; } html.go.go-light body { background: #fbfaf7; }
-  html.go body > * { display: none; }
-  html.go body::before, html.go body::after { content: ""; position: fixed; left: 50%; top: 50%; }
-  html.go body::before { width: 72px; height: 72px; margin: -36px 0 0 -36px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%2314161a'/%3E%3Cg fill='%23f3f5f8'%3E%3Crect x='14.5' y='17' width='6' height='30' rx='1.3'/%3E%3Crect x='26.5' y='17' width='6' height='30' rx='1.3'/%3E%3Crect x='8.5' y='23.25' width='30' height='6' rx='1.3'/%3E%3Crect x='8.5' y='34.75' width='30' height='6' rx='1.3'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; }
-  html.go body::after { width: 12.4px; height: 38.2px; margin: -19.1px 0 0 12.9px; border-radius: 2.7px; background: #c5f467; animation: go-blink 1.06s steps(1, end) .3s infinite; }
-  @keyframes go-blink { 50% { opacity: 0; } }
   html { scroll-behavior: smooth; }
   body { overflow-x: hidden; }
   .wrap { width: min(1160px, 100% - 40px); margin: 0 auto; }
@@ -325,6 +318,10 @@
   .fold > summary:hover > span { text-decoration: underline; text-underline-offset: 3px; }
   .fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .center .fold > summary { margin-inline: auto; }
+  /* What is inside a fold, always visible: names only, so nobody has to open it to know it exists. */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+  .center .tags { justify-content: center; }
+  .tags li { padding: 3px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 14px; line-height: 1.45; }
   .fold-body { padding-top: 34px; }
   .fold-body > :first-child { margin-top: 0; }
   .fold-body > .two + .feature, .fold-body > .feature + .feature, .fold-body > .yours { margin-top: 72px; }
@@ -383,7 +380,7 @@
     .opts::-webkit-scrollbar { display: none; }
     .opts > li, .opts > li.on, .band .opts > li.on { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; padding: 20px 18px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
   }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pk *, .cd, .msg, .opts > li.on, html.go body::after { animation: none !important; } .cd.from { display: none; } .pk .src { width: auto !important; } .pk .out, .pk .box, .pk .new { opacity: 1 !important; max-height: none !important; } .pk .b { display: none; } .more li, .more li b, .more li b::after, .opts > li, .faq summary, .get a, nav a.link, footer a, .peek { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pk *, .cd, .msg, .opts > li.on { animation: none !important; } .cd.from { display: none; } .pk .src { width: auto !important; } .pk .out, .pk .box, .pk .new { opacity: 1 !important; max-height: none !important; } .pk .b { display: none; } .more li, .more li b, .more li b::after, .opts > li, .faq summary, .get a, nav a.link, footer a, .peek { transition: none; } }
 </style>
 <noscript><style>video[data-poster] { display: none; }</style></noscript>
 </head>
@@ -444,6 +441,7 @@
 <section class="band fs" id="editor"><div class="wrap">
     <h2>Edit the document you are reading.</h2>
     <p class="sub">Click a paragraph, a heading, a list item or a table cell and type. The Markdown is rewritten behind it, block by block.</p>
+<ul class="tags"><li>Right-click a block</li><li>Diagrams with the drawing next to the code</li><li>The whole folder, searchable</li></ul>
 <details class="fold"><summary>Read more<i class="sr"> about editing, diagrams and folders</i></summary><div class="fold-body">
 <div class="two">
   <div>
@@ -487,6 +485,7 @@
       <p>Turn on the tool and add your key for Claude, OpenAI, Gemini and eight more, or a compatible server. It rewrites a selection, writes where the cursor is and answers about the open note. Each result is a proposal you accept or discard.</p>
     </div>
   </div>
+<ul class="tags"><li>One message connects it</li><li>The notes are the memory of the project</li><li>Comments it resolves</li><li>A token for one folder</li></ul>
 <details class="fold"><summary>Read more<i class="sr"> about your AI and the notes</i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
@@ -521,6 +520,7 @@
 <section class="band fs" id="share"><div class="wrap">
   <h2>Cloud notes and sharing</h2>
   <p class="sub">Nothing goes to the cloud until you send it.</p>
+<ul class="tags"><li>The same notes on every device</li><li>Live sessions by link</li><li>Share a note or a folder</li><li>Protected folders</li><li>Trash for 30 days</li></ul>
 <details class="fold"><summary>Read more<i class="sr"> about cloud notes and sharing</i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
@@ -543,6 +543,7 @@
 <section class="fs" id="connect"><div class="wrap">
   <h2>Connect it to your tools</h2>
   <p class="sub">The notes your AI and your team write can start a flow in Make, n8n, Activepieces, Zapier or Slack, or receive from one.</p>
+<ul class="tags"><li>Outgoing webhooks</li><li>A board that notifies</li><li>Inbound addresses</li><li>REST API</li></ul>
 <details class="fold"><summary>Read more<i class="sr"> about the integrations</i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
@@ -592,6 +593,7 @@
 <section class="band fs" id="private"><div class="wrap">
   <h2>What the server can read, and what it cannot</h2>
   <p class="sub">Files on your disk are never uploaded. A folder with a password is one the server cannot read.</p>
+<ul class="tags"><li>Files on your disk</li><li>Notes in the cloud</li><li>Folders with a password</li><li>Your AI key stays on your device</li></ul>
 <details class="fold"><summary>Read more<i class="sr"> about privacy</i></summary><div class="fold-body">
   <ul class="six duo">
     <li><h3>Files on your disk</h3><p>They are read in your browser and never uploaded. No account needed.</p></li>
@@ -606,6 +608,7 @@
 <section class="center fs"><div class="wrap">
   <h2>Also in the editor</h2>
   <p class="sub">Formulas, tables, boards, templates, export, offline use and twelve themes.</p>
+<ul class="tags"><li>Formulas</li><li>Tables with totals</li><li>Boards</li><li>Templates</li><li>Emoji</li><li>Focus mode</li><li>Find and replace</li><li>Links between notes</li><li>Files dropped into the note</li><li>Images</li><li>More than Markdown</li><li>Export</li><li>Bring your notes over</li><li>Publish a site</li><li>On the phone</li><li>Without a connection</li><li>Quick notes</li><li>Read aloud and dictation</li><li>Slides, daily note and link map</li><li>Community gallery</li><li>English and Spanish</li></ul>
 <details class="fold"><summary>Read more<i class="sr"> about the editor extras</i></summary><div class="fold-body">
   <div class="more">
     <div><h3>Writing</h3><ul>
@@ -765,7 +768,6 @@
 <section class="band fs" id="use"><div class="wrap">
   <h2>Where it runs</h2>
   <p class="sub">Four pieces, all open source.</p>
-<details class="fold"><summary>Read more<i class="sr"> about where it runs</i></summary><div class="fold-body">
   <div class="use">
     <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 9.5h17M7 7.3h.01M9.5 7.3h.01"/></svg></span><h3>The web app</h3><p>Nothing to install. Chrome, Edge and Brave open folders and save in place. Firefox and Safari open one file at a time and saving downloads a copy.</p><a href="src/app.html">Open the app</a></div>
     <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5h2a1.75 1.75 0 1 1 3.5 0h2A1.5 1.5 0 0 1 18.5 6v2a1.75 1.75 0 1 0 0 3.5v2a1.5 1.5 0 0 1-1.5 1.5h-2a1.75 1.75 0 1 0-3.5 0h-2A1.5 1.5 0 0 1 8 13.5v-2a1.75 1.75 0 1 1 0-3.5V6a1.5 1.5 0 0 1 1.5-1.5z" transform="translate(-1.2 2.5)"/></svg></span><h3>The extension</h3><p>Works without a connection. Set Chrome as the default app for <code>.md</code> files and a double-click opens them rendered.</p><a href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer">Add to Chrome</a></div>
@@ -788,7 +790,6 @@
     </div>
   </div>
   <p class="note">With the extension installed, the web app and the extension show the same notes and recent files. Install the web app and Windows offers it in Open with for .md files.</p>
-</div></details>
 </div></section>
 
 <section class="fs" id="faq"><div class="wrap asks">
@@ -797,7 +798,6 @@
     <p class="muted">Something else? Write to <a href="mailto:hello@sharpmd.app">hello@sharpmd.app</a>.</p>
   </div>
   <div>
-<details class="fold"><summary>Read more<i class="sr"> about the questions</i></summary><div class="fold-body">
   <div class="faqs">
     <details class="faq"><summary>What is free and what is paid?</summary><p>The editor is free and open source, with no limit on files or on notes kept in the browser. The free plan adds 10 notes in the cloud, the MCP connection for your AI over those notes and the twelve themes, with the accent color and the font you choose. The paid plan, USD 4 a month or USD 40 a year, covers the rest of what runs on our server: unlimited cloud notes, image uploads, sharing, live sessions, a published site, the API and webhooks, and version history. Your own CSS is also on the paid plan.</p></details>
     <details class="faq"><summary>Does SharpMD come with its own AI?</summary><p>No. You bring yours, in one of two ways: connect the agent you already use over MCP (Claude, Codex or another client), or turn on the assistant inside the note with your own key for Claude, OpenAI, Gemini and eight more, or a compatible server.</p></details>
@@ -811,7 +811,6 @@
     <details class="faq"><summary>Which Markdown does it support?</summary><p>GitHub Flavored Markdown, plus KaTeX math, Mermaid and Graphviz diagrams, footnotes, task lists, callouts, definition lists and YAML front matter.</p></details>
     <details class="faq"><summary>How do I open a .md file with a double-click?</summary><p>Install the extension, turn on "Allow access to file URLs" in its details, and set Chrome as the default app for <code>.md</code> files.</p></details>
   </div>
-</div></details>
   </div>
 </div></section>
 

@@ -79,10 +79,9 @@ function build(lang) {
     offers: [{ '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' }, { '@type': 'Offer', name: 'Paid', price: PRICE.offers.paid, priceCurrency: 'USD' }].concat(TEAM_OPEN ? [{ '@type': 'Offer', name: 'Team', price: PRICE.offers.team, priceCurrency: 'USD' }] : []),
     license: 'https://opensource.org/licenses/MIT', codeRepository: 'https://github.com/SharpMD/sharpmd' };
   const head = [
-    // Quien ya usó la app entra directo; y la app, en "automático", sigue el idioma de la portada que se vio. Mientras se va,
-    // la portada no se pinta: queda el logo con el cursor sobre el fondo de la app (la clase go), con el tema que la app tenía.
-    // Va primero en el <head>: a quien se va a la app no se le empiezan a bajar la tipografía ni la imagen de la portada.
-    '<script>try{localStorage.setItem("mdtools:site-lang","' + lang + '");if(localStorage.getItem("sharpmd:app")&&location.search.indexOf("site")<0&&!location.hash&&document.referrer.indexOf(location.origin)!==0){var d=localStorage.getItem("lmd:dark"),c=document.documentElement.classList;c.add("go");if(d==="0"||(d!=="1"&&window.matchMedia&&!matchMedia("(prefers-color-scheme: dark)").matches))c.add("go-light");location.replace("' + up + 'src/app.html")}}catch(e){}</script>',
+    // La portada se muestra siempre, también a quien ya usó la app (la app instalada arranca en src/app.html por su manifest). Acá solo se guarda el idioma que se vio,
+    // para que la app, en "automático", lo siga.
+    '<script>try{localStorage.setItem("mdtools:site-lang","' + lang + '")}catch(e){}</script>',
     '<title>' + esc(m.title) + '</title>',
     '<meta name="description" content="' + esc(m.desc) + '">',
     '<link rel="canonical" href="' + m.url + '">',

@@ -20,13 +20,6 @@
 <style>
 /*SITE-CSS-CORE*/
   /* What the line above brings: the fonts, the colors, the name, the language switch, the buttons and the small label (site/site.css). */
-  /* Quien ya usó la app va directo a ella: mientras tanto no se pinta la portada, sino el logo (icons/logo.svg, con el cursor que parpadea) sobre el fondo de la app. */
-  html.go body { background: #121418; } html.go.go-light body { background: #fbfaf7; }
-  html.go body > * { display: none; }
-  html.go body::before, html.go body::after { content: ""; position: fixed; left: 50%; top: 50%; }
-  html.go body::before { width: 72px; height: 72px; margin: -36px 0 0 -36px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%2314161a'/%3E%3Cg fill='%23f3f5f8'%3E%3Crect x='14.5' y='17' width='6' height='30' rx='1.3'/%3E%3Crect x='26.5' y='17' width='6' height='30' rx='1.3'/%3E%3Crect x='8.5' y='23.25' width='30' height='6' rx='1.3'/%3E%3Crect x='8.5' y='34.75' width='30' height='6' rx='1.3'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; }
-  html.go body::after { width: 12.4px; height: 38.2px; margin: -19.1px 0 0 12.9px; border-radius: 2.7px; background: #c5f467; animation: go-blink 1.06s steps(1, end) .3s infinite; }
-  @keyframes go-blink { 50% { opacity: 0; } }
   html { scroll-behavior: smooth; }
   body { overflow-x: hidden; }
   .wrap { width: min(1160px, 100% - 40px); margin: 0 auto; }
@@ -259,6 +252,10 @@
   .fold > summary:hover > span { text-decoration: underline; text-underline-offset: 3px; }
   .fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .center .fold > summary { margin-inline: auto; }
+  /* What is inside a fold, always visible: names only, so nobody has to open it to know it exists. */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+  .center .tags { justify-content: center; }
+  .tags li { padding: 3px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 14px; line-height: 1.45; }
   .fold-body { padding-top: 34px; }
   .fold-body > :first-child { margin-top: 0; }
   .fold-body > .two + .feature, .fold-body > .feature + .feature, .fold-body > .yours { margin-top: 72px; }
@@ -317,7 +314,7 @@
     .opts::-webkit-scrollbar { display: none; }
     .opts > li, .opts > li.on, .band .opts > li.on { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; padding: 20px 18px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
   }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pk *, .cd, .msg, .opts > li.on, html.go body::after { animation: none !important; } .cd.from { display: none; } .pk .src { width: auto !important; } .pk .out, .pk .box, .pk .new { opacity: 1 !important; max-height: none !important; } .pk .b { display: none; } .more li, .more li b, .more li b::after, .opts > li, .faq summary, .get a, nav a.link, footer a, .peek { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pk *, .cd, .msg, .opts > li.on { animation: none !important; } .cd.from { display: none; } .pk .src { width: auto !important; } .pk .out, .pk .box, .pk .new { opacity: 1 !important; max-height: none !important; } .pk .b { display: none; } .more li, .more li b, .more li b::after, .opts > li, .faq summary, .get a, nav a.link, footer a, .peek { transition: none; } }
 </style>
 <noscript><style>video[data-poster] { display: none; }</style></noscript>
 </head>
@@ -378,6 +375,7 @@
 <section class="band fs" id="editor"><div class="wrap">
     <h2><span lang="en">Edit the document you are reading.</span><span lang="es">Editás el documento que estás leyendo.</span></h2>
     <p class="sub"><span lang="en">Click a paragraph, a heading, a list item or a table cell and type. The Markdown is rewritten behind it, block by block.</span><span lang="es">Hacés clic en un párrafo, un título, un ítem o una celda y escribís. El Markdown se reescribe por detrás, bloque por bloque.</span></p>
+<ul class="tags"><li><span lang="en">Right-click a block</span><span lang="es">Clic derecho sobre un bloque</span></li><li><span lang="en">Diagrams with the drawing next to the code</span><span lang="es">Diagramas con el dibujo al lado del código</span></li><li><span lang="en">The whole folder, searchable</span><span lang="es">La carpeta entera, con búsqueda</span></li></ul>
 <details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about editing, diagrams and folders</span><span lang="es"> sobre edición, diagramas y carpetas</span></i></summary><div class="fold-body">
 <div class="two">
   <div>
@@ -421,6 +419,7 @@
       <p><span lang="en">Turn on the tool and add your key for Claude, OpenAI, Gemini and eight more, or a compatible server. It rewrites a selection, writes where the cursor is and answers about the open note. Each result is a proposal you accept or discard.</span><span lang="es">Prendés la herramienta y cargás tu clave de Claude, OpenAI, Gemini y ocho más, o un servidor compatible. Reescribe una selección, escribe donde está el cursor y responde sobre la nota abierta. Cada resultado es una propuesta que aceptás o descartás.</span></p>
     </div>
   </div>
+<ul class="tags"><li><span lang="en">One message connects it</span><span lang="es">Un mensaje la conecta</span></li><li><span lang="en">The notes are the memory of the project</span><span lang="es">Las notas son la memoria del proyecto</span></li><li><span lang="en">Comments it resolves</span><span lang="es">Comentarios que resuelve</span></li><li><span lang="en">A token for one folder</span><span lang="es">Un token para una sola carpeta</span></li></ul>
 <details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about your AI and the notes</span><span lang="es"> sobre tu IA y las notas</span></i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
@@ -455,6 +454,7 @@
 <section class="band fs" id="share"><div class="wrap">
   <h2><span lang="en">Cloud notes and sharing</span><span lang="es">Notas en la nube y compartir</span></h2>
   <p class="sub"><span lang="en">Nothing goes to the cloud until you send it.</span><span lang="es">Nada va a la nube hasta que lo mandás.</span></p>
+<ul class="tags"><li><span lang="en">The same notes on every device</span><span lang="es">Las mismas notas en cada dispositivo</span></li><li><span lang="en">Live sessions by link</span><span lang="es">Sesiones en vivo por enlace</span></li><li><span lang="en">Share a note or a folder</span><span lang="es">Compartí una nota o una carpeta</span></li><li><span lang="en">Protected folders</span><span lang="es">Carpetas protegidas</span></li><li><span lang="en">Trash for 30 days</span><span lang="es">Papelera de 30 días</span></li></ul>
 <details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about cloud notes and sharing</span><span lang="es"> sobre notas en la nube y compartir</span></i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
@@ -477,6 +477,7 @@
 <section class="fs" id="connect"><div class="wrap">
   <h2><span lang="en">Connect it to your tools</span><span lang="es">Conectalo a tus herramientas</span></h2>
   <p class="sub"><span lang="en">The notes your AI and your team write can start a flow in Make, n8n, Activepieces, Zapier or Slack, or receive from one.</span><span lang="es">Las notas que escriben tu IA y tu equipo pueden disparar un flujo en Make, n8n, Activepieces, Zapier o Slack, o recibir de uno.</span></p>
+<ul class="tags"><li><span lang="en">Outgoing webhooks</span><span lang="es">Avisos salientes</span></li><li><span lang="en">A board that notifies</span><span lang="es">Un tablero que avisa</span></li><li><span lang="en">Inbound addresses</span><span lang="es">Direcciones de entrada</span></li><li><span lang="en">REST API</span><span lang="es">API REST</span></li></ul>
 <details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about the integrations</span><span lang="es"> sobre las integraciones</span></i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
@@ -533,6 +534,7 @@
 <section class="band fs" id="private"><div class="wrap">
   <h2><span lang="en">What the server can read, and what it cannot</span><span lang="es">Qué puede leer el servidor y qué no</span></h2>
   <p class="sub"><span lang="en">Files on your disk are never uploaded. A folder with a password is one the server cannot read.</span><span lang="es">Los archivos de tu disco no se suben. Una carpeta con contraseña es una que el servidor no puede leer.</span></p>
+<ul class="tags"><li><span lang="en">Files on your disk</span><span lang="es">Los archivos de tu disco</span></li><li><span lang="en">Notes in the cloud</span><span lang="es">Las notas de la nube</span></li><li><span lang="en">Folders with a password</span><span lang="es">Las carpetas con contraseña</span></li><li><span lang="en">Your AI key stays on your device</span><span lang="es">Tu clave de IA queda en tu dispositivo</span></li></ul>
 <details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about privacy</span><span lang="es"> sobre privacidad</span></i></summary><div class="fold-body">
   <ul class="six duo">
     <li><h3><span lang="en">Files on your disk</span><span lang="es">Los archivos de tu disco</span></h3><p><span lang="en">They are read in your browser and never uploaded. No account needed.</span><span lang="es">Se leen en tu navegador y no se suben. No hace falta cuenta.</span></p></li>
@@ -547,6 +549,7 @@
 <section class="center fs"><div class="wrap">
   <h2><span lang="en">Also in the editor</span><span lang="es">El editor también trae</span></h2>
   <p class="sub"><span lang="en">Formulas, tables, boards, templates, export, offline use and twelve themes.</span><span lang="es">Fórmulas, tablas, tableros, plantillas, exportar, uso sin conexión y doce temas.</span></p>
+<ul class="tags"><li><span lang="en">Formulas</span><span lang="es">Fórmulas</span></li><li><span lang="en">Tables with totals</span><span lang="es">Tablas con totales</span></li><li><span lang="en">Boards</span><span lang="es">Tableros</span></li><li><span lang="en">Templates</span><span lang="es">Plantillas</span></li><li><span lang="en">Emoji</span><span lang="es">Emojis</span></li><li><span lang="en">Focus mode</span><span lang="es">Modo foco</span></li><li><span lang="en">Find and replace</span><span lang="es">Buscar y reemplazar</span></li><li><span lang="en">Links between notes</span><span lang="es">Enlaces entre notas</span></li><li><span lang="en">Files dropped into the note</span><span lang="es">Archivos soltados en la nota</span></li><li><span lang="en">Images</span><span lang="es">Imágenes</span></li><li><span lang="en">More than Markdown</span><span lang="es">No solo Markdown</span></li><li><span lang="en">Export</span><span lang="es">Exportar</span></li><li><span lang="en">Bring your notes over</span><span lang="es">Traé tus notas</span></li><li><span lang="en">Publish a site</span><span lang="es">Publicar un sitio</span></li><li><span lang="en">On the phone</span><span lang="es">En el celular</span></li><li><span lang="en">Without a connection</span><span lang="es">Sin conexión</span></li><li><span lang="en">Quick notes</span><span lang="es">Notas rápidas</span></li><li><span lang="en">Read aloud and dictation</span><span lang="es">Leer en voz alta y dictado</span></li><li><span lang="en">Slides, daily note and link map</span><span lang="es">Diapositivas, nota diaria y mapa de enlaces</span></li><li><span lang="en">Community gallery</span><span lang="es">Galería de la comunidad</span></li><li><span lang="en">English and Spanish</span><span lang="es">Inglés y español</span></li></ul>
 <details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about the editor extras</span><span lang="es"> sobre lo que más trae el editor</span></i></summary><div class="fold-body">
   <div class="more">
     <div><h3><span lang="en">Writing</span><span lang="es">Escribir</span></h3><ul>
@@ -712,7 +715,6 @@
 <section class="band fs" id="use"><div class="wrap">
   <h2><span lang="en">Where it runs</span><span lang="es">Dónde corre</span></h2>
   <p class="sub"><span lang="en">Four pieces, all open source.</span><span lang="es">Cuatro piezas, todas de código abierto.</span></p>
-<details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about where it runs</span><span lang="es"> sobre dónde corre</span></i></summary><div class="fold-body">
   <div class="use">
     <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 9.5h17M7 7.3h.01M9.5 7.3h.01"/></svg></span><h3><span lang="en">The web app</span><span lang="es">La app web</span></h3><p><span lang="en">Nothing to install. Chrome, Edge and Brave open folders and save in place. Firefox and Safari open one file at a time and saving downloads a copy.</span><span lang="es">Nada que instalar. Chrome, Edge y Brave abren carpetas y guardan en el lugar. Firefox y Safari abren de a un archivo y al guardar descargan una copia.</span></p><a href="src/app.html"><span lang="en">Open the app</span><span lang="es">Abrir la app</span></a></div>
     <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5h2a1.75 1.75 0 1 1 3.5 0h2A1.5 1.5 0 0 1 18.5 6v2a1.75 1.75 0 1 0 0 3.5v2a1.5 1.5 0 0 1-1.5 1.5h-2a1.75 1.75 0 1 0-3.5 0h-2A1.5 1.5 0 0 1 8 13.5v-2a1.75 1.75 0 1 1 0-3.5V6a1.5 1.5 0 0 1 1.5-1.5z" transform="translate(-1.2 2.5)"/></svg></span><h3><span lang="en">The extension</span><span lang="es">La extensión</span></h3><p><span lang="en">Works without a connection. Set Chrome as the default app for <code>.md</code> files and a double-click opens them rendered.</span><span lang="es">Funciona sin conexión. Ponés Chrome como programa por defecto para los <code>.md</code> y con doble clic se abren ya formateados.</span></p><a href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer"><span lang="en">Add to Chrome</span><span lang="es">Agregar a Chrome</span></a></div>
@@ -735,7 +737,6 @@
     </div>
   </div>
   <p class="note"><span lang="en">With the extension installed, the web app and the extension show the same notes and recent files. Install the web app and Windows offers it in Open with for .md files.</span><span lang="es">Con la extensión instalada, la app web y la extensión muestran las mismas notas y los mismos recientes. Si instalás la app web, Windows la ofrece en Abrir con para los .md.</span></p>
-</div></details>
 </div></section>
 
 <section class="fs" id="faq"><div class="wrap asks">
@@ -744,7 +745,6 @@
     <p class="muted"><span lang="en">Something else? Write to <a href="mailto:hello@sharpmd.app">hello@sharpmd.app</a>.</span><span lang="es">¿Otra cosa? Escribí a <a href="mailto:hello@sharpmd.app">hello@sharpmd.app</a>.</span></p>
   </div>
   <div>
-<details class="fold"><summary><span lang="en">Read more</span><span lang="es">Ver más</span><i class="sr"><span lang="en"> about the questions</span><span lang="es"> sobre las preguntas</span></i></summary><div class="fold-body">
   <div class="faqs">
     <details class="faq"><summary><span lang="en">What is free and what is paid?</span><span lang="es">¿Qué es gratis y qué se paga?</span></summary><p><span lang="en">The editor is free and open source, with no limit on files or on notes kept in the browser. The free plan adds 10 notes in the cloud, the MCP connection for your AI over those notes and the twelve themes, with the accent color and the font you choose. The paid plan, %%PAID_LINE%%, covers the rest of what runs on our server: unlimited cloud notes, image uploads, sharing, live sessions, a published site, the API and webhooks, and version history. Your own CSS is also on the paid plan.</span><span lang="es">El editor es gratis y de código abierto, sin límite de archivos ni de notas guardadas en el navegador. El plan gratis suma 10 notas en la nube, la conexión MCP para tu IA sobre esas notas y los doce temas, con el color de acento y la tipografía que elijas. El plan pago, %%PAID_LINE%%, cubre el resto de lo que corre en nuestro servidor: notas en la nube sin límite, subir imágenes, compartir, sesiones en vivo, un sitio publicado, la API y los webhooks, y el historial de versiones. El CSS propio también es del plan pago.</span></p></details>
     <details class="faq"><summary><span lang="en">Does SharpMD come with its own AI?</span><span lang="es">¿SharpMD trae una IA propia?</span></summary><p><span lang="en">No. You bring yours, in one of two ways: connect the agent you already use over MCP (Claude, Codex or another client), or turn on the assistant inside the note with your own key for Claude, OpenAI, Gemini and eight more, or a compatible server.</span><span lang="es">No. Usás la tuya, de una de dos formas: conectás por MCP el agente que ya usás (Claude, Codex u otro cliente), o prendés el asistente dentro de la nota con tu propia clave de Claude, OpenAI, Gemini y ocho más, o un servidor compatible.</span></p></details>
@@ -758,7 +758,6 @@
     <details class="faq"><summary><span lang="en">Which Markdown does it support?</span><span lang="es">¿Qué Markdown soporta?</span></summary><p><span lang="en">GitHub Flavored Markdown, plus KaTeX math, Mermaid and Graphviz diagrams, footnotes, task lists, callouts, definition lists and YAML front matter.</span><span lang="es">GitHub Flavored Markdown, más matemática con KaTeX, diagramas Mermaid y Graphviz, notas al pie, listas de tareas, avisos, listas de definición y cabecera YAML.</span></p></details>
     <details class="faq"><summary><span lang="en">How do I open a .md file with a double-click?</span><span lang="es">¿Cómo abro un .md con doble clic?</span></summary><p><span lang="en">Install the extension, turn on "Allow access to file URLs" in its details, and set Chrome as the default app for <code>.md</code> files.</span><span lang="es">Instalás la extensión, activás "Permitir acceso a URLs de archivo" en sus detalles, y ponés Chrome como programa por defecto para los <code>.md</code>.</span></p></details>
   </div>
-</div></details>
   </div>
 </div></section>
 

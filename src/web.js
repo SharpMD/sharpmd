@@ -5,7 +5,7 @@
   if (window.chrome && chrome.runtime && chrome.runtime.id) return; // corre dentro de la extensión
   // Whether this browser had opened the app before: count.js tells a first time from the rest with it.
   try { window.__MDT_NEW = !localStorage.getItem('sharpmd:app'); } catch (e) { /* sin almacenamiento */ }
-  try { localStorage.setItem('sharpmd:app', '1'); } catch (e) { /* sin almacenamiento */ } // la portada manda directo a la app a quien ya la usó
+  try { localStorage.setItem('sharpmd:app', '1'); } catch (e) { /* sin almacenamiento */ } // marks this browser as having opened the app (read just above, by count.js)
 
   const base = new URL('..', document.currentScript.src).href;
   const KEY = 'mdtools:';

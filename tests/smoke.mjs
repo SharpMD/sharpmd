@@ -340,16 +340,11 @@ try {
   check('la app web muestra el centro con sus cuatro acciones', (await web.locator('.lmd-home-actions [data-home]').count()) === 4);
   await web.waitForSelector('#lmd-splash', { state: 'detached' });
   check('app.html trae la pantalla de carga con el logo, respeta el movimiento reducido y se va al estar lista', /<body>\s*<div class="lmd-splash" id="lmd-splash"/.test(rawApp) && /prefers-reduced-motion: reduce\) \{ \.lmd-splash/.test(rawApp) && (await web.locator('#lmd-splash').count()) === 0);
-  // Quien ya usó la app y entra a la portada va directo a la app, y mientras tanto la portada no se pinta.
+  // La raíz siempre muestra la portada, también para quien ya usó la app (la app instalada arranca en src/app.html por su manifest).
   const ret = await ctx.newPage();
-  await ret.goto(origin + '/').catch(() => {}); await ret.waitForURL(/src\/app\.html/, { timeout: 10000 }); await ret.waitForSelector('.lmd-home');
+  await ret.goto(origin + '/'); await ret.waitForSelector('h1');
   const head = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  check('la portada manda a la app a quien ya la usó, y antes de irse se marca para no pintarse', /src\/app\.html/.test(ret.url()) && /c\.add\("go"\);[^<]*location\.replace\("src\/app\.html"\)/.test(head));
-  await ret.goto(origin + '/?site'); await ret.waitForSelector('h1');
-  check('con ?site la portada se ve entera', await ret.evaluate(() => !document.documentElement.classList.contains('go') && document.querySelector('h1').offsetWidth > 0));
-  // Lo que esa marca deja a la vista: nada de la portada, y el logo con el cursor que parpadea sobre el fondo de la app.
-  const landed = await ret.evaluate(() => { document.documentElement.classList.add('go'); return { seen: [...document.body.children].filter((n) => n.offsetParent || n.offsetWidth).length, bg: getComputedStyle(document.body).backgroundColor, logo: getComputedStyle(document.body, '::before').backgroundImage.slice(0, 20), blink: getComputedStyle(document.body, '::after').animationName }; });
-  check('mientras redirige se ve solo el logo con el cursor, sobre el fondo de la app', landed.seen === 0 && landed.bg === 'rgb(18, 20, 24)' && /^url\("data:image\/svg/.test(landed.logo) && landed.blink === 'go-blink', landed);
+  check('la portada se ve entera aunque la persona ya haya usado la app: no hay redirección ni pantalla de espera', !/src\/app\.html/.test(new URL(ret.url()).pathname) && (await ret.evaluate(() => !document.documentElement.classList.contains('go') && document.querySelector('h1').offsetWidth > 0)) && !/location\.replace|\.add\("go/.test(head) && !/html\.go\b/.test(head) && /mdtools:site-lang/.test(head));
   await ret.close();
   // Dos titulares a prueba. El HTML trae el B (el de siempre), para buscadores y sin JavaScript; un script en línea elige
   // A o B la primera vez, lo recuerda en este navegador y pone el A antes de pintar. La portada publicada avisa al
@@ -402,9 +397,9 @@ try {
     const kept = await ab.evaluate(() => ({ cookie: document.cookie, keys: Object.keys(localStorage).sort().join() }));
     check('titulares a prueba: ir a los planes también cuenta, con la variante B y en la portada en castellano', beats.map((b) => b.body).join('|') === '{"e":"view","p":"home","s":"direct","v":"b"}|{"e":"plans","p":"home","s":"direct","v":"b"}', beats.map((b) => b.body));
     check('titulares a prueba: no deja cookies, y en el navegador guarda solo la variante y el canal de la visita junto al idioma', kept.cookie === '' && kept.keys === 'mdtools:site-lang,sharpmd:hero,sharpmd:src1', kept);
-    // Quien ya usó la app va directo a ella: no se le elige titular ni cuenta como visita. La app sí avisa que se abrió (app_open): lo que no tiene que haber es un aviso de la portada.
+    // Quien ya usó la app también ve la portada en la raíz: se le elige titular y cuenta como visita.
     await ab.evaluate(() => { localStorage.setItem('sharpmd:app', '1'); localStorage.removeItem('sharpmd:hero'); }); beats.length = 0;
-    await ab.goto('https://sharpmd.app/').catch(() => {}); await ab.waitForSelector('#app', { timeout: 10000 }).catch(() => {}); await ab.waitForTimeout(300);
+    await ab.goto('https://sharpmd.app/').catch(() => {}); await ab.waitForSelector('.hero h1', { timeout: 10000 }).catch(() => {}); await ab.waitForTimeout(300);
     check('titulares a prueba: quien entra directo a la app no cuenta como visita ni recibe un titular', /src\/app\.html/.test(ab.url()) && beats.filter((b) => /"p":"home"/.test(String(b.body))).length === 0 && (await ab.evaluate(() => localStorage.getItem('sharpmd:hero'))) === null, [ab.url(), beats.length]);
     await ab.close();
   }
