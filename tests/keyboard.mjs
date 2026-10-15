@@ -23,6 +23,7 @@ try {
           localStorage.setItem('mdtools:settings', JSON.stringify({ cloudUrl: url, theme: 'light', tools: t || {} }));
           localStorage.setItem('mdtools:cloud', JSON.stringify({ session: u.s, email: u.email, at: url }));
           localStorage.setItem('mdtools:dictation', JSON.stringify({ consent: 1 }));
+          localStorage.setItem('lmd-tour-seen', '1'); // el recorrido del celular (src/tour.js) tapa los botones
         }
       } catch (e) { /* una página en blanco no tiene almacenamiento */ }
       // Un reconocedor de voz que no consigue permiso: lo que pasa en un navegador que no deja dictar.

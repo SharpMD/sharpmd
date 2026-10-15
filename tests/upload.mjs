@@ -63,7 +63,7 @@ try {
     for (const [rel, text] of Object.entries(list)) { const parts = rel.split('/'); let d = dir; for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p, { create: true }); const w = await (await d.getFileHandle(parts[parts.length - 1], { create: true })).createWritable(); await w.write(text); await w.close(); }
     window.__asked = []; window.showDirectoryPicker = async (o) => { window.__asked.push(o || null); return dir; };
   }, TRIP);
-  const openApp = async () => { await app.goto(OWN); await app.waitForSelector('.lmd-home'); await seedTrip(app); await app.waitForSelector(CLOUD + ' .lmd-tree'); await app.waitForSelector(CLOUD + ' .lmd-tree-new'); };
+  const openApp = async () => { await app.goto(OWN); await app.waitForSelector('.lmd-home'); await app.evaluate(() => localStorage.setItem('lmd-image-public-seen', '1')); await seedTrip(app); await app.waitForSelector(CLOUD + ' .lmd-tree'); await app.waitForSelector(CLOUD + ' .lmd-tree-new'); };
   await openApp();
   const row = (page, sec, name) => page.locator('.lmd-xroot[data-root=' + sec + '] .lmd-node').filter({ has: page.locator('.lmd-node-name', { hasText: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }) }).first();
   const menuNow = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-menu [data-f]')].map((b) => [b.dataset.f, b.textContent.trim(), !!b.querySelector('svg')]));
