@@ -317,6 +317,30 @@
   .last p { max-width: 34em; margin: 0 auto 30px; color: var(--muted); }
   .last .cta { justify-content: center; }
   footer { padding: 30px 0 44px; border-top: 1px solid var(--line); color: var(--faint); font-size: 14.5px; }
+  /* "Read more": the long part of a section folds behind a native <details>, a text button in the link style of the site.
+     The content stays in the HTML (it is what the search engines read) and is closed until someone opens it. */
+  section.fs { padding: 72px 0; }
+  .fold > summary { display: flex; align-items: center; gap: 9px; width: fit-content; min-height: 44px; margin-top: 14px; padding: 6px 2px; border-radius: 8px; color: var(--accent); font-size: 16px; font-weight: 650; line-height: 1.3; cursor: pointer; list-style: none; user-select: none; }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::after { content: ""; flex: none; width: 7px; height: 7px; margin-top: -3px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform .2s ease, margin .2s ease; }
+  .fold[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
+  .fold > summary:hover > span { text-decoration: underline; text-underline-offset: 3px; }
+  .fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .center .fold > summary { margin-inline: auto; }
+  .fold-body { padding-top: 34px; }
+  .fold-body > :first-child { margin-top: 0; }
+  .fold-body > .two + .feature, .fold-body > .feature + .feature, .fold-body > .yours { margin-top: 72px; }
+  .fold-body > .yours h2 { margin-top: 0; }
+  @media (max-width: 860px) {
+    section.fs { padding: 44px 0; }
+    .fold > summary { margin-top: 6px; }
+    .fold-body { padding-top: 26px; }
+    .fold-body > .two + .feature, .fold-body > .feature + .feature, .fold-body > .yours { margin-top: 44px; }
+  }
+  .plan .fold > summary { margin: 14px auto 0; }
+  .plan .fold-body { padding-top: 10px; }
+  @media (min-width: 641px) { .plan .fold > summary { display: none; } .plan .fold-body { padding-top: 0; } }
+  @media (prefers-reduced-motion: reduce) { .fold > summary::after { transition: none; } }
   /* Temas incluidos: una tira de páginas chicas, cada una con los colores de su tema (los mismos de src/theme.js). */
   .yours .lede { max-width: 34em; margin-inline: auto; }
   .strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin: 38px 0 0; padding: 0; list-style: none; }
@@ -419,10 +443,12 @@
   </ul>
 </div></section>
 
-<section class="band"><div class="wrap two">
-  <div>
+<section class="band fs" id="editor"><div class="wrap">
     <h2>Edit the document you are reading.</h2>
-    <p>Click a paragraph, a heading, a list item or a table cell and type. The Markdown is rewritten behind it, block by block.</p>
+    <p class="sub">Click a paragraph, a heading, a list item or a table cell and type. The Markdown is rewritten behind it, block by block.</p>
+<details class="fold"><summary>Read more<i class="sr"> about editing, diagrams and folders</i></summary><div class="fold-body">
+<div class="two">
+  <div>
     <p>Type <code>**bold**</code> or <code>`code`</code> and the marks turn into formatting. Start a line with <code>#</code>, <code>-</code> or <code>&gt;</code> and it becomes a heading, a list or a quote.</p>
   </div>
   <div>
@@ -430,27 +456,27 @@
     <p>Insert a table, a code block, a diagram, a formula or a callout below it. Turn it into a heading, move it, duplicate it or delete it.</p>
     <p><kbd>/</kbd> on an empty line opens the same menu. <kbd>Ctrl</kbd> <kbd>Z</kbd> undoes it and <kbd>Ctrl</kbd> <kbd>Y</kbd> brings it back.</p>
   </div>
-</div></section>
-
-<section><div class="wrap feature">
+</div>
+<div class="feature">
   <div>
     <h2>Diagrams with the drawing next to the code.</h2>
     <p>Click a Mermaid or Graphviz diagram and it opens with a live preview. Start from a template, add steps and arrows with a button, and pick a color palette.</p>
     <p>A mistake is explained in plain words, with its line marked. Formulas have an editor of the same kind.</p>
   </div>
   <video class="clip" muted loop playsinline preload="none" data-poster="docs/clips/diagram.jpg" width="880" height="550" aria-label="The diagram editor: a step added with a button shows up in the drawing next to the code"><source src="docs/clips/diagram.mp4" type="video/mp4"><source src="docs/clips/diagram.webm" type="video/webm"></video><noscript><img class="clip" loading="lazy" src="docs/clips/diagram.jpg" width="880" height="550" alt="The diagram editor: a step added with a button shows up in the drawing next to the code"></noscript>
-</div></section>
-
-<section class="band"><div class="wrap feature flip">
+</div>
+<div class="feature flip">
   <div>
     <h2>The whole folder, searchable.</h2>
     <p>Open a folder from your disk and the sidebar lists its files, with how many notes each folder holds. The search box looks through the text of all of them at once.</p>
     <p>Create, rename and delete from there, and move files and folders by dragging.</p>
   </div>
   <video class="clip" muted loop playsinline preload="none" data-poster="docs/clips/folder.jpg" width="880" height="550" aria-label="A folder from the disk in the sidebar, with the number of notes in each folder, and a search that finds a word in several files"><source src="docs/clips/folder.mp4" type="video/mp4"><source src="docs/clips/folder.webm" type="video/webm"></video><noscript><img class="clip" loading="lazy" src="docs/clips/folder.jpg" width="880" height="550" alt="A folder from the disk in the sidebar, with the number of notes in each folder, and a search that finds a word in several files"></noscript>
+</div>
+</div></details>
 </div></section>
 
-<section id="ai"><div class="wrap">
+<section class="fs" id="ai"><div class="wrap">
   <h2>Your AI on the same notes</h2>
   <p class="sub">SharpMD has no AI of its own. There are two ways to bring yours.</p>
   <div class="two host ways">
@@ -463,6 +489,7 @@
       <p>Turn on the tool and add your key for Claude, OpenAI, Gemini and eight more, or a compatible server. It rewrites a selection, writes where the cursor is and answers about the open note. Each result is a proposal you accept or discard.</p>
     </div>
   </div>
+<details class="fold"><summary>Read more<i class="sr"> about your AI and the notes</i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
     <ul class="opts">
@@ -490,11 +517,13 @@
         <figure class="vis"><img class="clip" loading="lazy" decoding="async" src="docs/clips/token.jpg" width="880" height="550" alt="Settings, AI: a token limited to one folder, next to one that reaches every note"></figure></li>
     </ul>
   </div>
+</div></details>
 </div></section>
 
-<section class="band" id="share"><div class="wrap">
+<section class="band fs" id="share"><div class="wrap">
   <h2>Cloud notes and sharing<span class="soon">Soon</span></h2>
   <p class="sub">Nothing goes to the cloud until you send it.</p>
+<details class="fold"><summary>Read more<i class="sr"> about cloud notes and sharing</i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
     <ul class="opts">
@@ -510,11 +539,13 @@
         <figure class="vis"><img class="clip" loading="lazy" decoding="async" src="docs/clips/trash.jpg" width="880" height="550" alt="The trash of the cloud: a deleted note with its Restore button"></figure></li>
     </ul>
   </div>
+</div></details>
 </div></section>
 
-<section id="connect"><div class="wrap">
+<section class="fs" id="connect"><div class="wrap">
   <h2>Connect it to your tools</h2>
   <p class="sub">The notes your AI and your team write can start a flow in Make, n8n, Activepieces, Zapier or Slack, or receive from one.</p>
+<details class="fold"><summary>Read more<i class="sr"> about the integrations</i></summary><div class="fold-body">
   <div class="pick">
     <div class="stage"></div>
     <ul class="opts">
@@ -557,10 +588,13 @@
     </ul>
   </div>
   <p class="more-link"><a class="btn" href="api.html">Read the API docs</a></p>
+</div></details>
 </div></section>
 
-<section class="band" id="private"><div class="wrap">
+<section class="band fs" id="private"><div class="wrap">
   <h2>What the server can read, and what it cannot</h2>
+  <p class="sub">Files on your disk are never uploaded. A folder with a password is one the server cannot read.</p>
+<details class="fold"><summary>Read more<i class="sr"> about privacy</i></summary><div class="fold-body">
   <ul class="six duo">
     <li><h3>Files on your disk</h3><p>They are read in your browser and never uploaded. No account needed.</p></li>
     <li><h3>Notes in the cloud</h3><p>Stored encrypted. The server holds that key, because it has to share them and hand them to your AI.</p></li>
@@ -568,10 +602,13 @@
     <li><h3>Your AI key stays on your device</h3><p>Stored encrypted on that device only, with a key the browser will not export. It never goes through our server, is not synced and is not shown whole again. Calls go from your browser straight to the provider you chose, which receives what you send it. Text from a protected folder is sent only if you confirm.</p></li>
   </ul>
   <p class="note">The detail is in <a href="privacy.html">Privacy</a>, and the code is on <a href="https://github.com/SharpMD/sharpmd">GitHub</a>: the app under MIT, the server under AGPL.</p>
+</div></details>
 </div></section>
 
-<section class="center"><div class="wrap">
+<section class="center fs"><div class="wrap">
   <h2>Also in the editor</h2>
+  <p class="sub">Formulas, tables, boards, templates, export, offline use and twelve themes.</p>
+<details class="fold"><summary>Read more<i class="sr"> about the editor extras</i></summary><div class="fold-body">
   <div class="more">
     <div><h3>Writing</h3><ul>
       <li data-peek="math"><b>Formulas</b><small>An editor with live preview and buttons for fractions, sums and symbols.</small></li>
@@ -600,9 +637,7 @@
       <li><b>English and Spanish</b><small>Switch in Settings.</small></li>
     </ul></div>
   </div>
-</div></section>
-
-<section class="band center yours"><div class="wrap">
+<div class="yours">
   <h2>Make it yours</h2>
   <p class="lede">Twelve built-in themes, six light and six dark, on every plan. The accent color and the font are free too.</p>
   <ul class="strip" aria-hidden="true">
@@ -619,6 +654,8 @@
     <li data-theme="laguna" style="--b:#0b2027;--f:#e6ded0;--m:#a3b3ad;--c:#0f2a32;--l:#21434c;--a:#f2b84b"><b>Lagoon</b><i></i><i></i><u><s></s><em></em></u></li>
     <li data-theme="ciruela" style="--b:#1a1220;--f:#efe6f2;--m:#b5a5bd;--c:#21172a;--l:#3a2a45;--a:#f0a6ca"><b>Plum</b><i></i><i></i><u><s></s><em></em></u></li>
   </ul>
+</div>
+</div></details>
 </div></section>
 
 <section class="center" id="plans"><div class="wrap">
@@ -627,7 +664,7 @@
   <div class="plans three">
     <div class="plan"><h3>Free</h3><p class="price">USD 0</p><p class="alt">No account needed</p>
       <a class="btn" href="src/app.html" data-plan="free">Start writing</a><p class="how"></p>
-      <ul class="rows">
+      <details class="fold"><summary>What is included</summary><div class="fold-body"><ul class="rows">
       <li class="grp"><span>On your device</span></li>
       <li><span>The whole editor</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>
       <li><span>Files and browser notes</span><em>No limit</em></li>
@@ -656,10 +693,10 @@
       <li class="no"><span>The space protected with one password</span><i class="sr">not included</i></li>
       <li class="no"><span>An activity log of the space</span><i class="sr">not included</i></li>
       <li class="no"><span>Team tokens for an AI or a service</span><i class="sr">not included</i></li>
-    </ul></div>
+    </ul></div></details></div>
     <div class="plan paid"><h3>Paid</h3><p class="price">USD 4 <small>a month</small></p><p class="alt">or USD 40 a year</p>
       <a class="btn fill" href="src/app.html#lmd-plans" data-plan="paid">Get the paid plan</a><p class="how">You sign in and pay inside the app.</p>
-      <ul class="rows">
+      <details class="fold"><summary>What is included</summary><div class="fold-body"><ul class="rows">
       <li class="grp"><span>On your device</span></li>
       <li><span>The whole editor</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>
       <li><span>Files and browser notes</span><em>No limit</em></li>
@@ -688,10 +725,10 @@
       <li class="no"><span>The space protected with one password</span><i class="sr">not included</i></li>
       <li class="no"><span>An activity log of the space</span><i class="sr">not included</i></li>
       <li class="no"><span>Team tokens for an AI or a service</span><i class="sr">not included</i></li>
-    </ul></div>
+    </ul></div></details></div>
     <div class="plan"><h3>Team</h3><p class="price">USD 5 <small>per person a month</small></p><p class="alt">From 2 people</p>
       <a class="btn" href="src/app.html#lmd-plans" data-plan="team">Start a team</a><p class="how">Free for 14 days</p>
-      <ul class="rows">
+      <details class="fold"><summary>What is included</summary><div class="fold-body"><ul class="rows">
       <li class="grp"><span>On your device</span></li>
       <li><span>The whole editor</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>
       <li><span>Files and browser notes</span><em>No limit</em></li>
@@ -720,13 +757,16 @@
       <li><span>The space protected with one password</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>
       <li><span>An activity log of the space</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>
       <li><span>Team tokens for an AI or a service</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>
-    </ul></div>
+    </ul></div></details></div>
   </div>
 </div></section>
 
-<section class="band" id="use"><div class="wrap">
+<script>if (window.matchMedia && matchMedia("(min-width: 641px)").matches) [].forEach.call(document.querySelectorAll(".plan .fold"), function (d) { d.open = true; });</script>
+
+<section class="band fs" id="use"><div class="wrap">
   <h2>Where it runs</h2>
   <p class="sub">Four pieces, all open source.</p>
+<details class="fold"><summary>Read more<i class="sr"> about where it runs</i></summary><div class="fold-body">
   <div class="use">
     <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 9.5h17M7 7.3h.01M9.5 7.3h.01"/></svg></span><h3>The web app</h3><p>Nothing to install. Chrome, Edge and Brave open folders and save in place. Firefox and Safari open one file at a time and saving downloads a copy.</p><a href="src/app.html">Open the app</a></div>
     <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5h2a1.75 1.75 0 1 1 3.5 0h2A1.5 1.5 0 0 1 18.5 6v2a1.75 1.75 0 1 0 0 3.5v2a1.5 1.5 0 0 1-1.5 1.5h-2a1.75 1.75 0 1 0-3.5 0h-2A1.5 1.5 0 0 1 8 13.5v-2a1.75 1.75 0 1 1 0-3.5V6a1.5 1.5 0 0 1 1.5-1.5z" transform="translate(-1.2 2.5)"/></svg></span><h3>The extension</h3><p>Works without a connection. Set Chrome as the default app for <code>.md</code> files and a double-click opens them rendered.</p><a href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer">Add to Chrome</a></div>
@@ -749,13 +789,16 @@
     </div>
   </div>
   <p class="note">With the extension installed, the web app and the extension show the same notes and recent files. Install the web app and Windows offers it in Open with for .md files.</p>
+</div></details>
 </div></section>
 
-<section id="faq"><div class="wrap asks">
+<section class="fs" id="faq"><div class="wrap asks">
   <div>
     <h2>Questions</h2>
     <p class="muted">Something else? Write to <a href="mailto:hello@sharpmd.app">hello@sharpmd.app</a>.</p>
   </div>
+  <div>
+<details class="fold"><summary>Read more<i class="sr"> about the questions</i></summary><div class="fold-body">
   <div class="faqs">
     <details class="faq"><summary>What is free and what is paid?</summary><p>The editor is free and open source, with no limit on files or on notes kept in the browser. The free plan adds 10 notes in the cloud, the MCP connection for your AI over those notes and the twelve themes, with the accent color and the font you choose. The paid plan, USD 4 a month or USD 40 a year, covers the rest of what runs on our server: unlimited cloud notes, image uploads, sharing, live sessions, a published site, the API and webhooks, and version history. Your own CSS is also on the paid plan.</p></details>
     <details class="faq"><summary>Does SharpMD come with its own AI?</summary><p>No. You bring yours, in one of two ways: connect the agent you already use over MCP (Claude, Codex or another client), or turn on the assistant inside the note with your own key for Claude, OpenAI, Gemini and eight more, or a compatible server.</p></details>
@@ -768,6 +811,8 @@
     <details class="faq"><summary>Does it work without a connection?</summary><p>Yes. The extension always does, and the web app does once you have opened it. Cloud notes you have already opened are there too, and what you write uploads when the connection is back.</p></details>
     <details class="faq"><summary>Which Markdown does it support?</summary><p>GitHub Flavored Markdown, plus KaTeX math, Mermaid and Graphviz diagrams, footnotes, task lists, callouts, definition lists and YAML front matter.</p></details>
     <details class="faq"><summary>How do I open a .md file with a double-click?</summary><p>Install the extension, turn on "Allow access to file URLs" in its details, and set Chrome as the default app for <code>.md</code> files.</p></details>
+  </div>
+</div></details>
   </div>
 </div></section>
 
