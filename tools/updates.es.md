@@ -14,7 +14,7 @@ Soltá la exportación de Notion o la bóveda de Obsidian y entra con los enlace
 
 ### Citas y referencias
 
-Cargá un archivo BibTeX y citá con `[@clave]`: la nota arma sola la lista de Referencias. Las ecuaciones se numeran con `{#eq:id}` y se citan con `@eq:id`. Desde el lector de PDF, Citar en una nota copia la cita con su página.
+Cargá un archivo BibTeX, citá cada fuente por su clave y la nota arma sola la lista de Referencias. Las ecuaciones también se numeran y se citan. Desde el lector de PDF, Citar en una nota copia la cita con su página.
 
 ### Word con fórmulas y libros en EPUB
 

@@ -44,7 +44,7 @@ const LATE = [
 // La guía, en los dos idiomas: son notas cortas, y así se puede leer sin conexión desde que se instala. Va en el mismo
 // goteo que LATE, después del código. tests/guide.mjs comprueba que esta lista y las carpetas tengan las mismas notas.
 const GUIDE = ['start', 'reading-and-editing', 'files-and-folders', 'diagrams-and-formulas', 'boards', 'tools-and-plugins', 'voice', 'ai-with-your-key',
-  'cloud-and-sharing', 'connect-your-ai', 'automations', 'api', 'extension-and-android', 'shortcuts', 'export-and-import', 'privacy', 'updates'];
+  'cloud-and-sharing', 'connect-your-ai', 'automations', 'api', 'extension-and-android', 'shortcuts', 'export-and-import', 'from-notion-obsidian', 'privacy', 'updates'];
 const GUIDE_FILES = ['es', 'en'].reduce((all, lang) => all.concat(GUIDE.map((name) => 'src/guide/' + lang + '/' + name + '.md')), []);
 const AFTER = LATE.concat(GUIDE_FILES);
 // Los diagramas (Mermaid, Graphviz), las tipografías de las fórmulas y el lector de PDF (vendor/pdfjs) pesan: se

@@ -14,7 +14,7 @@ Drop in a Notion export or an Obsidian vault and it comes in with the links betw
 
 ### Citations and references
 
-Load a BibTeX file and cite with `[@key]`: the note builds the References list by itself. Equations are numbered with `{#eq:id}` and cited with `@eq:id`. From the PDF reader, Quote in a note copies the citation with its page.
+Load a BibTeX file, cite each source by its key, and the note builds the References list by itself. Equations can be numbered and cited too. From the PDF reader, Quote in a note copies the citation with its page.
 
 ### Word with formulas, and books in EPUB
 
