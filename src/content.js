@@ -1786,6 +1786,10 @@
         // Con otro archivo a la vista, el fragmento dice cuál es: la sección no lo reemplaza.
         if (target) { spyPin = a.closest('.lmd-pane-outline') ? target.id : null; shown(target); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (!FILE_FRAG.test(location.hash)) history.replaceState(null, '', '#' + target.id); }
         else if (frag) noSection(frag); else window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (APP && !(e.ctrlKey || e.metaKey || e.shiftKey) && openFrag(a.href)) {
+        // Un enlace a un archivo del disco (app.html#open=...): se pregunta acá, sin recargar la página. Si no, la app
+        // arrancaba de nuevo desde el inicio, la nota se perdía de vista y volver atrás pasaba por el inicio.
+        e.preventDefault(); LMD.install.openLink(openFrag(a.href), homeCtx());
       } else if (APP && (a.hasAttribute('data-lmd-href') || a.classList.contains('lmd-wiki'))) {
         // Otro archivo de la carpeta. Leyendo, Ctrl o Shift lo abren aparte, como cualquier enlace.
         if (!editing && (e.ctrlKey || e.metaKey || e.shiftKey)) return;
@@ -5922,6 +5926,15 @@
 
   // Un enlace que abre un archivo del disco (app.html#open=...): lo pedido sale de la barra de direcciones apenas se
   // lee, y antes de abrir se pregunta (install.js).
+  // El pedido de un enlace a la app que abre un archivo del disco, o '' si el enlace es otra cosa. Vale la app de
+  // sharpmd.app, la de la extensión y esta misma página.
+  function openFrag(href) {
+    let u = null; try { u = new URL(href, location.href); } catch (e) { return ''; }
+    const m = /^#open=(.+)$/.exec(u.hash); if (!m) return '';
+    const page = (x) => { try { const v = new URL(x, location.href); return v.origin + v.pathname; } catch (e) { return ''; } };
+    const at = u.origin + u.pathname;
+    return [location.href, LMD.WEB_APP_URL, chrome.runtime && chrome.runtime.getURL ? chrome.runtime.getURL('src/app.html') : ''].some((x) => x && page(x) === at) ? m[1] : '';
+  }
   function takeOpen() {
     const m = APP && /^#open=(.*)$/.exec(location.hash);
     if (!m) return '';

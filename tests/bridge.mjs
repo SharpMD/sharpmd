@@ -399,7 +399,7 @@ try {
   const oneClick = await lo.evaluate(() => ({ at: location.href, h1: (document.querySelector('.markdown-body h1') || {}).textContent || '', body: (document.querySelector('.markdown-body') || {}).textContent || '', dlgs: window.__dlgs, pickers: window.__pickers.length }));
   check('con la carpeta habilitada el enlace se abre con un clic, en la app', !!dIn && J(dIn.buttons) === J(['Cancel', 'Open']) && (await lo.evaluate(() => !document.querySelector('.lmd-dlg-note, .lmd-dlg-more'))) && oneClick.h1.startsWith('Local note') && /SECRET-DISK-TEXT/.test(oneClick.body) && oneClick.at.startsWith(WEB + '?f=fs') && J(oneClick.dlgs) === J(['Open this file from your disk? / Open']) && oneClick.pickers === 0 && fileTabs().length === 0, [dIn && dIn.buttons, oneClick.at, oneClick.dlgs]);
   // ---------- El archivo abierto por enlace, en el lateral, con sus enlaces relativos y el paso al archivo real ----------
-  const LINKS = '# Links\n\nA paragraph to edit.\n\n[Other](other.md), [Deep](sub/deep.md), [Section](other.md#second-part), [[deep]], [Outside](../' + path.basename(disk2) + '/out.md), [Gone](gone.md), [Web](https://example.com/).\n';
+  const LINKS = '# Links\n\nA paragraph to edit.\n\n[Other](other.md), [Deep](sub/deep.md), [Section](other.md#second-part), [[deep]], [Outside](../' + path.basename(disk2) + '/out.md), [Gone](gone.md), [Web](https://example.com/), [App link](' + linkTo(WEB, urlOf(disk, 'sub', 'deep.md')) + ').\n';
   fs.writeFileSync(path.join(disk, 'links.md'), LINKS);
   const linksAt = urlOf(disk, 'links.md');
   const sideOf = (p) => p.evaluate(() => { const s = document.querySelector('.lmd-xroot[data-root=fs]'); if (!s) return null; const head = s.querySelector('.lmd-root-tog'); const on = s.querySelector('.lmd-node.lmd-active'); const bar = document.querySelector('.lmd-copybar');
@@ -466,6 +466,14 @@ try {
   check('un destino que no existe tampoco falla en silencio', (await sideOf(lo)).h1 === 'Links' && /Could not open "gone\.md"\./.test(await lo.evaluate(() => document.body.textContent)) && !!dGone && dGone.title === 'File not found' && J(dGone.buttons) === J(['Close', 'Choose the file']), dGone);
   await lo.keyboard.press('Escape'); await gone(lo);
   check('y los enlaces a la web siguen abriendo aparte', (await lo.evaluate(() => { const a = [...document.querySelectorAll('.markdown-body a')].find((x) => x.textContent === 'Web'); return a.target + ' ' + a.href; })) === '_blank https://example.com/' && ctx.pages().length === tabsLinks);
+  // Un enlace de la app (app.html#open=...) dentro de una nota: la pregunta sale ahí mismo, sin recargar, y atrás vuelve a la nota.
+  await lo.evaluate(() => { window.__stay = 1; });
+  await follow(lo, 'App link'); await lo.waitForSelector('.lmd-dlg-card', { timeout: 5000 }).catch(() => {});
+  const dApp = await dlg(lo); const stApp = await lo.evaluate(() => ({ stay: window.__stay === 1, h1: (document.querySelector('.markdown-body h1') || {}).textContent }));
+  check('un enlace de la app a un archivo del disco pregunta sin salir de la nota', !!dApp && J(dApp.buttons) === J(['Cancel', 'Open']) && stApp.stay && stApp.h1 === 'Links', [dApp, stApp]);
+  await lo.click('.lmd-dlg-card [data-dlg=ok]'); await gone(lo); await lo.waitForTimeout(700); const lApp = await sideOf(lo);
+  await lo.goBack(); await lo.waitForTimeout(700); const lBack = await sideOf(lo);
+  check('al confirmar lo abre en el lateral, y atrás vuelve a la nota de antes', lApp.h1 === 'Deep' && lApp.active === 'deep.md' && lApp.activeShown && (await lo.evaluate(() => window.__stay === 1)) && lBack.h1 === 'Links' && lBack.active === 'links.md', [lApp.h1, lApp.active, lBack.h1]);
   // De copia a archivo real: se edita la copia, se elige la carpeta, y lo escrito sigue ahí, sin guardar.
   const folderName = path.basename(disk);
   await lo.evaluate(async ([name, text]) => {
