@@ -31,7 +31,7 @@
   const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.codePointAt(0)) >>> 0; return h % COLORS.length; };
   // Una IA que está en la nota: "IA · Claude Code (token "work")", o "IA · work" si el cliente no dijo quién es.
   const aiName = (a) => T('IA') + ' · ' + (a.client ? a.client + ' (token "' + (a.token || '') + '")' : a.token || '');
-  const who = (by) => (!by ? '' : by.kind === 'ai' ? T('IA') + (by.name ? ' · ' + by.name : '') : by.kind === 'guest' ? (by.name ? by.name + ' · ' : '') + T('invitado') : by.name || '');
+  const who = (by) => (!by ? '' : by.kind === 'ai' ? T('IA') + (by.name && by.name !== T('IA') && by.name !== 'IA' ? ' · ' + by.name : '') : by.kind === 'guest' ? (by.name ? by.name + ' · ' : '') + T('invitado') : by.name || '');
   // "Última edición: 8 oct, 22:35, por Ana". Las notas guardadas antes de que se anotara el autor dicen solo cuándo.
   function lastText() {
     const e = core && core.lastEdit; if (!e || !e.at) return '';
@@ -212,7 +212,7 @@
   function paint() { paintChip(); paintBar(); paintMarks(); paintStrip(); }
   const avatar = (p) => { const a = el('span', { class: 'lmd-live-av' }); a.style.setProperty('--lmd-live', tint(p)); a.textContent = initials(p.name); a.title = p.name; return a; };
   // Una IA no lleva iniciales ni el logotipo de nadie: una chispa, con su nombre al pasar el cursor.
-  const aiAvatar = (a) => { const n = el('span', { class: 'lmd-live-av lmd-here-ai' + (a.writing ? ' lmd-here-busy' : ''), role: 'img', 'aria-label': aiName(a), title: aiName(a) + (a.writing ? ' · ' + T('escribiendo') : '') }, ICON.spark); return n; };
+  const aiAvatar = (a) => { const n = el('span', { class: 'lmd-live-av lmd-here-ai' + (a.writing ? ' lmd-here-busy' : ''), role: 'img', 'aria-label': aiName(a), title: aiName(a) + (a.writing ? ' · ' + T('escribiendo') : '') }); n.textContent = T('IA'); return n; }; // "IA" como las iniciales de una persona: una chispa sola no se lee como alguien que está en la nota
   // Quiénes tienen abierta la nota ahora, personas e IA, en una tira de avatares junto a la nube. En una sesión en
   // vivo esa tira es la de la sesión (paintChip), con las IA sumadas. En una nota propia sin compartir no hay nadie
   // más: la tira aparece solo si hay una IA.
@@ -235,8 +235,9 @@
     const names = list.map((x) => (x.a ? aiName(x.a) : x.p.name + (x.p.me ? ' · ' + T('vos') : '')));
     const last = lastText();
     const tip = el('span', { class: 'lmd-here-tip', role: 'tooltip' });
-    if (last) tip.appendChild(el('b', { text: last }));
-    tip.appendChild(el('span', { text: names.join(', ') }));
+    // Primero quién está (eso es la tira); la última edición, abajo.
+    tip.appendChild(el('b', { text: T('En esta nota: {a}', { a: names.join(', ') }) }));
+    if (last) tip.appendChild(el('span', { text: last }));
     strip.appendChild(tip);
     strip.setAttribute('aria-label', T('En esta nota: {a}', { a: names.join(', ') }) + (last ? '. ' + last : ''));
   }

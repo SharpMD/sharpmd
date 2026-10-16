@@ -380,7 +380,7 @@ try {
   check('y al entrar, se abre la nota que se había pedido', back && /Informe/.test(await app.textContent('.lmd-article h1')) && new URL(app.url()).searchParams.get('f') === 'cloud/proyecto/informe%20final.md', app.url());
 
   console.log('La IA en la nota');
-  const aiStrip = () => app.evaluate(() => { const s = document.querySelector('.lmd-here'); const avs = [...s.querySelectorAll('.lmd-live-avs > .lmd-live-av')]; return { shown: !s.hidden && s.offsetParent !== null, n: avs.length, ai: avs.filter((a) => a.classList.contains('lmd-here-ai')).map((a) => a.title), busy: avs.some((a) => a.classList.contains('lmd-here-busy')), svg: !!s.querySelector('.lmd-here-ai svg'), img: s.querySelectorAll('img').length, tip: (s.querySelector('.lmd-here-tip') || {}).textContent || '' }; });
+  const aiStrip = () => app.evaluate(() => { const s = document.querySelector('.lmd-here'); const avs = [...s.querySelectorAll('.lmd-live-avs > .lmd-live-av')]; return { shown: !s.hidden && s.offsetParent !== null, n: avs.length, ai: avs.filter((a) => a.classList.contains('lmd-here-ai')).map((a) => a.title), busy: avs.some((a) => a.classList.contains('lmd-here-busy')), svg: [...s.querySelectorAll('.lmd-here-ai')].every((a) => a.textContent === 'IA'), img: s.querySelectorAll('img').length, tip: (s.querySelector('.lmd-here-tip') || {}).textContent || '' }; });
   const aiGone = () => app.waitForFunction(() => document.querySelector('.lmd-here').hidden, null, { timeout: 15000 }).then(() => true, () => false);
   await aiGone();
   check('en una nota propia sin compartir no hay tira de avatares', !(await aiStrip()).shown);
@@ -388,12 +388,12 @@ try {
   await mcp(fresh.token, 'read_note', { path: 'proyecto/informe final.md' });
   await app.waitForFunction(() => !document.querySelector('.lmd-here').hidden, null, { timeout: 8000 }).catch(() => {});
   const reading = await aiStrip();
-  check('cuando una IA lee la nota aparece en la tira, con un ícono propio y el nombre del cliente y del token', reading.shown && reading.n === 1 && reading.ai.length === 1 && /^IA · Claude Code \(token "[^"]+"\)$/.test(reading.ai[0]) && reading.svg && reading.img === 0 && !reading.busy, reading);
+  check('cuando una IA lee la nota aparece en la tira, con "IA" en el avatar y el nombre del cliente y del token', reading.shown && reading.n === 1 && reading.ai.length === 1 && /^IA · Claude Code \(token "[^"]+"\)$/.test(reading.ai[0]) && reading.svg && reading.img === 0 && !reading.busy, reading);
   await mcp(fresh.token, 'write_note', { path: 'proyecto/informe final.md', text: '# Informe\n\nLa IA lo cambió.\n' });
   await app.waitForFunction(() => /La IA lo cambió/.test(document.querySelector('.lmd-article').textContent) && !!document.querySelector('.lmd-here .lmd-here-busy'), null, { timeout: 8000 }).catch(() => {});
   const writing = await aiStrip();
   check('cuando escribe, la nota abierta se actualiza y su avatar lo marca', /La IA lo cambió/.test(await app.textContent('.lmd-article')) && writing.shown && writing.busy && / · escribiendo$/.test(writing.ai[0]), writing);
-  check('el cuadrito dice cuándo fue la última edición y que fue la IA, con el nombre de su token', /^Última edición: .+, por IA · .+/.test(writing.tip) && !/@/.test(writing.tip) && plain(writing.tip), writing.tip);
+  check('el cuadrito dice primero quién está y después cuándo fue la última edición y que fue la IA, con el nombre de su token', /^En esta nota: IA · .+Última edición: .+, por IA( · .+)?$/.test(writing.tip) && !/IA · IA/.test(writing.tip) && !/@/.test(writing.tip) && plain(writing.tip), writing.tip);
   await app.hover('.lmd-here');
   check('y sale al pasar el cursor por la tira', await app.evaluate(() => getComputedStyle(document.querySelector('.lmd-here-tip')).display !== 'none'));
   await app.mouse.move(600, 500);

@@ -1164,6 +1164,7 @@
       try { if (opt.replace) history.replaceState(null, '', to); else if (to !== location.href) history.pushState(null, '', to); } catch (e) { /* la dirección queda como estaba */ }
     }
     paintDoc();
+    markUsed(HERE);
     syncTree();
     afterOpen({ editing: wasEditing, hash: opt.hash });
     core.hooks.doc.forEach((fn) => fn());
@@ -1593,10 +1594,10 @@
         '<section class="lmd-zone lmd-zone-files" data-zone="files">' +
           '<div class="lmd-zone-head"><button type="button" class="lmd-zone-tog" data-zone-tog="files"><span class="lmd-node-chev">' + ICON.chevron + '</span><span>' + T('Archivos') + '</span></button>' +
             '<button type="button" class="lmd-zone-btn lmd-tree-only" data-act="tree-only" aria-pressed="false">' + ICON.md + '</button>' +
+            '<button type="button" class="lmd-zone-btn lmd-tree-sort" data-act="tree-sort">' + ICON.sort + '</button>' +
             '<button type="button" class="lmd-zone-btn lmd-tree-refresh" data-act="tree-refresh" title="' + T('Actualizar la lista de archivos') + '" aria-label="' + T('Actualizar la lista de archivos') + '">' + ICON.reload + '</button>' +
-            // Crear y abrir, cada uno con su palabra al lado en escritorio: un + y una carpeta solos se confunden.
-            (APP ? '<button type="button" class="lmd-zone-btn lmd-zone-word lmd-tree-add" title="' + T('Crear una nota o una carpeta') + '" aria-label="' + T('Crear una nota o una carpeta') + '">' + ICON.plus + '<span>' + T('Nueva') + '</span></button>' : '') +
-            '<button type="button" class="lmd-zone-btn lmd-zone-word lmd-tree-open" title="' + T(APP ? 'Abrir un archivo o una carpeta del disco' : 'Abrir otro archivo o carpeta en SharpMD') + '" aria-label="' + T(APP ? 'Abrir un archivo o una carpeta del disco' : 'Abrir otro archivo o carpeta en SharpMD') + '">' + ICON.open + '<span>' + T('Abrir') + '</span></button></div>' +
+            (APP ? '<button type="button" class="lmd-zone-btn lmd-tree-add" title="' + T('Crear una nota o una carpeta') + '" aria-label="' + T('Crear una nota o una carpeta') + '">' + ICON.plus + '</button>' : '') +
+            '<button type="button" class="lmd-zone-btn lmd-tree-open" title="' + T(APP ? 'Abrir un archivo o una carpeta del disco' : 'Abrir otro archivo o carpeta en SharpMD') + '" aria-label="' + T(APP ? 'Abrir un archivo o una carpeta del disco' : 'Abrir otro archivo o carpeta en SharpMD') + '">' + ICON.open + '</button></div>' +
           '<div class="lmd-pane lmd-pane-files" data-pane="files"><div class="lmd-tree-box"></div><div class="lmd-results" hidden></div></div>' +
         '</section>' +
       '</div>' +
@@ -2216,6 +2217,7 @@
     else if (act === 'copy-md') { if (needsRender && !typingNode() && !core.hold) render(); copyText(LMD.page && LMD.page.md && !needsRender && docKind() === 'md' ? LMD.page.md() : raw, source); }
     else if (act === 'copy-rich') copyRich(source);
     else if (act === 'tree-only') LMD.patch({ filesOnlyMarkdown: !settings.filesOnlyMarkdown });
+    else if (act === 'tree-sort') LMD.patch({ filesSort: settings.filesSort === 'recent' ? 'name' : 'recent' });
     else if (act === 'import-here') importAt();
     else if (act === 'view-tab') binFile().then((f) => { if (!f) return; const u = URL.createObjectURL(new Blob([f], { type: 'application/pdf' })); window.open(u, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(u), 120000); });
     else if (act === 'tree-refresh') { goneDoc = ''; core.reloadTree().then(() => { checkGone(); flash(T('Lista de archivos actualizada')); }); }
@@ -2345,6 +2347,8 @@
     // "Solo Markdown": prendido, el explorador muestra las notas y nada más.
     const only = ui.sidebar.querySelector('.lmd-tree-only');
     if (only) { const on = !!settings.filesOnlyMarkdown; only.setAttribute('aria-pressed', String(on)); only.classList.toggle('lmd-on', on); const say = T(on ? 'Solo Markdown: prendido. Clic para ver todos los archivos que SharpMD abre' : 'Solo Markdown: apagado. Clic para ver solo las notas'); only.title = say; only.setAttribute('aria-label', T('Solo Markdown')); }
+    const sortBtn = ui.sidebar.querySelector('.lmd-tree-sort');
+    if (sortBtn) { const on = settings.filesSort === 'recent'; sortBtn.setAttribute('aria-pressed', String(on)); sortBtn.classList.toggle('lmd-on', on); sortBtn.title = T(on ? 'Orden: lo último que abriste, arriba. Clic para ordenar por nombre' : 'Orden: por nombre. Clic para ver arriba lo último que abriste'); sortBtn.setAttribute('aria-label', T('Ordenar')); }
     applySide();
 
     ui.status.textContent = idleStatus();
@@ -3167,7 +3171,44 @@
   const visibleRows = (rows) => rows
     .filter((x) => settings.filesShowHidden || !x.name.startsWith('.'))
     .filter((x) => (x.dir ? !TREE_SKIP.test(x.name) : listed(x.name)))
-    .sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    .sort(treeOrder);
+  // El orden del explorador: las carpetas arriba, y dentro de cada grupo por nombre o, con "lo último que abriste",
+  // por la última vez que se abrió el archivo o algo de adentro de la carpeta. Lo que nunca se abrió va después, por nombre.
+  const treeOrder = (a, b) => (b.dir - a.dir) || (settings.filesSort === 'recent' ? (usedAt(b.url) - usedAt(a.url)) : 0) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  // Cuándo se abrió por última vez cada archivo y cada carpeta (la de un archivo abierto cuenta como usada). Queda en este navegador.
+  const USED_MAX = 2000;
+  let used = {};
+  chrome.storage.local.get('filesUsed', (r) => { used = Object.assign((r && r.filesUsed) || {}, used); });
+  const usedAt = (url) => (url && used[url]) || 0;
+  function markUsed(url) {
+    if (!url) return;
+    const now = Date.now();
+    // El archivo y cada carpeta que lo contiene, hasta la raíz.
+    let u = url;
+    for (let i = 0; i < 40 && u; i++) {
+      used[u] = now;
+      const cut = u.replace(/\/$/, '').lastIndexOf('/');
+      const up = cut > 0 ? u.slice(0, cut + 1) : '';
+      if (!up || up === u || /^[a-z]+:\/*$/i.test(up)) break;
+      u = up;
+    }
+    const keys = Object.keys(used);
+    if (keys.length > USED_MAX) keys.sort((a, b) => used[a] - used[b]).slice(0, keys.length - USED_MAX).forEach((k) => delete used[k]);
+    chrome.storage.local.set({ filesUsed: used });
+    if (settings.filesSort === 'recent') resortTree();
+  }
+  // Vuelve a ordenar lo que ya está dibujado, sin leer las carpetas de nuevo: lo desplegado queda desplegado.
+  function resortTree() {
+    if (!ui.treeBox) return;
+    const boxes = [ui.treeBox].concat(Array.from(ui.treeBox.querySelectorAll('*'))).filter((b) => b._dir && (b.firstElementChild || {}).classList && b.firstElementChild.classList.contains('lmd-node'));
+    boxes.forEach((box) => {
+      const groups = [];
+      Array.from(box.children).forEach((n) => { if (n.classList.contains('lmd-node')) groups.push([n]); else if (groups.length) groups[groups.length - 1].push(n); });
+      const row = (g) => ({ url: g[0].dataset.url, dir: g[0].classList.contains('lmd-node-dir'), name: ((g[0].querySelector('.lmd-node-name') || g[0]).textContent || '').trim() });
+      const sorted = groups.slice().sort((x, y) => treeOrder(row(x), row(y)));
+      if (sorted.some((g, i) => g !== groups[i])) sorted.forEach((g) => g.forEach((n) => box.appendChild(n)));
+    });
+  }
 
   async function listDir(dirUrl, all) {
     // Las direcciones virtuales (la nube, también en el lector de un archivo del disco) no se piden al navegador.
@@ -3759,7 +3800,7 @@
   // búsqueda quedan como estaban. Donde el navegador lo ofrece, FileSystemObserver avisa enseguida y el sondeo queda
   // de respaldo. Lo plegado no se lee: se pone al día al desplegarlo.
   const TREE_POLL = 4000; const TREE_POLL_DIRS = 40; const NEW_MARK = 8000;
-  const rowSig = (rows) => rows.map((r) => (r.dir ? 'd' : 'f') + r.url + (r.label ? '\t' + r.label : '') + (r.vault ? '\t' + (LMD.vault.isOpen(r.vault) ? 'o' : 's') + (r.vault.ai ? 'a' : '') : '')).join('\n');
+  const rowSig = (rows) => rows.slice().sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0)).map((r) => (r.dir ? 'd' : 'f') + r.url + (r.label ? '\t' + r.label : '') + (r.vault ? '\t' + (LMD.vault.isOpen(r.vault) ? 'o' : 's') + (r.vault.ai ? 'a' : '') : '')).join('\n');
   const watchable = (url) => (APP ? (rootOf(url) || {}).kind === 'dir' : isFile && !url.startsWith(VBASE));
   let treePolling = false; let goneDoc = ''; let fsObs = null; let fsObsRoot = null;
   function watchDisk() {
@@ -5769,6 +5810,7 @@
     paintDoc();
     paintCopy();
     paintWrite();
+    if (doc) markUsed(HERE);
     syncTree(opt.tree);
     if (noDoc) { render(); applyRawMode(); updateSaveState(); window.scrollTo(0, 0); showEmpty(opt.note); }
     else {
@@ -5926,7 +5968,7 @@
 
   // ---------- Arranque ----------
   const RENDER_KEYS = ['plugins', 'theme', 'diagramShape', 'preset', 'supporter', 'foldHeadings'];
-  const TREE_KEYS = ['filesOnlyMarkdown', 'filesShowHidden'];
+  const TREE_KEYS = ['filesOnlyMarkdown', 'filesShowHidden', 'filesSort'];
 
   // Sobre un archivo abierto directo, la dirección puede traer otro archivo en el fragmento (recargar con otro a la
   // vista, o un enlace copiado): se lee antes de dibujar, así lo primero que se ve ya es ese.

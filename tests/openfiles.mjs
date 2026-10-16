@@ -339,11 +339,11 @@ try {
   const en = await tips(p);
   const bare = (t) => t.top.concat(t.head, t.roots).filter((b) => !b.title || !b.aria || !noShout(b.title));
   check('en inglés: cada ícono de la barra de arriba, de la cabecera de Archivos y de cada raíz tiene title y aria-label', en.top.length >= 10 && en.head.length >= 4 && en.roots.length >= 3 && !bare(en).length, bare(en));
-  check('crear y abrir llevan su palabra al lado, y el tooltip dice qué abre', J(en.words) === J(['New:v', 'Open:v']) && en.open === 'Open a file or a folder from your disk' && en.add === 'Create a note or a folder', [en.words, en.open, en.add]);
+  check('crear y abrir son solo íconos, y el tooltip dice qué abre', J(en.words) === J([]) && en.open === 'Open a file or a folder from your disk' && en.add === 'Create a note or a folder', [en.words, en.open, en.add]);
   await p.evaluate(() => LMD.patch({ language: 'es' })); await p.waitForFunction(() => document.querySelector('.lmd-tree-open') && /Abrir/.test(document.querySelector('.lmd-tree-open').title), null, { timeout: 10000 });
   await until(async () => (await st(p)).h1); await p.waitForSelector('.lmd-open-row'); await sleep(400);
   const es = await tips(p);
-  check('en español también, todos', es.top.length === en.top.length && !bare(es).length && es.open === 'Abrir un archivo o una carpeta del disco' && es.add === 'Crear una nota o una carpeta' && J(es.words) === J(['Nueva:v', 'Abrir:v']), [bare(es), es.open, es.add, es.words]);
+  check('en español también, todos', es.top.length === en.top.length && !bare(es).length && es.open === 'Abrir un archivo o una carpeta del disco' && es.add === 'Crear una nota o una carpeta' && J(es.words) === J([]), [bare(es), es.open, es.add, es.words]);
   const esTree = await tree(p);
   const esX = await p.evaluate(() => [...document.querySelectorAll('.lmd-open-list .lmd-node-x')].map((x) => x.title));
   check('la sección se llama Abiertos y la cruz dice "Cerrar. El archivo no se borra."', esTree.openName === 'Abiertos' && esX.includes('Cerrar. El archivo no se borra.') && esX.includes('Cerrar. La carpeta no se borra.') && esX.every(noShout), [esTree.openName, esX]);

@@ -39,6 +39,7 @@
     filesOnlyMarkdown: false, // el explorador muestra todo lo que la app sabe abrir; prendido, solo Markdown y texto
     filesChosen: false, // la persona tocó ese ajuste: antes venía prendido, y un "true" guardado sin esto es el de fábrica de entonces
     filesShowHidden: false,
+    filesSort: 'name', // el orden del explorador: 'name', por nombre, o 'recent', lo último que se abrió arriba
     diskPdf: false, // solo en la extensión: un PDF abierto desde el disco (file://) pasa al visor de SharpMD en vez del visor del navegador
     customCSS: '',
     tools: {}, // Ajustes > Herramientas: cuáles están prendidas (por id) y sus opciones. Lo que falta sale del registro (tools.js)
@@ -705,7 +706,7 @@
       "Se descargó una copia. La nota sigue guardada en este navegador": "A copy was downloaded. The note stays saved in this browser",
       "Opciones del bloque: mover, duplicar, eliminar": "Block options: move, duplicate, delete", "Eliminar el diagrama": "Delete the diagram",
       "Ver": "View", "Editar": "Edit", "SharpMD (Inter)": "SharpMD (Inter)",
-      "Archivos": "Files", "Cambios sin guardar": "Unsaved changes", "Todo guardado": "All saved",
+      "Archivos": "Files", "Ordenar": "Sort", "Orden: por nombre. Clic para ver arriba lo último que abriste": "Order: by name. Click to show what you opened last at the top", "Orden: lo último que abriste, arriba. Clic para ordenar por nombre": "Order: what you opened last at the top. Click to sort by name", "Cambios sin guardar": "Unsaved changes", "Todo guardado": "All saved",
       "Guardado · autoguardado activo": "Saved · auto-save on",
       "Las notas nuevas se guardan en": "New notes are saved to", "Cambiar": "Change",
       "Cambio deshecho. Ctrl+Y lo rehace": "Change undone. Ctrl+Y redoes it", "Cambio rehecho": "Change redone", "No hay cambios para rehacer": "Nothing to redo",

@@ -621,7 +621,7 @@ try {
     const h1 = await hereOf(emi.page); const h2 = await hereOf(tere.page);
     check('equipo: sin sesión, la tira muestra a los miembros que tienen la nota abierta, con iniciales y nombre', h1.shown && h1.titles.filter((t) => t && !/^AI/.test(t)).length === 3 && h1.titles.includes('tere') && h1.titles.includes('leo') && h1.titles.some((t) => t === 'emi') && h1.seen.includes('T') && !h1.badge, h1);
     check('equipo: cada persona lleva el mismo color en todos los navegadores', h2.shown && ['tere', 'emi', 'leo'].every((t) => h1.colors[h1.titles.indexOf(t)] && h1.colors[h1.titles.indexOf(t)] === h2.colors[h2.titles.indexOf(t)]) && new Set(h1.colors.filter(Boolean)).size >= 2, [h1.colors, h2.colors, h2.titles]);
-    check('equipo: el cuadrito dice la última edición con fecha, hora y quién', /^Last edited [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d\d [AP]M by emi/.test(h1.tip) && /^Last edited .+ by emi/.test(h2.tip) && !/@/.test(h1.tip) && !h1.tipOn, [h1.tip, h2.tip]);
+    check('equipo: el cuadrito dice la última edición con fecha, hora y quién', /^In this note: .+Last edited [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d\d [AP]M by emi/.test(h1.tip) && /^In this note: .+Last edited .+ by emi/.test(h2.tip) && !/@/.test(h1.tip) && !h1.tipOn, [h1.tip, h2.tip]);
     await emi.page.hover('.lmd-here');
     check('equipo: y sale al pasar el cursor', (await hereOf(emi.page)).tipOn);
     await botCall('tools/call', { name: 'append_note', arguments: { path: 'equipo.md', text: 'Line from the bot.' } });
@@ -633,7 +633,7 @@ try {
     check('equipo: en un teléfono la tira deja dos avatares y la cuenta de los demás, sin desbordar', few.shown && few.seen.length === 3 && /^\+\d$/.test(few.seen[2]) && fewOf.page <= 0, [few.seen, fewOf]);
     await lph.page.tap('.lmd-here');
     const tapped = await lph.page.evaluate(() => { const t = document.querySelector('.lmd-here-tip'); const r = t.getBoundingClientRect(); return { on: getComputedStyle(t).display !== 'none', fits: r.left >= 0 && r.right <= innerWidth + 0.5, text: t.textContent }; });
-    check('equipo: y el cuadrito sale al tocar, dentro de la pantalla', tapped.on && tapped.fits && /^Last edited /.test(tapped.text), tapped);
+    check('equipo: y el cuadrito sale al tocar, dentro de la pantalla', tapped.on && tapped.fits && /Last edited /.test(tapped.text), tapped);
     await lph.ctx.close();
     for (const c of [tere, emi, leo, guest]) await c.ctx.close();
   }

@@ -543,6 +543,25 @@ try {
   }
   console.log('  la app: chico ' + J(aruns.small) + ' ms, 3.000 bloques ' + J(aruns.big) + ' ms');
   check('en la app un archivo chico cambia en un instante', median(aruns.small) < 250, aruns.small);
+  // ---------- El orden del explorador: por nombre, o lo último que se abrió arriba ----------
+  const files = () => app.evaluate(() => [...document.querySelectorAll('.lmd-xroot[data-root=disk] .lmd-tree > a.lmd-node:not(.lmd-node-dir)')].map((n) => decodeURIComponent(n.dataset.url.split('/').pop())));
+  const sortBtn = () => app.evaluate(() => { const b = document.querySelector('.lmd-tree-sort'); return b && { pressed: b.getAttribute('aria-pressed'), title: b.title }; });
+  const byName = await files();
+  check('de fábrica el orden es por nombre, y el botón lo dice', byName.length > 10 && J(byName) === J(byName.slice().sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))) && (await sortBtn()).pressed === 'false' && /by name/.test((await sortBtn()).title), [byName.slice(0, 5), await sortBtn()]);
+  await app.click('.lmd-tree-sort');
+  await until(async () => (await sortBtn()).pressed === 'true');
+  await app.click(node('n40.md')); await ashows('n40.md'); await sleep(300);
+  const recent1 = await files();
+  check('con "lo último que abriste", el archivo que se abre pasa arriba sin recargar el árbol', recent1[0] === 'n40.md' && (await astate()).open.includes('sub') && /opened last/.test((await sortBtn()).title), [recent1.slice(0, 4), await astate()]);
+  await app.click(node('n07.md')); await ashows('n07.md'); await sleep(300);
+  const recent2 = await files();
+  check('y el siguiente que se abre queda arriba de ese', J(recent2.slice(0, 2)) === J(['n07.md', 'n40.md']), recent2.slice(0, 4));
+  const folders = await app.evaluate(() => [...document.querySelectorAll('.lmd-xroot[data-root=disk] .lmd-tree > .lmd-node')].map((n) => n.classList.contains('lmd-node-dir')));
+  check('las carpetas siguen arriba de los archivos', folders.indexOf(false) > 0 && folders.lastIndexOf(true) < folders.indexOf(false), folders.slice(0, 4));
+  await app.click('.lmd-tree-sort');
+  await until(async () => (await sortBtn()).pressed === 'false');
+  const back = await until(async () => { const f = await files(); return f[0] !== 'n07.md' && f; });
+  check('y vuelve al orden por nombre', !!back && J(back) === J(byName), (back || []).slice(0, 4));
   // ---------- El nombre de arriba: renombrar en el lugar, y dónde está el archivo ----------
   console.log('El nombre de arriba: renombrar y dónde está el archivo');
   const status = () => app.evaluate(() => [...document.querySelectorAll('.lmd-toast')].map((t) => t.textContent).join(' ') || [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '));
