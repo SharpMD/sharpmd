@@ -1789,7 +1789,7 @@
       } else if (APP && !(e.ctrlKey || e.metaKey || e.shiftKey) && openFrag(a.href)) {
         // Un enlace a un archivo del disco (app.html#open=...): se pregunta acá, sin recargar la página. Si no, la app
         // arrancaba de nuevo desde el inicio, la nota se perdía de vista y volver atrás pasaba por el inicio.
-        e.preventDefault(); LMD.install.openLink(openFrag(a.href), homeCtx());
+        e.preventDefault(); openHere(openFrag(a.href));
       } else if (APP && (a.hasAttribute('data-lmd-href') || a.classList.contains('lmd-wiki'))) {
         // Otro archivo de la carpeta. Leyendo, Ctrl o Shift lo abren aparte, como cualquier enlace.
         if (!editing && (e.ctrlKey || e.metaKey || e.shiftKey)) return;
@@ -5928,6 +5928,18 @@
   // lee, y antes de abrir se pregunta (install.js).
   // El pedido de un enlace a la app que abre un archivo del disco, o '' si el enlace es otra cosa. Vale la app de
   // sharpmd.app, la de la extensión y esta misma página.
+  // Si ese archivo ya se ve en el lateral (una carpeta abierta con permiso, o una que la extensión ya lee), el clic lo
+  // elige ahí, como en el explorador: sin preguntar y sin cargar todo de nuevo. Si no, la pregunta de siempre, que
+  // ofrece elegirlo. La que llega de afuera (la página abierta con #open=) pregunta siempre: esa no la hizo la persona.
+  async function openHere(frag) {
+    let given = frag; try { given = decodeURIComponent(frag); } catch (e) { /* un % suelto: vale como está */ }
+    const url = LMD.fileUrl(given); const f = url ? fsDoc(url) : '';
+    const low = (x) => String(x).toLowerCase();
+    if (f && !noDoc && low(VBASE + f) === low(HERE.split('#')[0])) { window.scrollTo({ top: 0, behavior: 'smooth' }); return true; }
+    const known = !!f && ((!!fsOpen && [...fsOpen].some((x) => low(x) === low(f))) || !!(await fsKnown(url).then((k) => k && k.granted, () => false)) || (await LMD.bridge.canRead(url)) === true);
+    if (known) return go(f);
+    return LMD.install.openLink(frag, homeCtx());
+  }
   function openFrag(href) {
     let u = null; try { u = new URL(href, location.href); } catch (e) { return ''; }
     const m = /^#open=(.+)$/.exec(u.hash); if (!m) return '';
