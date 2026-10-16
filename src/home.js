@@ -610,45 +610,109 @@
   }
 
   // ---------- Desde una plantilla ----------
-  // Los grupos con sus plantillas a la izquierda y, a la derecha, cómo queda la elegida. Se filtra escribiendo,
-  // las flechas recorren la lista y Enter crea. Devuelve { file, text } o null.
+  // A la izquierda los grupos (y "Mis plantillas", aparte), en el medio el filtro con las plantillas del grupo y, a la
+  // derecha, cómo queda la elegida. Escribir en el filtro busca en todos los grupos; al borrarlo se vuelve al elegido.
+  // Las flechas recorren la lista y Enter crea. Devuelve { file, text } o null.
+  // "Mis plantillas" son carpetas de la nube compartidas como plantilla (sync.js, shareFolder): se listan, se abren y
+  // se editan desde acá, y "Crear plantilla" manda a esa misma ventana con la casilla ya marcada. Eso cierra este diálogo y devuelve null.
   const plain = (s) => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const TPL_ICON = { day: 'clock', project: 'folder', team: 'people', agency: 'card', product: 'code', personal: 'user', community: 'share' };
   function pickTemplate() {
     return (LMD.community ? LMD.community.ready() : Promise.resolve()).then(() => new Promise((resolve) => {
       let all = LMD.templates.list(); let groups = LMD.templates.groups();
-      const title = T('Desde una plantilla');
+      const title = T('Desde una plantilla'); const MINE = 'mine';
       const box = el('div', { class: 'lmd-ask lmd-tpl' });
       box.innerHTML = '<div class="lmd-ask-card lmd-tpl-card" role="dialog" aria-modal="true" aria-label="' + title + '"><h3>' + title + '</h3>' +
-        '<div class="lmd-tpl-body"><div class="lmd-tpl-side">' +
+        '<div class="lmd-tpl-body"><nav class="lmd-tpl-rail" aria-label="' + T('Grupos') + '"></nav><div class="lmd-tpl-side">' +
           '<input type="search" class="lmd-lk-q" spellcheck="false" placeholder="' + T('Filtrar plantillas') + '" aria-label="' + T('Filtrar plantillas') + '">' +
           '<div class="lmd-tpl-list" role="listbox" aria-label="' + title + '"></div></div>' +
         '<div class="lmd-tpl-prev markdown-body"></div></div>' +
         '<div class="lmd-ask-actions"><button type="button" class="lmd-link lmd-tpl-rm" data-tpl="rm" hidden>' + T('Quitar de mis plantillas') + '</button><button type="button" class="lmd-btn" data-tpl="no">' + T('Cancelar') + '</button><button type="button" class="lmd-btn lmd-btn-fill" data-tpl="ok">' + T('Crear nota') + '</button></div></div>';
       document.body.appendChild(box);
-      const input = box.querySelector('input'); const list = box.querySelector('.lmd-tpl-list'); const prev = box.querySelector('.lmd-tpl-prev'); const ok = box.querySelector('[data-tpl=ok]');
-      let shown = []; let at = ''; let done = false;
+      const input = box.querySelector('input'); const list = box.querySelector('.lmd-tpl-list'); const prev = box.querySelector('.lmd-tpl-prev'); const ok = box.querySelector('[data-tpl=ok]'); const rail = box.querySelector('.lmd-tpl-rail');
+      let shown = []; let at = ''; let done = false; let sel = groups[0] ? groups[0].id : MINE;
+      // Mis plantillas: state 'wait' (leyendo), 'out' (sin sesión), 'plan' (el plan no comparte) u 'ok'. picking: la lista de carpetas a la vista.
+      const mine = { state: 'wait', links: [], folders: null, picking: false, asked: false };
       const close = (value) => { if (done) return; done = true; box.remove(); resolve(value); };
+      const cat = (id, name, icon, extra) => '<button type="button" class="lmd-lk-row lmd-tpl-cat' + (extra || '') + '" data-cat="' + id + '">' + ICON[icon] + '<span>' + name + '</span></button>';
+      const drawRail = () => {
+        if (!groups.some((g) => g.id === sel) && sel !== MINE) sel = groups[0] ? groups[0].id : MINE;
+        // Con texto en el filtro la búsqueda es de todos los grupos: el elegido queda apagado.
+        rail.classList.toggle('lmd-dim', !!input.value.trim());
+        rail.innerHTML = groups.map((g) => cat(g.id, g.name, TPL_ICON[g.id] || 'doc')).join('') + '<i class="lmd-tpl-sep" role="separator"></i>' + cat(MINE, T('Mis plantillas'), 'star', ' lmd-tpl-mine');
+        rail.querySelectorAll('[data-cat]').forEach((b) => { const on = b.dataset.cat === sel; b.classList.toggle('lmd-on', on); if (on) b.setAttribute('aria-current', 'true'); });
+      };
+      const copies = (n) => (n === 1 ? T('1 copia hecha') : T('{n} copias hechas', { n }));
+      const addr = (l) => (l.name && !LMD.cloud.own() ? LMD.sync.tplHost() + l.name : '');
       const select = (id) => {
         at = id;
         list.querySelectorAll('[data-id]').forEach((b) => { const on = b.dataset.id === id; b.classList.toggle('lmd-on', on); b.setAttribute('aria-selected', String(on)); if (on) b.scrollIntoView({ block: 'nearest' }); });
-        const t = id ? LMD.templates.get(id) : null;
-        prev.innerHTML = t ? ctx.preview(t.text) : '';
+        const l = String(id).startsWith('m:') ? mine.links.find((x) => 'm:' + x.id === id) : null; const t = id && !l ? LMD.templates.get(id) : null;
+        if (l) {
+          prev.innerHTML = '<h3></h3><p><b>' + T('Carpeta') + '</b><br><span data-v="path"></span></p><p><b>' + T('Dirección') + '</b><br><span data-v="host"></span></p><p><b>' + T('Copias') + '</b><br>' + copies(l.copies || 0) + '</p>' +
+            '<p class="lmd-tpl-acts">' + (addr(l) ? '<button type="button" class="lmd-btn lmd-btn-fill" data-tpl="open">' + T('Abrir') + '</button>' : '') + '<button type="button" class="lmd-btn" data-tpl="edit">' + T('Editar') + '</button></p>';
+          prev.querySelector('h3').textContent = l.path.split('/').pop(); prev.querySelector('[data-v=path]').textContent = l.path;
+          prev.querySelector('[data-v=host]').textContent = addr(l) || T('Sin dirección corta');
+        } else prev.innerHTML = t ? ctx.preview(t.text) : '';
         prev.scrollTop = 0; ok.disabled = !t;
         // Una plantilla de varias notas crea una carpeta: el botón lo dice.
         ok.textContent = t && t.pack ? T('Crear carpeta') : T('Crear nota');
         box.querySelector('[data-tpl=rm]').hidden = !String(id).startsWith('c:');
       };
+      // Un renglón de Mis plantillas, con su botón si hace falta.
+      const note = (text, act, label) => { list.appendChild(el('p', { class: 'lmd-empty', text })); if (act) list.appendChild(el('button', { type: 'button', class: 'lmd-btn lmd-btn-fill lmd-tpl-act', 'data-act': act, text: label })); };
+      const drawMine = () => {
+        const st = mine.state;
+        if (st === 'wait') { note(T('Cargando')); return; }
+        if (st === 'out') { note(T('Tus plantillas viven en la nube. Entrá para crearlas.'), LMD.cloud.enabled() ? 'signin' : '', T('Entrar')); return; }
+        if (st === 'plan') { note(T('Crear plantillas es parte del plan pago.'), 'plans', T('Ver planes')); return; }
+        if (mine.picking) {
+          list.appendChild(el('p', { class: 'lmd-menu-label', text: T('Elegí la carpeta') }));
+          if (!mine.folders.length) list.appendChild(el('p', { class: 'lmd-empty', text: T('Una plantilla es una carpeta de la nube. Creá una carpeta primero.') }));
+          mine.folders.forEach((f) => { const b = el('button', { type: 'button', class: 'lmd-lk-row', 'data-pick': f, title: f }, ICON.folder + '<span></span>'); b.lastChild.textContent = f; list.appendChild(b); });
+          list.appendChild(el('button', { type: 'button', class: 'lmd-link lmd-tpl-act', 'data-act': 'back', text: T('Volver') }));
+          return;
+        }
+        list.appendChild(el('button', { type: 'button', class: 'lmd-btn lmd-btn-fill lmd-tpl-act', 'data-act': 'new', text: T('Crear plantilla') }));
+        if (!mine.links.length) list.appendChild(el('p', { class: 'lmd-empty', text: T('Todavía no compartiste ninguna carpeta como plantilla.') }));
+        mine.links.forEach((l) => {
+          const name = addr(l) || l.path.split('/').pop();
+          const b = el('button', { type: 'button', class: 'lmd-lk-row', role: 'option', 'data-id': 'm:' + l.id, title: name }, '<span></span><small></small>');
+          b.firstChild.textContent = name; b.lastChild.textContent = String(l.copies || 0); b.lastChild.title = copies(l.copies || 0);
+          list.appendChild(b); shown.push('m:' + l.id);
+        });
+      };
       const draw = () => {
         const q = plain(input.value.trim());
-        list.textContent = ''; shown = [];
-        groups.forEach((g) => {
-          const rows = all.filter((t) => t.group === g.id && (!q || plain(t.name).includes(q) || plain(g.name).includes(q)));
-          if (!rows.length) return;
-          list.appendChild(el('p', { class: 'lmd-menu-label', text: g.name }));
-          rows.forEach((t) => { list.appendChild(el('button', { type: 'button', class: 'lmd-lk-row', role: 'option', 'data-id': t.id, text: t.name })); shown.push(t.id); });
-        });
-        if (!shown.length) list.appendChild(el('p', { class: 'lmd-empty', text: T('Ninguna plantilla coincide.') }));
+        list.textContent = ''; shown = []; drawRail();
+        if (q) {
+          groups.forEach((g) => {
+            const rows = all.filter((t) => t.group === g.id && (plain(t.name).includes(q) || plain(g.name).includes(q)));
+            if (!rows.length) return;
+            list.appendChild(el('p', { class: 'lmd-menu-label', text: g.name }));
+            rows.forEach((t) => { list.appendChild(el('button', { type: 'button', class: 'lmd-lk-row', role: 'option', 'data-id': t.id, text: t.name })); shown.push(t.id); });
+          });
+          if (!shown.length) list.appendChild(el('p', { class: 'lmd-empty', text: T('Ninguna plantilla coincide.') }));
+        } else if (sel === MINE) drawMine();
+        else all.filter((t) => t.group === sel).forEach((t) => { list.appendChild(el('button', { type: 'button', class: 'lmd-lk-row', role: 'option', 'data-id': t.id, text: t.name })); shown.push(t.id); });
         select(shown.includes(at) ? at : (shown[0] || ''));
+      };
+      // Lee la cuenta y las carpetas que ya son plantilla. Una vez por ventana: "Editar" y "Crear" la cierran.
+      const loadMine = async () => {
+        try {
+          await LMD.cloud.ready();
+          if (!LMD.cloud.signedIn() || LMD.cloud.guest()) mine.state = 'out';
+          else {
+            const acct = LMD.sync.account() || await LMD.cloud.account();
+            if (!acct || !acct.share) mine.state = 'plan';
+            else { mine.state = 'ok'; mine.links = (await LMD.cloud.sharesAll('')).links.filter((l) => l.kind === 'folder' && l.template && !l.expired).sort((x, y) => y.id - x.id); }
+          }
+        } catch (e) { mine.state = 'out'; }
+        if (!done) draw();
+      };
+      // Las carpetas propias, las de adentro también. Las protegidas con contraseña no se pueden compartir.
+      const loadFolders = async () => {
+        try { mine.folders = LMD.sync.foldersOf(await LMD.cloud.list(true)).filter((f) => !LMD.vault.of(f + '/x') && !LMD.vault.pinned(f)); } catch (e) { mine.folders = []; }
       };
       // Con el dedo el filtro no toma el foco solo: el teclado taparía la lista.
       const focus = () => { if (!LMD.touch.coarse()) input.focus(); };
@@ -657,21 +721,37 @@
       box.addEventListener('keydown', (e) => {
         e.stopPropagation(); // los atajos del documento no corren con el selector abierto
         if (e.key === 'Escape') { e.preventDefault(); close(null); }
-        else if (e.key === 'Enter') { e.preventDefault(); if (at) close(LMD.templates.get(at)); }
+        else if (e.key === 'Enter') {
+          if (e.target.closest('[data-cat], [data-act], [data-pick], [data-tpl]')) return; // el botón enfocado hace lo suyo
+          e.preventDefault(); if (at && !at.startsWith('m:')) close(LMD.templates.get(at));
+        }
         else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();
           if (shown.length) select(shown[(shown.indexOf(at) + (e.key === 'ArrowDown' ? 1 : shown.length - 1)) % shown.length]);
         }
       });
       box.addEventListener('mousedown', (e) => { if (e.target === box) close(null); });
-      box.addEventListener('click', (e) => {
-        const row = e.target.closest('[data-id]'); const b = e.target.closest('[data-tpl]');
-        if (row) { select(row.dataset.id); focus(); }
+      box.addEventListener('click', async (e) => {
+        const row = e.target.closest('[data-id]'); const b = e.target.closest('[data-tpl]'); const c = e.target.closest('[data-cat]'); const a = e.target.closest('[data-act]'); const pk = e.target.closest('[data-pick]');
+        if (c) {
+          sel = c.dataset.cat; mine.picking = false; at = ''; input.value = ''; draw();
+          if (sel === MINE && !mine.asked) { mine.asked = true; loadMine(); }
+        }
+        else if (pk) { close(null); LMD.sync.shareFolder(pk.dataset.pick, { template: true }); }
+        else if (a) {
+          if (a.dataset.act === 'signin') { close(null); login(); }
+          else if (a.dataset.act === 'plans') { close(null); ctx.plan(T('Crear plantillas es parte del plan pago.')); }
+          else if (a.dataset.act === 'back') { mine.picking = false; draw(); }
+          else if (a.dataset.act === 'new') { if (!mine.folders) await loadFolders(); mine.picking = true; draw(); }
+        }
+        else if (row) { select(row.dataset.id); focus(); }
         // Una plantilla de la comunidad se puede quitar de las propias desde acá.
         else if (b && b.dataset.tpl === 'rm') { if (at.startsWith('c:')) LMD.community.remove('template', +at.slice(2)).then(() => { all = LMD.templates.list(); groups = LMD.templates.groups(); draw(); }); }
-        else if (b) close(b.dataset.tpl === 'ok' && at ? LMD.templates.get(at) : null);
+        else if (b && b.dataset.tpl === 'open') { const l = mine.links.find((x) => 'm:' + x.id === at); if (l && addr(l)) window.open('https://' + addr(l), '_blank', 'noopener'); }
+        else if (b && b.dataset.tpl === 'edit') { const l = mine.links.find((x) => 'm:' + x.id === at); if (l) { close(null); LMD.sync.shareFolder(l.path); } }
+        else if (b) close(b.dataset.tpl === 'ok' && at && !at.startsWith('m:') ? LMD.templates.get(at) : null);
       });
-      list.addEventListener('dblclick', (e) => { const row = e.target.closest('[data-id]'); if (row) close(LMD.templates.get(row.dataset.id)); });
+      list.addEventListener('dblclick', (e) => { const row = e.target.closest('[data-id]'); if (row && !row.dataset.id.startsWith('m:')) close(LMD.templates.get(row.dataset.id)); });
     }));
   }
 

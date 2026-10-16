@@ -162,7 +162,7 @@ async function phoneEdit(p) {
   await p.tap('[data-act=mode-edit]'); await p.waitForSelector('.lmd-article .lmd-editable'); await sleep(700);
   if (await p.locator('.lmd-menu').count()) { await p.keyboard.press('Escape'); await sleep(300); }
   await p.evaluate(() => { const a = document.activeElement; if (a && a.blur) a.blur(); });
-  await p.waitForFunction(() => !document.querySelector('.lmd-foot .lmd-status').textContent.trim(), null, { timeout: 9000 }).catch(() => {});
+  await p.waitForFunction(() => ![...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ').trim(), null, { timeout: 9000 }).catch(() => {});
   await sleep(300);
 }
 // A finger dragging the page up, with the ring following it.

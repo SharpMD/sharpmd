@@ -224,12 +224,12 @@ try {
   await closePanel(pg);
 
   // La plantilla agregada aparece en "Desde una plantilla", marcada, y se puede quitar
-  await pg.click('[data-home=tpl]'); await pg.waitForSelector('.lmd-tpl-card');
-  const inPicker = await pg.evaluate(() => { const rows = [...document.querySelectorAll('.lmd-tpl-list [data-id]')]; const row = rows.find((r) => r.dataset.id.startsWith('c:')); const label = row && row.previousElementSibling; return { row: row && row.textContent, html: row && row.innerHTML, label: label && label.textContent, total: rows.length }; });
+  await pg.click('[data-home=tpl]'); await pg.waitForSelector('.lmd-tpl-card'); await pg.click('.lmd-tpl-rail [data-cat=community]');
+  const inPicker = await pg.evaluate(() => { const rows = [...document.querySelectorAll('.lmd-tpl-list [data-id]')]; const row = rows.find((r) => r.dataset.id.startsWith('c:')); const label = document.querySelector('.lmd-tpl-rail .lmd-on span'); return { row: row && row.textContent, html: row && row.innerHTML, label: label && label.textContent, total: LMD.templates.list().length }; });
   await pg.click('.lmd-tpl-list [data-id="c:' + TID + '"]');
   const picked = await pg.evaluate(() => ({ h1: document.querySelector('.lmd-tpl-prev h1')?.textContent || '', rm: !document.querySelector('[data-tpl=rm]').hidden, date: /\d{4}-\d{2}-\d{2}/.test(document.querySelector('.lmd-tpl-prev h1')?.textContent || '') }));
-  check('la plantilla agregada sale en Desde una plantilla, en el grupo Comunidad', inPicker.row === 'Weekly review <b>' && inPicker.html === 'Weekly review &lt;b&gt;' && inPicker.label === 'Community' && inPicker.total === 30 && /Weekly review/.test(picked.h1) && picked.date && picked.rm, [inPicker, picked]);
-  await pg.click('.lmd-tpl-list [data-id=daily]');
+  check('la plantilla agregada sale en Desde una plantilla, en el grupo Comunidad', inPicker.row === 'Weekly review <b>' && inPicker.html === 'Weekly review &lt;b&gt;' && inPicker.label === 'Community' && inPicker.total === 36 && /Weekly review/.test(picked.h1) && picked.date && picked.rm, [inPicker, picked]);
+  await pg.click('.lmd-tpl-rail [data-cat=day]'); await pg.click('.lmd-tpl-list [data-id=daily]');
   const houseRm = await pg.evaluate(() => document.querySelector('[data-tpl=rm]').hidden);
   await pg.keyboard.press('Escape');
 
@@ -241,10 +241,10 @@ try {
   await pg.click('.lmd-gal-card[data-gkind=template] [data-gal=view]'); await pg.waitForSelector('.lmd-gal-view .lmd-gal-md h1');
   const offPrev = await pg.textContent('.lmd-gal-view .lmd-gal-md h1'); await pg.click('.lmd-gal-view [data-gv=close]');
   await closePanel(pg);
-  await pg.click('[data-home=tpl]'); await pg.waitForSelector('.lmd-tpl-card');
+  await pg.click('[data-home=tpl]'); await pg.waitForSelector('.lmd-tpl-card'); await pg.click('.lmd-tpl-rail [data-cat=community]');
   const offPick = await pg.evaluate(() => !!document.querySelector('.lmd-tpl-list [data-id^="c:"]'));
   await pg.click('.lmd-tpl-list [data-id^="c:"]'); await pg.click('[data-tpl=rm]'); await pg.waitForFunction(() => !document.querySelector('.lmd-tpl-list [data-id^="c:"]'));
-  const afterRm = await kept(pg); const groupGone = await pg.evaluate(() => ![...document.querySelectorAll('.lmd-tpl-list .lmd-menu-label')].some((p) => p.textContent === 'Community'));
+  const afterRm = await kept(pg); const groupGone = await pg.evaluate(() => !document.querySelector('.lmd-tpl-rail [data-cat=community]'));
   await pg.keyboard.press('Escape');
   check('sin conexión la plantilla agregada se ve y se usa, y se puede quitar', /Weekly review/.test(offPrev) && offPick && afterRm.templates.length === 0 && afterRm.palettes.length === 1 && groupGone && houseRm, [offPrev, offPick, afterRm]);
   await R.start();

@@ -64,7 +64,7 @@ const edit = async (p, text) => {
 };
 const hintOf = (p) => p.evaluate((sel) => { const h = document.querySelector(sel); if (!h) return null; const r = h.getBoundingClientRect(); return { title: h.querySelector('b').textContent, text: h.querySelector('p').textContent, buttons: [...h.querySelectorAll('button')].map((b) => b.textContent), modal: !!document.querySelector('.lmd-ask, .lmd-dlg'), inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, tall: [...h.querySelectorAll('button')].every((b) => b.getBoundingClientRect().height >= 40), noScroll: document.documentElement.scrollWidth <= innerWidth }; }, HINT);
 const noHint = async (p) => { await p.waitForTimeout(1800); return !(await p.$(HINT)); };
-const said = async (p, re) => { await p.waitForFunction((r) => new RegExp(r).test(document.querySelector('.lmd-foot .lmd-status').textContent), re, { timeout: 20000 }); return p.textContent('.lmd-foot .lmd-status'); };
+const said = async (p, re) => { await p.waitForFunction((r) => new RegExp(r).test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')), re, { timeout: 20000 }); return p.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')); };
 const closed = (p) => p.waitForSelector(CARD, { state: 'detached', timeout: 60000 });
 const fail = async (p) => { await p.waitForSelector(CARD + ' .lmd-dlg-err:not([hidden])'); return p.textContent(CARD + ' .lmd-dlg-err'); };
 const settingsCloud = async (p) => { await p.click('[data-act=settings]'); await p.waitForSelector('.lmd-panel-card'); await p.click('[data-ptab=cloud]'); await p.waitForSelector('.lmd-panel-card .lmd-e2e'); };

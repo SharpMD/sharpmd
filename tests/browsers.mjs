@@ -467,7 +467,7 @@ try {
     const pick = async (act, sub) => { await p.tap('[data-act=more]'); await p.waitForSelector('.lmd-menu-more'); await p.tap('.lmd-menu-more [data-more=' + act + ']'); await p.waitForSelector('.lmd-menu-' + act); await p.tap('.lmd-menu-' + act + ' [data-more=' + sub + ']'); await sleep(350); };
     await pick('copy', 'copy-rich');
     const rich = await p.evaluate(() => window.__copied.slice(-1)[0]);
-    check('iphone: copiar con formato escribe HTML y texto, dentro del toque', !!rich && rich.types && rich.types.includes('text/html') && rich.types.includes('text/plain') && rich.live !== false && /Copied with formatting/.test(await p.textContent('.lmd-status')), rich);
+    check('iphone: copiar con formato escribe HTML y texto, dentro del toque', !!rich && rich.types && rich.types.includes('text/html') && rich.types.includes('text/plain') && rich.live !== false && /Copied with formatting/.test(await p.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '))), rich);
     await pick('copy', 'copy-md');
     const md = await p.evaluate(() => window.__copied.slice(-1)[0]);
     check('iphone: copiar el Markdown, dentro del toque', !!md && /^# Trip plan/.test(md.text || '') && md.live !== false, md);

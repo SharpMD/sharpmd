@@ -1147,6 +1147,16 @@
       "Producto y desarrollo": "Product and development",
       "Personal": "Personal",
       "Desde una plantilla": "From a template",
+      "Grupos": "Groups",
+      "Mis plantillas": "My templates",
+      "Crear plantilla": "Create template",
+      "Copias": "Copies",
+      "Sin dirección corta": "No short address",
+      "Tus plantillas viven en la nube. Entrá para crearlas.": "Your templates live in the cloud. Sign in to create them.",
+      "Crear plantillas es parte del plan pago.": "Creating templates is part of the paid plan.",
+      "Todavía no compartiste ninguna carpeta como plantilla.": "You have not shared any folder as a template yet.",
+      "Una plantilla es una carpeta de la nube. Creá una carpeta primero.": "A template is a cloud folder. Create a folder first.",
+      "Usar como plantilla…": "Use as a template…",
       "Desde una plantilla…": "From a template…",
       "Filtrar plantillas": "Filter templates",
       "Crear nota": "Create note",
@@ -2348,7 +2358,7 @@
       "Entrar para usar la plantilla": "Sign in to use the template",
       "Escribí tu correo y te mandamos un código, sin contraseña. Si no tenés cuenta, se crea al entrar.": "Type your email and we send you a code, no password. If you have no account, one is created when you sign in.",
       "Al entrar, la copia sigue sola.": "Once you sign in, the copy continues on its own.",
-      "Usar esta plantilla": "Use this template",
+      "Usar esta plantilla": "Use this template", "Usar esta plantilla…": "Use this template…",
       "El original no se edita. Llevate una copia y editala.": "The original cannot be edited. Take a copy and edit that one.",
       "Te queda una copia para editar. El original no cambia.": "You get a copy to edit. The original does not change.",
       "Copiar a este navegador": "Copy to this browser",
@@ -2581,7 +2591,7 @@
   }
   const SPONSOR_URL = 'https://ko-fi.com/surlabs';
   // El mismo número que manifest.json: en la web no hay manifiesto del que leerlo. Una prueba falla si no coinciden.
-  const VERSION = '2.88.1';
+  const VERSION = '2.89.0';
 
   root.LMD = { VERSION, PLUGIN_HELP, PLUGIN_SAMPLES, PLUGIN_GROUPS, SPONSOR_URL, CLOUD_URL, WEB_APP_URL, fileUrl, filePath, fileLink, extSettings, openExtSettings, CODE_COLORS, DEFAULTS, PLUGIN_LABELS, ACCENTS, FONTS, merge, load, save, patch, setLang, t, lang, keys, device, mod };
 })(typeof self !== 'undefined' ? self : this);

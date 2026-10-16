@@ -113,7 +113,7 @@ const saved = (page, name) => page.evaluate(async (n) => ((await LMD.store.noteG
 const stored = (page, key) => page.evaluate((k) => { try { return JSON.parse(localStorage.getItem('mdtools:' + k)); } catch (e) { return null; } }, key);
 const say = async (page, text, final) => { const ok = await page.evaluate(([t, f]) => window.__sr.emit(t, f), [text, final !== false]); await sleep(final === false ? 60 : 140); return ok; };
 const srLog = (page) => page.evaluate(() => window.__sr.log.slice());
-const flashText = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flashText = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const dct = (page) => page.evaluate(() => (LMD.dictate ? LMD.dictate.state() : null));
 const micOn = async (page) => { await page.click('.lmd-dct-mic'); };
 const listening = (page) => until(() => page.evaluate(() => !!document.querySelector('.lmd-dct-bar') && LMD.dictate.state().active), 4000);
@@ -433,7 +433,7 @@ try {
     await b.page.click('[data-act=close-panel]'); await b.page.reload(); await b.page.waitForSelector('.lmd-editing .lmd-article'); await until(() => b.page.evaluate(() => !!LMD.dictate)); await sleep(300);
     check('con el dictado ya prendido, la app arranca sin tocar el motor', J(await calls(b.page)) === '[]', await calls(b.page));
     await caretLast(b.page); await micOn(b.page); await sleep(700);
-    const mic = await b.page.evaluate(() => ({ status: document.querySelector('.lmd-status').textContent, busy: document.querySelector('.lmd-dct-mic').classList.contains('lmd-busy'), on: document.querySelector('.lmd-dct-mic').classList.contains('lmd-on'), bar: !!document.querySelector('.lmd-dct-bar') }));
+    const mic = await b.page.evaluate(() => ({ status: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '), busy: document.querySelector('.lmd-dct-mic').classList.contains('lmd-busy'), on: document.querySelector('.lmd-dct-mic').classList.contains('lmd-on'), bar: !!document.querySelector('.lmd-dct-bar') }));
     check('tocar el micrófono con el motor roto lo dice y el botón no queda trabado', mic.status === 'The microphone could not be turned on.' && !mic.busy && !mic.on && !mic.bar && (await calls(b.page)).includes('new'), [mic, await calls(b.page)]);
     check('sin errores de página', R.errors.length === 0, R.errors);
     await b.ctx.close();

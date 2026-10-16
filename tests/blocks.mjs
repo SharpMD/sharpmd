@@ -38,7 +38,7 @@ const notes = (page) => page.evaluate(async () => (await LMD.store.notesAll()).m
 const md = async (page) => (await page.evaluate(() => LMD.page.md())).replace(/\r/g, '');
 const blur = (page) => page.evaluate(() => { const a = document.activeElement; if (a && a.blur) a.blur(); });
 const para = (page, has) => page.locator('.lmd-article .lmd-editable', { hasText: has }).first();
-const flash = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flash = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 // El aviso de lo eliminado, con su botón de deshacer.
 const toast = (page) => page.evaluate(() => { const t = document.querySelector('.lmd-cl-toast'); return t ? t.querySelector('span').textContent + ' | ' + t.querySelector('button').textContent : ''; });
 // Los bloques marcados, por su texto.

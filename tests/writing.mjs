@@ -122,7 +122,7 @@ await app.locator('.markdown-body h1').click({ button: 'right', position: { x: 2
 await app.mouse.click(900, 700); await app.waitForTimeout(150);
 o.menuAfuera = await app.locator('.lmd-menu').count();
 await app.locator('.markdown-body h1').click({ button: 'right', position: { x: 20, y: 12 } }); await app.click('.lmd-menu-read [data-read=anchor]'); await app.waitForTimeout(150);
-o.copiaAncla = [await clip(), await app.textContent('.lmd-status')];
+o.copiaAncla = [await clip(), await app.evaluate(() => [...document.querySelectorAll('.lmd-toast')].map((n) => n.textContent).filter(Boolean).join(' ') || (document.querySelector('.lmd-status') || {}).textContent)];
 // sobre un bloque sin nada elegido: se copia su Markdown, tal como está en el archivo
 await app.locator('.markdown-body p', { hasText: 'enlace' }).click({ button: 'right', position: { x: 4, y: 8 } }); await app.waitForSelector('.lmd-menu-read');
 o.menuBloque = await opciones();

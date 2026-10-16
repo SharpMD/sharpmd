@@ -143,7 +143,7 @@ const openFile = async (page, dir, name) => { if (dir) await expand(page, dir); 
 const peek = (page) => page.evaluate(() => (window.LMD && LMD.viewer ? LMD.viewer.peek() : null));
 const ready = (page, kind) => until(() => page.evaluate((k) => { const p = window.LMD && LMD.viewer && LMD.viewer.peek(); return !!p && p.ready && (!k || p.kind === k); }, kind), 20000);
 const pdfReady = async (page) => { await ready(page, 'pdf'); await page.waitForSelector('.lmd-vw-page canvas', { timeout: 20000 }); await page.waitForSelector('.lmd-vw-text span', { timeout: 20000 }); };
-const flashText = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flashText = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const names = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-tree-box .lmd-node')].filter((n) => n.offsetParent).map((n) => n.getAttribute('title')));
 const pageNow = (page) => page.evaluate(() => Number(document.querySelector('.lmd-vw-num').value));
 
@@ -163,7 +163,7 @@ await step('tree', 'El explorador: todos los tipos que la app abre, y el interru
   check('el interruptor está en la cabecera del panel, apagado y con su rótulo', btn.pressed === 'false' && btn.label === 'Markdown only' && btn.head && /off/i.test(btn.title), btn);
   const count = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.lmd-tree-box .lmd-node-dir')].map((n) => [n.getAttribute('title'), (n.querySelector('.lmd-node-n') || { dataset: {} }).dataset.n || ''])));
   await until(async () => (await count()).img); const c0 = await count();
-  check('los contadores cuentan lo que se ve', c0.img === '5' && c0.out === '7' && c0.media === '1', c0);
+  check('los contadores cuentan solo notas (md y txt): una carpeta de imágenes o binarios no suma', c0.img === '1' && c0.out === '' && c0.media === '', c0);
   await shot(page, 'explorador-todos');
   await page.click('.lmd-tree-only'); await until(async () => !(await names(page)).includes('data.json'));
   const only = await names(page);

@@ -41,8 +41,9 @@ Alt+Shift+Z leaves only the text; Esc brings everything back. You can also pin t
 - In the Android app, sharing files with SharpMD saves them to your notes.
 - On the phone, a short tour the first time, and a notice when you are offline.
 - An Open section in the explorer for the files and folders on your disk.
+- From a template shows the groups on the left. A shared template opens on its own, without your folders next to it.
 
-*Up to version 2.88*
+*Up to version 2.89*
 
 ## October 5 to 11, 2026
 

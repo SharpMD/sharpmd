@@ -511,6 +511,7 @@
       (!isDir || local) && ['del', 'Eliminar', true],
       // Una carpeta de la nube que la cuenta puede compartir: su enlace de solo lectura, y si es una plantilla (sync.js).
       folder && core.APP && LMD.sync.canLinkFolder(folder) && ['flink', 'Compartir la carpeta…', false, 'share'],
+      folder && core.APP && LMD.sync.canLinkFolder(folder) && ['ftpl', 'Usar como plantilla…', false, 'star'],
       // Todas las notas de la carpeta en un solo documento: PDF, HTML, Word o Markdown (folderexport.js).
       isDir && ['fexp', 'Exportar la carpeta…'],
       // El total de palabras de la carpeta, nota por nota, y su meta con la barra de avance (folderexport.js).
@@ -537,6 +538,7 @@
       else if (f === 'ren') rename(url, isDir);
       else if (f === 'mov') moveAsk(url);
       else if (f === 'flink') LMD.sync.shareFolder(folder);
+      else if (f === 'ftpl') LMD.sync.shareFolder(folder, { template: true });
       else if (isDir && local) removeLocalDir(url);
       else remove(url);
     });
@@ -587,9 +589,11 @@
   // sus carpetas. Devuelve false si no hay nada que ofrecer.
   function looseMenu(x, y, at, onPage) {
     const isDir = at.endsWith('/');
-    const items = [isDir && !onPage && core.canOpenDir(at) && OPEN_ITEM, !isDir && core.pinnable(at) && pinItem(at), LMD.send.can(at) && ['send', isDir ? 'Enviar la carpeta a la nube' : 'Enviar a la nube']].concat(upItems(at), whereItems(at)).filter(Boolean);
+    // Una plantilla que se está leyendo: llevársela entera (al navegador, a la nube o en un ZIP), desde su carpeta o una nota.
+    const r = core.APP ? core.rootOf(at) : null; const pub = r && r.kind === 'pub' ? core.pub() : null; const tpl = !!(pub && pub.info.template);
+    const items = [isDir && !onPage && core.canOpenDir(at) && OPEN_ITEM, tpl && ['tpluse', 'Usar esta plantilla…', false, 'copy'], !isDir && core.pinnable(at) && pinItem(at), LMD.send.can(at) && ['send', isDir ? 'Enviar la carpeta a la nube' : 'Enviar a la nube']].concat(upItems(at), whereItems(at)).filter(Boolean);
     if (!items.length) return false;
-    showMenu(x, y, items, (f) => { if (f === 'page') core.openDir(at); else if (f === 'pin') core.togglePin(at); else if (f === 'send') LMD.send.start(at); else if (!upPick(f, at)) wherePick(f, at); });
+    showMenu(x, y, items, (f) => { if (f === 'page') core.openDir(at); else if (f === 'tpluse') core.useTemplate(''); else if (f === 'pin') core.togglePin(at); else if (f === 'send') LMD.send.start(at); else if (!upPick(f, at)) wherePick(f, at); });
     return true;
   }
   // El menú de una carpeta por su dirección, sin la entrada que abre su página: el de la página de esa carpeta. Es

@@ -218,7 +218,7 @@ try {
   }, DOC);
   await Promise.all([d.waitForNavigation(), d.click('[data-home=dir]')]);
   await d.waitForSelector('.markdown-body li.lmd-task-item'); await sleep(600);
-  const watch = (p) => p.evaluate(() => { window.__said = []; const n = document.querySelector('.lmd-foot .lmd-status'); new MutationObserver(() => { if (n.textContent && window.__said[window.__said.length - 1] !== n.textContent) window.__said.push(n.textContent); }).observe(n, { childList: true, characterData: true, subtree: true }); });
+  const watch = (p) => p.evaluate(() => { window.__said = []; new MutationObserver(() => { for (const n of document.querySelectorAll('.lmd-toast, .lmd-foot .lmd-status')) { const t = n.textContent; if (t && !window.__said.includes(t)) window.__said.push(t); } }).observe(document.body, { childList: true, characterData: true, subtree: true }); });
   const said = (p) => p.evaluate(() => window.__said.splice(0));
   await watch(d);
   // Leer justo mientras la app escribe puede fallar un instante: se reintenta.

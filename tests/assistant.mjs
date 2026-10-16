@@ -145,7 +145,7 @@ async function note(page, name, text, edit) {
 const saved = (page, name) => page.evaluate(async (n) => ((await LMD.store.noteGet(n)) || {}).text || '', name);
 const connect = (page, o) => page.evaluate((x) => LMD.ai.save(x), o);
 const state = (page) => page.evaluate(() => LMD.assistant.state());
-const flashText = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flashText = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 // Elige un tramo de texto dentro del bloque que lo contiene.
 const pick = (page, text) => page.evaluate((w) => {
   const art = document.querySelector('.lmd-article'); const it = document.createTreeWalker(art, NodeFilter.SHOW_TEXT);

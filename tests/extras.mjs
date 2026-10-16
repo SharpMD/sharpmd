@@ -82,7 +82,7 @@ await app.goto(base + 'punto.svg'); await app.waitForSelector('.markdown-body im
 o.svg = await app.evaluate(() => document.querySelector('.markdown-body img').naturalWidth);
 
 // ---------- Renombrar desde el título, F2 y arrastrar en el árbol ----------
-const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test(document.querySelector('.lmd-foot .lmd-status').textContent), re, { timeout: 8000 }); return app.textContent('.lmd-foot .lmd-status'); };
+const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test([...document.querySelectorAll('.lmd-toast')].map((t) => t.textContent).join(' ')), re, { timeout: 8000 }); return app.evaluate(() => [...document.querySelectorAll('.lmd-toast')].map((t) => t.textContent).join(' ')); };
 const tree = () => app.evaluate(() => [...document.querySelectorAll('.lmd-node')].map((n) => n.textContent.trim()));
 const node = (name) => app.locator('.lmd-node', { hasText: name }).first();
 // Arrastra con el mouse y devuelve qué quedó marcado como destino antes de soltar.
@@ -108,6 +108,8 @@ await app.keyboard.type('otra'); await app.keyboard.press('Escape'); await app.w
 o.tituloEscape = [await app.textContent('.lmd-docname'), await app.locator('.lmd-docname-input').count(), (await names()).includes('abierta.md')];
 await app.dblclick('.lmd-docname'); await app.fill('.lmd-docname-input', 'README'); await app.keyboard.press('Enter');
 o.tituloRepetido = [await said('Ya hay'), (await names()).includes('abierta.md')];
+o.toast = await app.evaluate(() => { const t = document.querySelector('.lmd-toast'); const r = t.getBoundingClientRect(); const f = document.querySelector('.lmd-foot').getBoundingClientRect(); return { live: !!t.closest('[aria-live]'), right: r.right > innerWidth - 80, above: r.bottom <= f.top + 1, status: document.querySelector('.lmd-foot .lmd-status').textContent }; });
+await app.waitForFunction(() => !document.querySelector('.lmd-toast'), null, { timeout: 8000 }).then(() => { o.toast.gone = true; }, () => { o.toast.gone = false; });
 await app.dblclick('.lmd-docname'); await app.fill('.lmd-docname-input', 'titulada');
 await Promise.all([app.waitForNavigation(), app.keyboard.press('Enter')]); await app.waitForSelector('.markdown-body h1');
 o.titulo = [await app.title(), await app.textContent('.markdown-body h1'), (await names()).includes('titulada.md') && !(await names()).includes('abierta.md')];
@@ -234,6 +236,7 @@ const checks = [
   ['un JSON se ve resaltado y se edita como texto', o.json.lang === 'json' && o.json.hl && o.jsonEdit, o.json],
   ['una imagen se abre', o.svg === 40, o.svg],
   ['doble clic en el título lo vuelve un campo con el nombre seleccionado', J(o.tituloCampo) === J(['abierta.md', 'abierta', true]), o.tituloCampo],
+  ['el aviso es un toast abajo a la derecha, sobre el pie, que no pisa el estado y se va solo', o.toast.live && o.toast.right && o.toast.above && !/Ya hay/.test(o.toast.status) && o.toast.gone, o.toast],
   ['en el título, Escape cancela y un nombre repetido avisa', J(o.tituloEscape) === J(['abierta.md', 0, true]) && /Ya hay un archivo con ese nombre/.test(o.tituloRepetido[0]) && o.tituloRepetido[1], [o.tituloEscape, o.tituloRepetido]],
   ['Enter en el título renombra y deja la nota abierta', J(o.titulo) === J(['titulada.md', 'Abierta', true]), o.titulo],
   ['F2 renombra el archivo del árbol que tiene el foco', J(o.f2) === J([true, true, 'titulada.md']), o.f2],

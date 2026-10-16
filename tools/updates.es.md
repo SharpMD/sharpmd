@@ -41,8 +41,9 @@ Alt+Shift+Z deja solo el texto; Esc vuelve. También podés fijar arriba las not
 - En la app de Android, compartir archivos con SharpMD los guarda en tus notas.
 - En el teléfono, un recorrido corto la primera vez, y un aviso cuando estás sin conexión.
 - Una sección Abiertos en el explorador para los archivos y carpetas de tu disco.
+- Desde una plantilla muestra los grupos a la izquierda. Una plantilla compartida se abre sola, sin tus carpetas al lado.
 
-*Hasta la versión 2.88*
+*Hasta la versión 2.89*
 
 ## Del 5 al 11 de octubre de 2026 {#2026-10-05}
 

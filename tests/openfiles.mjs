@@ -89,7 +89,7 @@ const tree = (page) => page.evaluate(() => {
     wide: document.documentElement.scrollWidth > window.innerWidth + 1,
   };
 });
-const st = (page) => page.evaluate(() => ({ f: new URLSearchParams(location.search).get('f') || '', title: document.title, h1: (document.querySelector('.lmd-article h1') || { textContent: '' }).textContent.trim(), home: !document.querySelector('.lmd-home').hidden, dir: document.documentElement.classList.contains('lmd-dir'), flash: document.querySelector('.lmd-status').textContent, msg: (document.querySelector('.lmd-home-msg') || { textContent: '' }).textContent, dlg: (document.querySelector('.lmd-dlg-card') || { textContent: '' }).textContent }));
+const st = (page) => page.evaluate(() => ({ f: new URLSearchParams(location.search).get('f') || '', title: document.title, h1: (document.querySelector('.lmd-article h1') || { textContent: '' }).textContent.trim(), home: !document.querySelector('.lmd-home').hidden, dir: document.documentElement.classList.contains('lmd-dir'), flash: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '), msg: (document.querySelector('.lmd-home-msg') || { textContent: '' }).textContent, dlg: (document.querySelector('.lmd-dlg-card') || { textContent: '' }).textContent }));
 const h1is = (page, text, ms) => until(async () => { const s = await st(page); return s.h1 === text && !s.home ? s : null; }, ms || 8000);
 const atHome = (page, ms) => until(async () => { const s = await st(page); return s.home && !s.f ? s : null; }, ms || 8000);
 const files = async (page) => (await tree(page)).files.map((f) => f.name);

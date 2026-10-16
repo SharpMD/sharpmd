@@ -43,7 +43,7 @@ async function note(page, name, text) {
 }
 const saved = (page, name) => page.evaluate(async (n) => ((await LMD.store.noteGet(n)) || {}).text || '', name);
 const scripts = (page, file) => page.evaluate((f) => [...document.scripts].filter((s) => s.src.split('/').pop() === f).length, file);
-const flashText = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flashText = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const toolsTab = async (page) => { await page.click('[data-act=settings]'); await page.waitForSelector('.lmd-panel-card'); await page.click('[data-ptab=tools]'); await page.waitForSelector('.lmd-tl-card'); };
 const closePanel = async (page) => { await page.click('[data-act=close-panel]'); await sleep(200); };
 const flip = async (page, id) => { await page.click('.lmd-tl-card[data-tool=' + id + '] .lmd-switch'); await sleep(350); };
@@ -510,7 +510,7 @@ await step('txt', 'Un .txt: texto plano, se edita y se guarda como .txt', async 
     const names = () => p.evaluate(() => [...document.querySelectorAll('.lmd-xroot[data-root=disk] .lmd-node')].map((n) => n.querySelector('.lmd-node-name').textContent));
     // De fábrica el explorador muestra todo lo que la app abre, y el contador de una carpeta cuenta lo que se lista.
     const counted = async (want) => { await p.waitForFunction((w) => { const c = document.querySelector('.lmd-xroot[data-root=disk] .lmd-node-dir .lmd-node-n'); return c && !c.hidden && c.dataset.n === w; }, want, { timeout: 8000 }).catch(() => {}); return p.evaluate(() => { const c = document.querySelector('.lmd-xroot[data-root=disk] .lmd-node-dir .lmd-node-n'); return c && !c.hidden ? c.dataset.n + '|' + c.getAttribute('aria-label') : ''; }); };
-    check('en la carpeta del disco se ve todo lo que la app abre: notas, datos y tablas', J(await names()) === J(['sub', 'a.md', 'b.txt', 'c.json', 'd.csv']) && (await counted('3')) === '3|3 files', [await names(), await counted('3')]);
+    check('en la carpeta del disco se ve todo lo que la app abre: notas, datos y tablas', J(await names()) === J(['sub', 'a.md', 'b.txt', 'c.json', 'd.csv']) && (await counted('2')) === '2|2 notes', [await names(), await counted('3')]);
     // Con "Solo Markdown" prendido quedan las notas: Markdown y texto.
     await p.click('.lmd-tree-only'); await p.waitForFunction(() => !document.querySelector('.lmd-xroot[data-root=disk] .lmd-node[title="c.json"]'));
     check('con Solo Markdown el .txt aparece junto a los .md, y lo demás queda filtrado', J(await names()) === J(['sub', 'a.md', 'b.txt']), await names());

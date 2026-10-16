@@ -34,7 +34,7 @@ const saved = (page, name) => page.evaluate(async (n) => ((await LMD.store.noteG
 const md = async (page) => (await page.evaluate(() => LMD.page.md())).replace(/\r/g, '');
 const blur = (page) => page.evaluate(() => { const a = document.activeElement; if (a && a.blur) a.blur(); });
 const text = (page, has) => page.locator('.lmd-article .lmd-editable', { hasText: has }).last();
-const flash = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flash = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const toast = (page) => page.evaluate(() => { const t = document.querySelector('.lmd-cl-toast'); return t ? t.querySelector('span').textContent + ' | ' + t.querySelector('button').textContent : ''; });
 // Los bloques marcados y los ítems marcados, por su texto (el de un ítem, sin sus subítems).
 const sel = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-article > .lmd-bsel')].map((n) => n.textContent.replace(/\s+/g, ' ').trim().slice(0, 24)));

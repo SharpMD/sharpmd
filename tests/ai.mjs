@@ -31,7 +31,7 @@ const mcp = (token, name, args) => fetch(base + '/mcp', { method: 'POST', header
 const cloudUrl = (p) => home + '?f=' + encodeURIComponent('cloud/' + p.split('/').map(encodeURIComponent).join('/'));
 const notePut = (p, text, s) => api('PUT', '/notes/' + encodeURIComponent(p), { text }, s);
 const noteText = async (p, s) => (await api('GET', '/notes/' + encodeURIComponent(p), undefined, s)).json.text;
-const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test(document.querySelector('.lmd-foot .lmd-status').textContent), re, { timeout: 15000 }); return app.textContent('.lmd-foot .lmd-status'); };
+const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')), re, { timeout: 15000 }); return app.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')); };
 const marks = () => app.locator('.lmd-cm-mark').count();
 const para = (text) => app.locator('.lmd-article > p', { hasText: text });
 const openNote = async (p) => { await app.goto(cloudUrl(p)); await app.waitForSelector('.markdown-body h1'); await app.waitForFunction(() => !!LMD.sync.account()); };
@@ -172,7 +172,7 @@ try {
   // La lista quedó abierta: se tiene que actualizar sola, igual que la nota y las marcas.
   await app.waitForFunction(() => document.querySelectorAll('.lmd-cm-list .lmd-cm-done').length === 1, null, { timeout: 15000 });
   const live = await app.evaluate(() => ({ groups: [...document.querySelectorAll('.lmd-cm-list h4')].map((h) => h.textContent), reply: document.querySelector('.lmd-cm-done .lmd-cm-reply').textContent, when: document.querySelector('.lmd-cm-done .lmd-cm-meta small').textContent,
-    order: [...document.querySelectorAll('.lmd-cm-list li')].map((li) => li.classList.contains('lmd-cm-done')), note: document.querySelector('.lmd-article').textContent, marks: document.querySelectorAll('.lmd-cm-mark').length, flash: document.querySelector('.lmd-foot .lmd-status').textContent }));
+    order: [...document.querySelectorAll('.lmd-cm-list li')].map((li) => li.classList.contains('lmd-cm-done')), note: document.querySelector('.lmd-article').textContent, marks: document.querySelectorAll('.lmd-cm-mark').length, flash: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') }));
   check('al resolverlo la IA, la lista lo pasa a resueltos con su respuesta y la fecha, sin recargar', J(live.groups) === J(['Abiertos 2', 'Resueltos 1']) && /Respuesta de la IA/.test(live.reply) && /Listo: el lanzamiento pasó al martes 20\./.test(live.reply) && /^Resuelto el \d/.test(live.when) && J(live.order) === J([false, false, true]), live);
   check('la nota muestra lo que escribió la IA y la marca de ese bloque se va', /Lanzamos el martes 20/.test(live.note) && live.marks === 2, [live.marks, live.note.slice(0, 80)]);
   check('un aviso corto dice que la IA resolvió un comentario', live.flash === 'La IA resolvió un comentario', live.flash);
@@ -353,7 +353,7 @@ try {
   console.log('Espacio de proyecto: la plantilla y la IA sobre el mismo tablero');
   // Sin una IA: la plantilla crea en la nube la carpeta con la misma estructura que arma un agente.
   await app.evaluate(() => { LMD.extras.fromTemplate(''); }); await app.waitForSelector('.lmd-tpl-card');
-  await app.click('.lmd-tpl-list [data-id=workspace]'); await app.click('[data-tpl=ok]'); await app.waitForSelector('.lmd-dlg input');
+  await app.click('.lmd-tpl-rail [data-cat=project]'); await app.click('.lmd-tpl-list [data-id=workspace]'); await app.click('[data-tpl=ok]'); await app.waitForSelector('.lmd-dlg input');
   await app.fill('.lmd-dlg input', 'tienda'); await app.keyboard.press('Enter');
   await app.waitForFunction(() => document.title === 'README.md' && /Nombre del proyecto/.test((document.querySelector('.markdown-body h1') || {}).textContent || ''), null, { timeout: 15000 });
   const wsNotes = (await api('GET', '/notes', undefined, await app.evaluate(() => new Promise((r) => chrome.storage.local.get('cloud', (x) => r(x.cloud.session)))))).json.map((n) => n.path).filter((p) => p.startsWith('tienda/')).sort();

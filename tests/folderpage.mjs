@@ -272,7 +272,7 @@ try {
   check('tocar el nombre de la carpeta abierta muestra su índice', !!k0 && k0.h1 === 'carp' && k0.desc === 'La carpeta del disco.' && J(k0.rows.slice(0, 3)) === J(['d:docs', 'd:muchas', 'd:vacia']) && J(k0.active) === J(['carp']), k0 || await st(q));
   const k1 = await until(async () => { const s = await st(q); return s.rows.includes('f:Alpha uno') && /\d/.test(s.metas[3]) ? s : null; });
   check('de cada archivo del disco se lee solo el comienzo: su título y su fecha', !!k1 && J(k1.rows.slice(3)) === J(['f:Alpha uno', 'f:README:Description', 'f:sin-titulo']) && k1.metas.slice(3).every((m) => /\d/.test(m)), k1 || await st(q));
-  check('y cada subcarpeta dice cuántas notas tiene', !!(await until(async () => { const m = (await st(q)).metas; return m[0] === '2 files' && m[1] === '500 files' && m[2] === ''; })), (await st(q)).metas);
+  check('y cada subcarpeta dice cuántas notas tiene', !!(await until(async () => { const m = (await st(q)).metas; return m[0] === '2 notes' && m[1] === '500 notes' && m[2] === ''; })), (await st(q)).metas);
   check('con permiso para guardar, sus acciones: el enlace, exportar, el menú y editar la descripción', !!k0 && J(k0.acts) === J(['link', 'export', 'more', 'edit']), k0 && k0.acts);
   await q.click('.lmd-fp [data-fp=more]'); await q.waitForSelector('.lmd-menu');
   const km = await menu(q);

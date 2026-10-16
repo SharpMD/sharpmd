@@ -458,7 +458,7 @@ try {
   await lo.goBack(); await lo.waitForTimeout(700);
   const tabsLinks = ctx.pages().length;
   await follow(lo, 'Outside'); await lo.waitForSelector('.lmd-dlg-card', { timeout: 5000 }).catch(() => {});
-  const dUp = await dlg(lo); const stUp = await lo.evaluate(() => ({ h1: document.querySelector('.markdown-body h1').textContent, status: document.querySelector('.lmd-status') ? document.querySelector('.lmd-status').textContent : '', body: document.body.textContent }));
+  const dUp = await dlg(lo); const stUp = await lo.evaluate(() => ({ h1: document.querySelector('.markdown-body h1').textContent, status: document.querySelector('.lmd-status') ? [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') : '', body: document.body.textContent }));
   check('un enlace que sale de las carpetas habilitadas no se abre: avisa y ofrece elegirlo', stUp.h1 === 'Links' && /Could not open "out\.md"\./.test(stUp.body) && !!dUp && dUp.path === path.join(disk2, 'out.md') && J(dUp.buttons) === J(['Cancel', 'Choose the file']) && dUp.text.startsWith('By link, the extension only opens') && !/SECRET-OUTSIDE/.test(stUp.body), [stUp.h1, dUp]);
   await lo.keyboard.press('Escape'); await gone(lo);
   await follow(lo, 'Gone'); await lo.waitForSelector('.lmd-dlg-card', { timeout: 5000 }).catch(() => {});

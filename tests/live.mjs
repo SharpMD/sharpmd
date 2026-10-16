@@ -69,8 +69,8 @@ try {
 
   const sharedBy = await R.open(C); await sharedBy.page.goto(R.noteUrl('~' + A.id + '/team/plan.md', true)); await sharedBy.page.waitForSelector('.lmd-article .lmd-editable');
   await sharedBy.page.click('[data-act=sync]'); await sharedBy.page.click('.lmd-menu [data-s=live]');
-  await sharedBy.page.waitForFunction(() => /Only the person who created/.test(document.querySelector('.lmd-status').textContent), null, { timeout: 4000 }).catch(() => {});
-  check('quien recibió la nota compartida no puede abrir una sesión sobre ella', /Only the person who created the note/.test(await sharedBy.page.textContent('.lmd-status')) && !(await sharedBy.page.$('.lmd-live-card')), await sharedBy.page.textContent('.lmd-status'));
+  await sharedBy.page.waitForFunction(() => /Only the person who created/.test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')), null, { timeout: 4000 }).catch(() => {});
+  check('quien recibió la nota compartida no puede abrir una sesión sobre ella', /Only the person who created the note/.test(await sharedBy.page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '))) && !(await sharedBy.page.$('.lmd-live-card')), await sharedBy.page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')));
 
   const own = await ownerAt(A, 'team/plan.md');
   check('sin sesión no hay nada en la barra de arriba', await own.page.evaluate(() => document.querySelector('.lmd-live-chip').hidden && !document.querySelector('.lmd-live-bar')));
@@ -269,7 +269,7 @@ try {
   check('si otro empieza a escribir donde uno tiene el cursor quieto, el bloque pasa a ser suyo sin sacarle el foco', mineHeld.held && mineHeld.by === 'Ana' && mineHeld.focus && mineHeld.tag === 'editing: Ana', mineHeld);
   const before = await ben.page.evaluate(() => document.activeElement.textContent);
   await ben.page.keyboard.type('ZZZ');
-  const blocked = await ben.page.evaluate(() => ({ text: document.activeElement.textContent, status: document.querySelector('.lmd-status').textContent }));
+  const blocked = await ben.page.evaluate(() => ({ text: document.activeElement.textContent, status: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') }));
   check('y lo que teclea ahí no entra: se le avisa quién está escribiendo', !blocked.text.includes('ZZZ') && blocked.status === 'Ana is writing in this block', [before, blocked]);
   await slow; await leave(own.page); await leave(ben.page); await saved(own.page);
   check('lo del que tenía el bloque quedó entero', (await serverNote(A.s, 'team/plan.md')).text.includes('From Ana while Ben is in the source. Ana keeps writing here for a while.') && !(await serverNote(A.s, 'team/plan.md')).text.includes('ZZZ'));
@@ -399,7 +399,7 @@ try {
   check('terminar la sesión pregunta antes y dice qué pasa', /Guests stop seeing and editing the note right away, and the link stops working/.test(await own.page.textContent('.lmd-dlg-card p')) && (await own.page.textContent('.lmd-dlg-card [data-dlg=ok]')) === 'End the session');
   await own.page.click('.lmd-dlg-card [data-dlg=ok]');
   await own.page.waitForFunction(() => document.querySelector('.lmd-live-chip').hidden);
-  const after = await own.page.evaluate(() => ({ card: !!document.querySelector('.lmd-live-card'), marks: document.querySelectorAll('.lmd-live-mark').length, status: document.querySelector('.lmd-status').textContent, live: document.documentElement.classList.contains('lmd-live') }));
+  const after = await own.page.evaluate(() => ({ card: !!document.querySelector('.lmd-live-card'), marks: document.querySelectorAll('.lmd-live-mark').length, status: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '), live: document.documentElement.classList.contains('lmd-live') }));
   check('para el dueño la nota vuelve a ser una nota común', !after.card && after.marks === 0 && !after.live && (await api('GET', '/live?path=' + enc('team/plan.md'), undefined, A.s)).json.open === false, after);
   await ben.ctx.setOffline(false); await ben.page.evaluate(() => window.dispatchEvent(new Event('online')));
   await ben.page.waitForFunction(() => document.querySelector('.lmd-live-bar').classList.contains('lmd-live-over'), null, { timeout: 20000 }).catch(() => {});

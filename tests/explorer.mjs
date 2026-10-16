@@ -98,7 +98,7 @@ try {
   const shows = (title, ms) => until(() => page.evaluate((t) => document.title === t && document.querySelector('.lmd-docname').textContent === t && !!document.querySelector('.lmd-article'), title), ms || 8000);
   const node = (name) => '.lmd-node[data-url$="/' + name + '"]';
   const keep = () => page.evaluate(() => { window.__keep = 1; });
-  const said = () => page.evaluate(() => document.querySelector('.lmd-foot .lmd-status').textContent);
+  const said = () => page.evaluate(() => [...document.querySelectorAll('.lmd-toast')].map((t) => t.textContent).join(' ') || [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '));
 
   // ---------- Sobre un .md del disco ----------
   console.log('Sobre un archivo del disco: el explorador');
@@ -312,7 +312,7 @@ try {
   check('también el de una subcarpeta desplegada, y una carpeta nueva', n2 === 'md*' && n3 === 'dir*', [n2, n3]);
   check('lo nuevo queda marcado, y lo que ya estaba no', Object.values(await tree()).filter((v) => v.endsWith('*')).length === 3, await tree());
   check('las carpetas desplegadas, la posición, el foco y el archivo marcado quedan como estaban', k1.open.join() === 'sub' && Math.abs(k1.y - k0.y) < 3 && k1.focus === 'n02.md' && J(k1.active) === J(['a.md']), [k0, k1]);
-  check('y el contador de la carpeta se pone al día (cuenta lo que se lista: las notas y la imagen)', k0.count === '3' && !!(await until(async () => (await subCount()) === '4')), [k0.count, await subCount()]);
+  check('y el contador de la carpeta se pone al día (cuenta solo las notas, no la imagen)', k0.count === '2' && !!(await until(async () => (await subCount()) === '3')), [k0.count, await subCount()]);
   check('la marca de nuevo se va sola a los segundos', !!(await until(async () => !Object.values(await tree()).some((v) => v.endsWith('*')), 12000)));
   await page.click(node('zz-new.md')); await shows('zz-new.md');
   check('y el archivo nuevo se abre como cualquier otro', (await state()).h1 === 'Brand new' && (await state()).keep);
@@ -340,7 +340,7 @@ try {
   await page.click(node('n05.md')); await shows('n05.md');
   await page.click('[data-act=mode-edit]'); await page.waitForSelector('.lmd-article .lmd-editable');
   await typeIn('Body 5.', ' UNSAVED'); await blur(); await sleep(200);
-  await page.evaluate(() => { window.__said = []; const n = document.querySelector('.lmd-foot .lmd-status'); new MutationObserver(() => { if (n.textContent) window.__said.push(n.textContent); }).observe(n, { childList: true, characterData: true, subtree: true }); });
+  await page.evaluate(() => { window.__said = []; const n = document.body; new MutationObserver(() => { document.querySelectorAll('.lmd-toast').forEach((t) => { if (t.textContent) window.__said.push(t.textContent); }); }).observe(n, { childList: true, characterData: true, subtree: true }); });
   fs.rmSync(path.join(disk, 'n05.md'));
   const told = await until(() => page.evaluate(() => window.__said.find((t) => /no longer in the folder/.test(t))), 12000);
   const d5 = await state(); const d5text = await page.evaluate(() => ({ text: document.querySelector('.lmd-article').textContent, gone: document.documentElement.classList.contains('lmd-doc-gone'), node: !!document.querySelector('.lmd-node[data-url$="/n05.md"]') }));
@@ -499,7 +499,7 @@ try {
   const shownNow = () => app.evaluate(() => { const o = {}; document.querySelectorAll('.lmd-xroot[data-root=disk] .lmd-node').forEach((n) => { o[n.textContent.trim().replace(/\d+$/, '')] = (n.querySelector('.lmd-node-n') || { dataset: {} }).dataset.n || ''; }); return { names: Object.keys(o), sub: o.sub, pressed: document.querySelector('.lmd-tree-only').getAttribute('aria-pressed') }; });
   await until(async () => (await shownNow()).sub === '3'); const sw0 = await shownNow();
   await app.click('.lmd-tree-only'); await until(async () => !(await shownNow()).names.includes('pic.png') && (await shownNow()).sub === '2'); const sw1 = await shownNow();
-  check('el interruptor Solo Markdown oculta lo que no es una nota, y el contador de la carpeta lo sigue', sw0.pressed === "false" && sw0.names.includes("pic.png") && sw0.names.includes("data.json") && sw0.sub === "3" && sw1.pressed === "true" && !sw1.names.includes("pic.png") && !sw1.names.includes("data.json") && !sw1.names.includes("report.docx") && sw1.names.includes("notes.txt") && sw1.sub === "2", [sw0.pressed, sw0.sub, sw1.pressed, sw1.sub, sw1.names.filter((n) => !/^n\d/.test(n))]);
+  check('el interruptor Solo Markdown oculta lo que no es una nota, y el contador de la carpeta cuenta notas en los dos casos', sw0.pressed === "false" && sw0.names.includes("pic.png") && sw0.names.includes("data.json") && sw0.sub === "2" && sw1.pressed === "true" && !sw1.names.includes("pic.png") && !sw1.names.includes("data.json") && !sw1.names.includes("report.docx") && sw1.names.includes("notes.txt") && sw1.sub === "2", [sw0.pressed, sw0.sub, sw1.pressed, sw1.sub, sw1.names.filter((n) => !/^n\d/.test(n))]);
   await app.click('.lmd-tree-only'); await until(async () => (await shownNow()).names.includes('pic.png'));
   check('y apagado vuelve a mostrar todo lo que la app abre', (await shownNow()).pressed === 'false' && (await shownNow()).names.includes('report.docx'));
   await app.click(node('pic.png')); await until(() => app.evaluate(() => !!document.querySelector('.lmd-vw-stage img') && document.querySelector('.lmd-vw-stage img').naturalWidth === 1));
@@ -545,7 +545,7 @@ try {
   check('en la app un archivo chico cambia en un instante', median(aruns.small) < 250, aruns.small);
   // ---------- El nombre de arriba: renombrar en el lugar, y dónde está el archivo ----------
   console.log('El nombre de arriba: renombrar y dónde está el archivo');
-  const status = () => app.evaluate(() => document.querySelector('.lmd-status').textContent);
+  const status = () => app.evaluate(() => [...document.querySelectorAll('.lmd-toast')].map((t) => t.textContent).join(' ') || [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '));
   const typeName = async (name, key) => { await app.click('.lmd-docname'); await app.waitForSelector('.lmd-docname-input'); await app.fill('.lmd-docname-input', name); await app.keyboard.press(key || 'Enter'); await sleep(500); };
   const inDir = (name) => app.evaluate(async (n) => { const d = await (await navigator.storage.getDirectory()).getDirectoryHandle('exp'); try { await d.getFileHandle(n); return true; } catch (e) { return false; } }, name);
   const menuOfTitle = async () => { await app.click('.lmd-docname', { button: 'right' }); await app.waitForSelector('.lmd-menu-narrow', { timeout: 2500 }).catch(() => {}); const items = await app.evaluate(() => [...document.querySelectorAll('.lmd-menu-narrow button')].map((b) => b.textContent.trim())); await app.keyboard.press('Escape'); await sleep(150); return items; };
@@ -635,7 +635,7 @@ try {
   const p3 = await perm();
   check('al pasar a edición el permiso se le pide al navegador una sola vez, sin un aviso propio antes', !p3.dlg && J(p3.asks) === J(['readwrite']), p3);
   check('si en el cuadro del navegador se dice que no, la carpeta sigue abierta en solo lectura y se puede reintentar', !p3.editing && p3.ro === 'Read-only · Allow saving' && p3.doc === 'a.md', p3);
-  const saidNo = await app.evaluate(() => { const f = document.querySelector('.lmd-flash'); return f ? f.textContent : ''; });
+  const saidNo = await app.evaluate(() => { const f = document.querySelector('.lmd-toast'); return f ? f.textContent : ''; });
   check('y una línea lo dice, sin signos de admiración ni rayas', /No permission to save: it stays read-only\./.test(saidNo) && !/[!¡—–]/.test(saidNo), saidNo);
   await app.evaluate(() => { window.__perm.answer = 'granted'; window.__perm.write = 'prompt'; });
   await app.click('[data-write]'); await sleep(700);

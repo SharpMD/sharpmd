@@ -54,7 +54,7 @@ const J = (v) => JSON.stringify(v);
 // dentro de su propio bloque (tablas, código, la fila de pestañas) no cuenta.
 const overflow = (page) => page.evaluate(() => {
   const w = window.innerWidth; const bad = [];
-  const inside = '.lmd-table, .lmd-code, .lmd-board, .lmd-diagram, .lmd-ptabs, .lmd-math-block, pre';
+  const inside = '.lmd-table, .lmd-code, .lmd-board, .lmd-diagram, .lmd-ptabs, .lmd-math-block, .lmd-tpl-rail, pre';
   document.querySelectorAll('body *').forEach((n) => {
     const r = n.getBoundingClientRect(); if (!r.width || !r.height || n.closest(inside)) return;
     if (n.closest('.lmd-sidebar') && !document.documentElement.classList.contains('lmd-side-open')) return; // el panel cerrado espera fuera de la pantalla, a la izquierda
@@ -128,7 +128,7 @@ try {
       await page.tap('[data-home=new]'); await page.waitForSelector('.lmd-draft');
       const after = await page.evaluate(() => [history.length, !!(history.state && history.state.lmdLayer)]);
       check(tag + 'abrir una nota reemplaza la entrada que dejó la barra lateral', after[0] === before && after[1] === false, [before, after]);
-      const tapHint = await page.evaluate(() => document.querySelector('.lmd-status').textContent);
+      const tapHint = await page.evaluate(() => (document.querySelector('.lmd-toast') || { textContent: '' }).textContent);
       check(tag + 'el aviso de edición habla de tocar, no de hacer clic', /tap/.test(tapHint) && !/click/.test(tapHint), tapHint);
       await page.goBack(); await page.waitForSelector('.lmd-home:not([hidden]) [data-home=new]'); await page.waitForTimeout(300);
       check(tag + 'y atrás vuelve al inicio de una sola vez', !/[?&]f=/.test(page.url()), page.url());
@@ -240,7 +240,7 @@ try {
       await pick('view-doc');
       check('"más": volver al documento', await page.evaluate(() => !document.querySelector('.lmd-article').hidden));
       // Claro u oscuro: en el teléfono el botón de la barra va acá, pasa al contrario de lo que se ve y lo deja fijo
-      const mode = () => page.evaluate(() => ({ dark: document.documentElement.classList.contains('lmd-dark'), saved: JSON.parse(localStorage.getItem('mdtools:settings') || '{}').theme, said: document.querySelector('.lmd-status').textContent, boot: localStorage.getItem('lmd:mode') + localStorage.getItem('lmd:dark') }));
+      const mode = () => page.evaluate(() => ({ dark: document.documentElement.classList.contains('lmd-dark'), saved: JSON.parse(localStorage.getItem('mdtools:settings') || '{}').theme, said: (document.querySelector('.lmd-toast') || { textContent: '' }).textContent, boot: localStorage.getItem('lmd:mode') + localStorage.getItem('lmd:dark') }));
       const m0 = await mode();
       await page.tap('[data-act=more]'); await page.waitForSelector('.lmd-menu-more');
       const label = await page.textContent('.lmd-menu-more [data-more=theme-flip]');
@@ -256,11 +256,11 @@ try {
       await pick('copy', 'copy-md');
       check('"más": copiar Markdown', (await page.evaluate(() => navigator.clipboard.readText())).startsWith('# Booking app launch'));
       await pick('copy', 'copy-rich'); await page.waitForTimeout(300);
-      check('"más": copiar con formato', /Booking app launch/.test(await page.evaluate(() => navigator.clipboard.readText())) && /Copied with formatting/.test(await page.textContent('.lmd-status')));
+      check('"más": copiar con formato', /Booking app launch/.test(await page.evaluate(() => navigator.clipboard.readText())) && /Copied with formatting/.test(await page.textContent('.lmd-toast')));
       await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
       await pick('copy', 'copy-html'); await page.waitForTimeout(300);
       const copied = await page.evaluate(() => navigator.clipboard.readText());
-      check('"más": copiar el HTML, sin nada de la interfaz', /^<h1[^>]*>Booking app launch/.test(copied) && !/contenteditable|data-l=|lmd-add|lmd-anchor/.test(copied) && /HTML copied/.test(await page.textContent('.lmd-status')), copied.slice(0, 200));
+      check('"más": copiar el HTML, sin nada de la interfaz', /^<h1[^>]*>Booking app launch/.test(copied) && !/contenteditable|data-l=|lmd-add|lmd-anchor/.test(copied) && /HTML copied/.test(await page.textContent('.lmd-toast')), copied.slice(0, 200));
       await pick('export'); await page.waitForSelector('.lmd-menu-export');
       const exportMenu = await page.evaluate(() => [...document.querySelectorAll('.lmd-menu-export button')].map((b) => b.dataset.more + ':' + b.querySelector('span').textContent + (b.querySelector('kbd') ? ':' + b.querySelector('kbd').textContent : '')));
       check('"más" > exportar: PDF, archivo HTML, el .md e imprimir con su atajo', J(exportMenu) === J(['export-pdf:PDF', 'export-html:HTML file', 'export-docx:Word (.docx)', 'export-md:Markdown file (.md)', 'print:Print:Ctrl+P', 'export-folder:The whole folder…']), exportMenu);
@@ -334,7 +334,7 @@ try {
     await page.evaluate(() => { const p = document.querySelector('.lmd-article > p.lmd-editable'); const s = getSelection(); s.selectAllChildren(p.lastChild.nodeType === 3 ? p : p); const r = document.createRange(); const t = p.lastChild; r.setStart(t, 1); r.setEnd(t, 8); s.removeAllRanges(); s.addRange(r); });
     await page.waitForTimeout(350);
     await page.tap('.lmd-format [data-fmt=link]'); await page.waitForSelector('.lmd-lk-card');
-    const inCard = (sel) => page.evaluate((q) => { const c = document.querySelector(q).getBoundingClientRect(); const kids = [...document.querySelectorAll(q + ' *')].filter((n) => n.offsetParent && !n.closest('.lmd-tpl-prev, .lmd-lk-list, .lmd-tpl-list, .lmd-cm-list, pre'));
+    const inCard = (sel) => page.evaluate((q) => { const c = document.querySelector(q).getBoundingClientRect(); const kids = [...document.querySelectorAll(q + ' *')].filter((n) => n.offsetParent && !n.closest('.lmd-tpl-prev, .lmd-lk-list, .lmd-tpl-list, .lmd-tpl-rail, .lmd-cm-list, pre'));
       return { in: c.left >= 0 && c.right <= window.innerWidth && c.top >= 0 && c.bottom <= window.innerHeight, cut: kids.filter((n) => n.getBoundingClientRect().right > c.right + 1 || (n.scrollWidth > n.clientWidth + 1 && getComputedStyle(n).overflowX === 'visible' && n.tagName === 'BUTTON')).map((n) => n.className || n.tagName).slice(0, 4), lines: [...document.querySelectorAll(q + ' .lmd-seg button')].map((b) => b.getBoundingClientRect().height) }; }, sel);
     let card = await inCard('.lmd-lk-card');
     check(tag + 'el selector de enlaces entra en la pantalla, con sus tres destinos en un renglón', card.in && !card.cut.length && card.lines.length === 3 && Math.max(...card.lines) <= 40, card);
@@ -1131,7 +1131,7 @@ try {
     await page.keyboard.press('Escape'); await page.waitForTimeout(150);
     check('Escape lo cierra y devuelve el foco al botón', await page.evaluate(() => !document.querySelector('.lmd-menu-copy') && document.activeElement.dataset.act === 'copy' && document.activeElement.getAttribute('aria-expanded') === 'false'));
     await page.keyboard.press('Enter'); await page.waitForSelector('.lmd-menu-copy'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
-    check('Enter elige: copiar con formato, como el ícono de antes', /Booking app launch/.test(await page.evaluate(() => navigator.clipboard.readText())) && /Copied with formatting/.test(await page.textContent('.lmd-status')) && !(await page.locator('.lmd-menu-copy').count()));
+    check('Enter elige: copiar con formato, como el ícono de antes', /Booking app launch/.test(await page.evaluate(() => navigator.clipboard.readText())) && /Copied with formatting/.test(await page.textContent('.lmd-toast')) && !(await page.locator('.lmd-menu-copy').count()));
     await page.click('[data-act=copy]'); await page.click('.lmd-menu-copy [data-more=copy-md]'); await page.waitForTimeout(200);
     check('copiar el Markdown, como el ícono de antes', (await page.evaluate(() => navigator.clipboard.readText())).startsWith('# Booking app launch'));
     await page.click('[data-act=copy]'); await page.click('.lmd-menu-copy [data-more=copy-html]'); await page.waitForTimeout(200);

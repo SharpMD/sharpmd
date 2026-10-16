@@ -49,7 +49,7 @@ async function note(page, name, text, edit) {
 const saved = (page, name) => page.evaluate(async (n) => ((await LMD.store.noteGet(n)) || {}).text || '', name);
 const stored = (page, key) => page.evaluate((k) => { try { return JSON.parse(localStorage.getItem('mdtools:' + k)); } catch (e) { return null; } }, key);
 const scripts = (page, file) => page.evaluate((f) => [...document.scripts].filter((s) => s.src.split('/').pop() === f).length, file);
-const flashText = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flashText = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const toolsTab = async (page) => { await page.click('[data-act=settings]'); await page.waitForSelector('.lmd-panel-card'); await page.click('[data-ptab=tools]'); await page.waitForSelector('.lmd-tl-card'); };
 const closePanel = async (page) => { await page.click('[data-act=close-panel]'); await sleep(200); };
 const flip = async (page, id) => { await page.click('.lmd-tl-card[data-tool=' + id + '] .lmd-switch'); await sleep(350); };
@@ -1253,7 +1253,7 @@ await suite('theme', async () => {
     const { ctx, page } = await open();
     await page.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const r = document.documentElement; window.__first = r.style.colorScheme + ' ' + r.style.getPropertyValue('--lmd-boot-bg'); }); });
     await note(page, 'tema.md', '# Tema\n\nUn párrafo.\n');
-    const at = () => page.evaluate(() => { const b = document.querySelector('.lmd-topbar [data-act=theme-flip]'); return { dark: document.documentElement.classList.contains('lmd-dark'), title: b.title, name: b.getAttribute('aria-label'), shown: !!b.offsetParent, said: document.querySelector('.lmd-status').textContent, first: window.__first }; });
+    const at = () => page.evaluate(() => { const b = document.querySelector('.lmd-topbar [data-act=theme-flip]'); return { dark: document.documentElement.classList.contains('lmd-dark'), title: b.title, name: b.getAttribute('aria-label'), shown: !!b.offsetParent, said: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '), first: window.__first }; });
     const a = await at();
     check('con el dispositivo en oscuro arranca oscuro, y el botón está a la vista con su nombre y su atajo', a.dark && a.shown && a.name === 'Switch to light' && /^Switch to light \(Alt\+Shift\+T\)$/.test(a.title) && a.first === 'dark #121418', a);
     await page.click('.lmd-topbar [data-act=theme-flip]'); await sleep(350);

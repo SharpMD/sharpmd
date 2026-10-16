@@ -32,7 +32,7 @@ const waitOpen = (page) => until(() => isOpen(page));
 const waitShut = (page) => until(async () => !(await isOpen(page)));
 const shown = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-keys-row')].filter((r) => r.offsetParent).map((r) => r.dataset.id));
 const keysOf = (page, id) => page.evaluate((i) => { const r = document.querySelector('.lmd-keys-row[data-id="' + i + '"] .lmd-keys-set'); return r ? r.getAttribute('aria-label') : null; }, id);
-const flash = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flash = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const blur = (page) => page.evaluate(() => { const a = document.activeElement; if (a && a.blur) a.blur(); });
 const TEXT = ['# Atajos', '', 'Uno dos tres.', '', 'Otro renglón.', ''].join('\n');
 
@@ -233,7 +233,7 @@ await step('Cada atajo listado dispara algo', async () => {
   await probe('explorer', async () => { await page.keyboard.press('Alt+Shift+E'); const ok = await until(() => active('.lmd-tree-box .lmd-node, .lmd-tree-box .lmd-root-tog'), 3000); await blur(page); return ok; });
 
   // Herramientas
-  await probe('ai-ask', async () => { const n = () => page.evaluate(() => document.querySelectorAll('.lmd-ask, [class*="lmd-ai-panel"], html.lmd-ai-open').length); const a = await n(); await page.keyboard.press('Alt+Shift+Q'); const ok = await until(async () => (await n()) > a, 4000); if (process.env.DEBUG) console.log('     ai-ask: ' + await page.evaluate(() => [LMD.tools.isOn('assistant'), document.documentElement.className, [...document.querySelectorAll('[class*=lmd-ai]')].map((x) => x.className).join(','), (document.querySelector('.lmd-status') || {}).textContent].join(' | '))); await page.evaluate(() => { if (LMD.assistant.state().panel) LMD.assistant.ask(); }); await sleep(300); return ok; });
+  await probe('ai-ask', async () => { const n = () => page.evaluate(() => document.querySelectorAll('.lmd-ask, [class*="lmd-ai-panel"], html.lmd-ai-open').length); const a = await n(); await page.keyboard.press('Alt+Shift+Q'); const ok = await until(async () => (await n()) > a, 4000); if (process.env.DEBUG) console.log('     ai-ask: ' + await page.evaluate(() => [LMD.tools.isOn('assistant'), document.documentElement.className, [...document.querySelectorAll('[class*=lmd-ai]')].map((x) => x.className).join(','), [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')].join(' | '))); await page.evaluate(() => { if (LMD.assistant.state().panel) LMD.assistant.ask(); }); await sleep(300); return ok; });
   await probe('linkmap', async () => { await page.keyboard.press('Alt+Shift+G'); const ok = await until(() => page.evaluate(() => !!document.querySelector('.lmd-map')), 4000); await page.evaluate(() => { const b = document.querySelector('.lmd-map [data-map=close]'); if (b) b.click(); }); await until(() => page.evaluate(() => !document.querySelector('.lmd-map'))); return ok; });
   await blur(page);
   const pres = () => page.evaluate(() => LMD.present.state());

@@ -51,7 +51,7 @@ const o = {};
 const PASS = 'caballo correcto batería grapa'; const PASS2 = 'otra contraseña bien larga 9'; const PASS3 = 'la tercera, por la clave de respaldo';
 const CLOUD = '.lmd-xroot[data-root=cloud]'; const CARD = '.lmd-vault-card';
 const cloudUrl = (p) => home + '?f=' + enc('cloud/' + p.split('/').map(enc).join('/'));
-const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test(document.querySelector('.lmd-foot .lmd-status').textContent), re, { timeout: 15000 }); return app.textContent('.lmd-foot .lmd-status'); };
+const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')), re, { timeout: 15000 }); return app.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')); };
 const opened = async () => { await app.waitForSelector('.markdown-body h1'); await app.waitForSelector(CLOUD + ' .lmd-node'); };
 const folder = (name) => app.locator(CLOUD + ' .lmd-node-dir', { hasText: name }).first();
 const menu = async (name, act) => { await app.locator(CLOUD + ' .lmd-node', { hasText: name }).first().click({ button: 'right' }); await app.waitForSelector('.lmd-menu [data-f=' + act + ']'); await app.click('.lmd-menu [data-f=' + act + ']'); };

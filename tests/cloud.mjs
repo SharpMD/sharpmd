@@ -131,7 +131,7 @@ try {
   const serverText = async (p) => (await api('GET', '/notes/' + encodeURIComponent(p), undefined, session)).text;
   const answer = (v) => app.evaluate((x) => { window.__answer = x; }, v);
   const cloudUrl = (p) => home + '?f=' + encodeURIComponent('cloud/' + p.split('/').map(encodeURIComponent).join('/'));
-  const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test(document.querySelector('.lmd-foot .lmd-status').textContent), re, { timeout: 8000 }); return app.textContent('.lmd-foot .lmd-status'); };
+  const said = async (re) => { await app.waitForFunction((r) => new RegExp(r).test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')), re, { timeout: 8000 }); return app.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')); };
   // Todo esto pasa en la raíz Nube del explorador: en las otras raíces puede haber notas con el mismo nombre.
   const CLOUD = '.lmd-xroot[data-root=cloud]';
   const menu = async (name, act) => { await app.locator(CLOUD + ' .lmd-node', { hasText: name }).first().click({ button: 'right' }); await app.waitForSelector('.lmd-menu [data-f=' + act + ']'); };

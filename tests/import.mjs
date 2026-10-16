@@ -188,7 +188,7 @@ async function note(page, name, text) {
   await page.goto(R.home + '?f=' + encodeURIComponent('local/' + name)); await page.waitForSelector('.lmd-article > *'); await sleep(350);
 }
 const scripts = (page, file) => page.evaluate((f) => [...document.scripts].filter((s) => s.src.split('/').pop() === f).length, file);
-const flashText = (page) => page.evaluate(() => (document.querySelector('.lmd-status') || {}).textContent || '');
+const flashText = (page) => page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ') || '');
 const toolsTab = async (page) => { await page.click('[data-act=settings]'); await page.waitForSelector('.lmd-panel-card'); await page.click('[data-ptab=tools]'); await page.waitForSelector('.lmd-tl-card'); };
 // Convierte sin interfaz: lo que devuelve la herramienta, o el código del error.
 const conv = (page, name, buf, opt) => page.evaluate(async ([n, b64, o]) => {
@@ -407,7 +407,7 @@ await step('ui', 'El diálogo: avance, resumen y qué hacer con el resultado', a
   await page.keyboard.press('Enter'); await page.waitForSelector('.lmd-article p'); await sleep(400);
   const opened = await page.evaluate(async () => ({ gone: !document.querySelector('.lmd-imp'), url: decodeURIComponent(location.search), name: document.querySelector('.lmd-docname').textContent, saved: (await LMD.store.noteList ? (await LMD.store.noteList()).length : -1), text: document.querySelector('.lmd-article').innerText }));
   check('abre como nota nueva, con el nombre del archivo', opened.gone && /mem\/six\.md/.test(opened.url) && opened.name === 'six.md' && /Page number 1 has some text\./.test(opened.text) && /Page number 6/.test(opened.text), opened);
-  const state = await page.evaluate(async () => ({ stored: !!(await LMD.store.noteGet('six.md')), status: (document.querySelector('.lmd-status') || {}).textContent, save: (document.querySelector('[data-act=save]') || {}).title || '' }));
+  const state = await page.evaluate(async () => ({ stored: !!(await LMD.store.noteGet('six.md')), status: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '), save: (document.querySelector('[data-act=save]') || {}).title || '' }));
   check('sin guardar: no está en las notas del navegador y la app la marca con cambios', state.stored === false && /unsaved|Save as/i.test(state.status + ' ' + state.save), state);
   await limits(page, { pace: 0 });
   // Con una nota abierta: el botón del explorador, y agregar al final.

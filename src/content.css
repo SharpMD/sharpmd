@@ -181,7 +181,8 @@
 .lmd-link { border: 0; background: none; padding: 5px 4px; color: var(--fg-faint); font: inherit; font-size: 12.5px; cursor: pointer; }
 .lmd-link:hover { color: var(--fg); text-decoration: underline; }
 .lmd-pane { padding-bottom: 12px; }
-.lmd-resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; }
+/* Afuera de la columna: adentro tapaba el borde de su barra de desplazamiento y no se la podía arrastrar. */
+.lmd-resizer { position: absolute; top: 0; right: -7px; width: 7px; height: 100%; cursor: col-resize; }
 .lmd-resizer:hover, .lmd-resizing .lmd-resizer { background: var(--accent-soft); }
 .lmd-resizing { user-select: none; cursor: col-resize; }
 .lmd-resizing .lmd-sidebar, .lmd-resizing .lmd-main { transition: none; }
@@ -206,10 +207,16 @@ html:not(.lmd-editing) .lmd-docname-edit { cursor: pointer; } /* leyendo, el cli
 .lmd-savestate { white-space: nowrap; }
 .lmd-dirty .lmd-savestate { color: var(--accent); font-weight: 600; }
 .lmd-status { flex: 1; min-width: 0; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lmd-status.lmd-flash { color: var(--accent); font-weight: 600; }
-.lmd-status.lmd-error, .lmd-status.lmd-warn { flex: 0 1 auto; margin-right: auto; padding: 2px 10px; border-radius: 6px; font-weight: 600; }
-.lmd-status.lmd-error { color: #fff; background: #dc2626; }
-.lmd-status.lmd-warn { color: #1d2026; background: #f5b83d; }
+/* El aviso corto: abajo a la derecha, encima del pie. Desliza al entrar y se desvanece al salir. */
+.lmd-toasts { position: fixed; z-index: 62; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(30px + 12px + env(safe-area-inset-bottom, 0px) + var(--lmd-kb, 0px)); display: flex; flex-direction: column; align-items: flex-end; max-width: min(420px, calc(100vw - 32px)); pointer-events: none; }
+.lmd-toast { padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent-fill); border-radius: 10px; background: var(--bg-soft); color: var(--fg); box-shadow: var(--shadow); font: 600 13.5px/1.4 var(--lmd-font); overflow-wrap: anywhere; opacity: 0; transform: translateY(8px); transition: opacity 0.18s ease, transform 0.18s ease; }
+.lmd-toast.lmd-in { opacity: 1; transform: none; }
+.lmd-toast.lmd-out { opacity: 0; transform: none; }
+.lmd-toast.lmd-error { border-color: #dc2626; background: #dc2626; color: #fff; }
+.lmd-toast.lmd-warn { border-color: #f5b83d; background: #f5b83d; color: #1d2026; }
+@media (prefers-reduced-motion: reduce) { .lmd-toast { transform: none; transition: none; } }
+@media (max-width: 720px), (max-height: 500px) and (pointer: coarse) { .lmd-toasts { left: 16px; right: 16px; max-width: none; align-items: center; } }
+@media print { .lmd-toasts { display: none !important; } }
 .lmd-save { position: relative; }
 .lmd-dirty .lmd-save { color: var(--accent); }
 .lmd-dirty .lmd-save::after { content: ""; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fill); }
@@ -1243,9 +1250,9 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
 .lmd-res-root { display: flex; align-items: center; gap: 6px; margin: 10px 6px 4px; color: var(--fg-faint); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 /* Estado vacío: liviano, sin título */
 /* ---------- Desde una plantilla: la lista por grupos y cómo queda la elegida ---------- */
-.lmd-tpl-card { width: min(900px, 100%); }
+.lmd-tpl-card { width: min(1040px, 100%); }
 .lmd-tpl-card h3 { margin-bottom: 12px; }
-.lmd-tpl-body { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; height: min(470px, 62vh); margin-bottom: 16px; }
+.lmd-tpl-body { display: grid; grid-template-columns: 172px 240px minmax(0, 1fr); gap: 14px; height: min(470px, 62vh); margin-bottom: 16px; }
 .lmd-tpl-side { display: flex; flex-direction: column; min-height: 0; }
 .lmd-tpl-side .lmd-lk-q { margin: 0 0 8px; flex: none; }
 .lmd-tpl-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 9px; }
@@ -1257,6 +1264,19 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
 .lmd-tpl-prev h1 { font-size: 1.55em; } .lmd-tpl-prev h2 { font-size: 1.25em; } .lmd-tpl-prev h3 { font-size: 1.1em; }
 .lmd-ask-card .lmd-tpl-prev p { margin: 0 0 0.8em; color: inherit; }
 .lmd-tpl-list, .lmd-tpl-prev { scrollbar-width: thin; }
+/* Los grupos a la izquierda, con "Mis plantillas" aparte al final. Con texto en el filtro se busca en todos y el elegido se apaga. */
+.lmd-tpl-rail { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 9px; scrollbar-width: thin; }
+.lmd-tpl-cat { flex: none; width: 100%; }
+.lmd-tpl-cat span { white-space: normal; overflow: visible; }
+.lmd-tpl-sep { flex: none; height: 1px; margin: 6px 6px; background: var(--line); }
+.lmd-tpl-mine { margin-top: auto; }
+.lmd-tpl-sep + .lmd-tpl-mine { margin-top: 0; }
+.lmd-tpl-rail.lmd-dim .lmd-tpl-cat.lmd-on { background: transparent; color: var(--fg-muted); }
+.lmd-tpl-list .lmd-tpl-act { margin: 6px 5px; }
+.lmd-tpl-list .lmd-tpl-act.lmd-btn-fill { width: calc(100% - 10px); }
+.lmd-tpl-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.lmd-tpl-prev h3 { margin: 0 0 12px; }
+
 .lmd-tpl-side .lmd-lk-q:focus-visible { outline: none; }
 .lmd-nodoc .lmd-sync { display: none !important; }
 .lmd-zone .lmd-pane { scrollbar-width: thin; }
@@ -1417,7 +1437,13 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
   .lmd-share-row select { flex: 1 1 auto; }
   .lmd-cm-list { max-height: calc(100dvh - 270px); }
   /* Plantillas e historial: la lista arriba y, debajo, cómo queda lo elegido. */
-  .lmd-tpl-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 2fr) minmax(0, 3fr); height: calc(100dvh - 5vh - 190px); min-height: 280px; }
+  .lmd-tpl-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 2fr) minmax(0, 3fr); height: calc(100dvh - 5vh - 190px); min-height: 280px; }
+  /* Los grupos pasan a una fila de fichas que se desliza de costado, sin mover la página. */
+  .lmd-tpl-rail { flex-direction: row; align-items: center; gap: 6px; min-width: 0; overflow: auto hidden; padding: 4px; -webkit-overflow-scrolling: touch; }
+  .lmd-tpl-cat { width: auto; white-space: nowrap; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+  .lmd-tpl-cat span { white-space: nowrap; }
+  .lmd-tpl-sep { width: 1px; height: 22px; margin: 0 2px; }
+  .lmd-tpl-mine, .lmd-tpl-sep + .lmd-tpl-mine { margin-top: 0; }
   .lmd-tpl-prev { padding: 12px 14px; }
   .lmd-hist-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: fit-content(38%) minmax(0, 1fr); height: calc(100dvh - 5vh - 190px); min-height: 280px; }
   .lmd-dgm { padding: 0; }

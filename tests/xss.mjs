@@ -130,7 +130,7 @@ o.guardado = await app.evaluate(() => ({ t: LMD.community.templates().map((t) =>
 o.paleta = await app.evaluate(() => { const D = LMD.diagram; const i = D.PALETTES.length; const code = D.withPalette('mermaid', 'graph LR\n  A --> B', i); return { ok: /#abcdef/.test(code) && D.paletteOf('mermaid', code) === i, pwn: window.__pwn }; });
 // El selector de plantillas, y la nota creada con la plantilla hostil
 await app.evaluate(() => document.querySelector('.lmd-tree-new').click()); await app.click('.lmd-menu [data-f=tpl]'); await app.waitForSelector('.lmd-tpl-card');
-await app.click('.lmd-tpl-list [data-id="c:7"]'); await app.waitForTimeout(1500);
+await app.click('.lmd-tpl-rail [data-cat=community]'); await app.click('.lmd-tpl-list [data-id="c:7"]'); await app.waitForTimeout(1500);
 o.selector = await scan();
 o.selectorNombre = await app.evaluate(() => document.querySelector('.lmd-tpl-list [data-id="c:7"]').textContent);
 o.selectorMal = await app.evaluate(() => { const p = document.querySelector('.lmd-tpl-prev'); return ['script', 'iframe', 'object', 'embed', 'form', 'base', 'meta', 'link', 'style'].filter((t) => p.querySelector(t)); });

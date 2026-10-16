@@ -336,8 +336,8 @@ try {
   const heldOps = [await api('POST', '/sites/' + S.id + '/publish', {}, A.s), await api('PUT', '/sites/' + S.id + '/pages', { pages: [page('manual/index.md', 1, '<p>x</p>')] }, A.s), await api('DELETE', '/sites/' + S.id, undefined, A.s), await api('PUT', '/sites/' + S.id, { slug: 'cafetera-2' }, A.s)];
   check('quien lo publicó ve que está suspendido y por qué, y no puede publicarlo, eliminarlo ni cambiarle la dirección', heldAcct.suspended === true && heldAcct.reason === 'Copia un manual ajeno' && heldOps.every((r) => r.status === 403 && r.json.error === 'site_suspended'), [heldAcct, heldOps.map((r) => r.status)]);
   await ana.page.goto(R.noteUrl('manual/guia.md')); await ana.page.waitForSelector('.markdown-body h1');
-  await ana.page.waitForFunction(() => /suspended/.test(document.querySelector('.lmd-foot .lmd-status').textContent), null, { timeout: 8000 }).catch(() => {});
-  const toast = await ana.page.evaluate(() => /Your published site is suspended/.test(document.querySelector('.lmd-foot .lmd-status').textContent));
+  await ana.page.waitForFunction(() => /suspended/.test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')), null, { timeout: 8000 }).catch(() => {});
+  const toast = await ana.page.evaluate(() => /Your published site is suspended/.test([...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' ')));
   await ana.page.evaluate(() => document.querySelector('[data-act=settings]').click()); await ana.page.waitForSelector('.lmd-panel-card'); await ana.page.click('[data-ptab=cloud]'); await ana.page.waitForSelector('.lmd-site-row');
   const heldRow = await ana.page.textContent('.lmd-site-row .lmd-site-state');
   check('la app avisa que el sitio está suspendido', toast === true && heldRow === 'Suspended', [toast, heldRow]);

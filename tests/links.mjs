@@ -140,7 +140,7 @@ try {
   o.fuente = await src();
 
   // 9. Navegar. Editando, el clic pone el cursor y Ctrl+clic sigue el enlace
-  const estado = () => app.evaluate(() => ({ doc: document.title, y: Math.round(window.scrollY), aviso: document.querySelector('.lmd-status').textContent, error: document.querySelector('.lmd-status').className }));
+  const estado = () => app.evaluate(() => ({ doc: document.title, y: Math.round(window.scrollY), aviso: (document.querySelector('.lmd-toast') || {}).textContent || '', error: (document.querySelector('.lmd-toast') || {}).className || '' }));
   const titulo = (t) => app.evaluate((x) => { const h = [...document.querySelectorAll('.markdown-body h1, .markdown-body h2, .markdown-body h3')].find((n) => n.textContent.trim().startsWith(x)); return h ? Math.round(h.getBoundingClientRect().top) : null; }, t);
   await app.locator('.lmd-article a', { hasText: 'Sección Única' }).first().click(); await app.waitForTimeout(400);
   o.clicEditando = (await estado()).doc;
@@ -213,7 +213,7 @@ try {
     LMD.bridge.listDir = async (u) => { if (!en(u)) return { ok: true, listed: false, why: 'refused' }; const rows = new Map(); Object.keys(files).filter((k) => k.startsWith(u)).forEach((k) => { const rest = k.slice(u.length); const cut = rest.indexOf('/'); rows.set(cut < 0 ? rest : rest.slice(0, cut), cut >= 0); }); return { ok: true, listed: true, rows: [...rows].map(([name, dir]) => ({ name: decodeURIComponent(name), dir })) }; };
   }, FS);
   const fsDe = (p) => home + '?f=' + encodeURIComponent('fs/' + p.split('/').map(encodeURIComponent).join('/'));
-  const visto = () => app.evaluate(() => { const on = document.querySelector('.lmd-xroot[data-root=fs] .lmd-node.lmd-active'); const d = document.querySelector('.lmd-dlg-card'); return { h1: (document.querySelector('.markdown-body h1') || {}).textContent || '', f: new URLSearchParams(location.search).get('f'), activo: on ? on.textContent.trim() : '', y: Math.round(window.scrollY), aviso: document.querySelector('.lmd-status').textContent, dlg: d ? d.querySelector('h3').textContent + ' / ' + [...d.querySelectorAll('.lmd-ask-actions button')].map((b) => b.textContent).join(',') : '', cartel: !document.querySelector('.lmd-copybar').hidden }; });
+  const visto = () => app.evaluate(() => { const on = document.querySelector('.lmd-xroot[data-root=fs] .lmd-node.lmd-active'); const d = document.querySelector('.lmd-dlg-card'); return { h1: (document.querySelector('.markdown-body h1') || {}).textContent || '', f: new URLSearchParams(location.search).get('f'), activo: on ? on.textContent.trim() : '', y: Math.round(window.scrollY), aviso: [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '), dlg: d ? d.querySelector('h3').textContent + ' / ' + [...d.querySelectorAll('.lmd-ask-actions button')].map((b) => b.textContent).join(',') : '', cartel: !document.querySelector('.lmd-copybar').hidden }; });
   const seguir = async (texto) => { await app.locator('.markdown-body a', { hasText: texto }).first().click(); await app.waitForTimeout(700); };
   await app.goto(home); await app.waitForSelector('.lmd-home'); await simular();
   await app.evaluate((u) => { history.pushState(null, '', u); window.dispatchEvent(new PopStateEvent('popstate')); }, fsDe('C:/notas/proyecto/avance.md'));

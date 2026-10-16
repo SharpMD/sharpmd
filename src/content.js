@@ -327,7 +327,7 @@
     if (r.kind === 'local') return LMD.store.notesAll().then((all) => under(all.map((n) => n.name), vParts(url).map((p) => p + '/').join('')));
     if (r.kind === 'pub') { const k = pubOf(url); return Promise.resolve(k ? under(k.info.notes.map((n) => n.path), vParts(url).slice(1).map((p) => p + '/').join('')) : null); }
     if (r.kind !== 'dir') return Promise.resolve(null);
-    const job = countQueue.then(() => new Promise((resolve) => setTimeout(resolve, 0))).then(() => diskCount(url, 0)).then((c) => (c && !c.fail ? { n: c.n, more: c.more, files: !settings.filesOnlyMarkdown } : null));
+    const job = countQueue.then(() => new Promise((resolve) => setTimeout(resolve, 0))).then(() => diskCount(url, 0)).then((c) => (c && !c.fail ? { n: c.n, more: c.more, files: false } : null));
     countQueue = job.catch(() => null);
     return job;
   }
@@ -3129,29 +3129,33 @@
   // Lo que dice el pie cuando no hay nada que avisar. La recarga automática se nombra solo donde hay un archivo
   // que otro programa puede cambiar: en una nota del navegador o de la nube no le dice nada a nadie.
   const idleStatus = () => (settings.autoRefresh && !noDoc && (!APP || (appRoot && appRoot.root)) ? T('Recarga automática activa') : '');
-  let flashTimer = null;
-  // Aviso corto en la barra. Los errores van en rojo y duran más.
+  let toast = null; let toastTimer = null; let toastBox = null;
+  // Aviso corto: una burbuja abajo a la derecha, encima del pie. Dura 2 segundos; las advertencias y los errores, 5, y salen en color.
+  // El pie no se toca: sigue con idleStatus(). La zona es una sola y está siempre en la página, para que el lector de pantalla anuncie lo que entra.
   function flash(msg, kind) {
-    // Sin nota abierta no hay pie donde mostrarlo: los avisos que importan van al estado vacío.
+    // Sin nota abierta no hay dónde mostrarlo: los avisos que importan van al estado vacío.
     if (noDoc) { if (kind && !ui.home.hidden) LMD.home.say(msg); return; }
     // Un aviso común no pisa una advertencia o un error que todavía están a la vista.
-    if (!kind && (ui.status.classList.contains('lmd-error') || ui.status.classList.contains('lmd-warn'))) return;
-    ui.status.textContent = msg;
-    ui.status.classList.add('lmd-flash');
-    ui.status.classList.toggle('lmd-error', kind === 'error');
-    ui.status.classList.toggle('lmd-warn', kind === 'warn');
-    clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => {
-      ui.status.classList.remove('lmd-flash', 'lmd-error', 'lmd-warn');
-      ui.status.textContent = idleStatus();
-    }, kind ? 5000 : 1800);
-    // Con el teclado en pantalla abierto el pie no se ve: una advertencia o un error salen además arriba, a la vista.
+    if (!kind && toast && toast.isConnected && toast.classList.contains('lmd-bad')) return;
+    // Con el teclado en pantalla abierto el pie no se ve: una advertencia o un error salen arriba, a la vista, y nada más.
     if (kind && document.documentElement.classList.contains('lmd-kb')) {
       if (flashTop) flashTop.remove();
       const t = el('div', { class: 'lmd-flash-top' + (kind === 'error' ? ' lmd-error' : ''), role: 'status', text: msg }); flashTop = t;
       document.body.appendChild(t);
       setTimeout(() => { t.remove(); if (flashTop === t) flashTop = null; }, 5000);
+      return;
     }
+    if (!toastBox || !toastBox.isConnected) { toastBox = el('div', { class: 'lmd-toasts', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastBox); }
+    if (toast) toast.remove();
+    clearTimeout(toastTimer);
+    const t = el('div', { class: 'lmd-toast' + (kind ? ' lmd-bad lmd-' + (kind === 'error' ? 'error' : 'warn') : ''), text: msg });
+    if (kind === 'error') t.setAttribute('role', 'alert');
+    toast = t; toastBox.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('lmd-in'));
+    toastTimer = setTimeout(() => {
+      t.classList.remove('lmd-in'); t.classList.add('lmd-out');
+      setTimeout(() => { t.remove(); if (toast === t) toast = null; }, 220);
+    }, kind ? 5000 : 2000);
   }
   let flashTop = null;
 
@@ -3451,9 +3455,11 @@
       // Una carpeta compartida por enlace (o una plantilla) que se está leyendo: sus notas, arriba de todo.
       const pk = inPub();
       if (pk) add('pub', { name: pk.info.name, title: T(pk.info.template ? 'Plantilla · solo lectura' : 'Carpeta compartida · solo lectura'), icon: ICON.folder, url: VBASE + pubPath(pk.ref, '') + '/' });
+      // Una plantilla se lee sola: sin las carpetas propias al lado, que además se recorren para contarlas y la hacen lenta.
+      const solo = !!(pk && pk.info.template);
       // Abiertos: los archivos sueltos como renglones y, debajo, cada carpeta. La de la nota a la vista (o la última
       // que se usó) va desplegada, con subir y crear; las demás, plegadas hasta que se las toca.
-      if (items.length) {
+      if (items.length && !solo) {
         const sec = rootSection('open', { name: T('Abiertos'), title: T('Lo que abriste del disco. Queda acá hasta que lo cierres.'), icon: ICON.open });
         secs.push(sec);
         const box = sec.querySelector('.lmd-tree'); box.classList.add('lmd-open-list');
@@ -3476,7 +3482,7 @@
       if (diskRoot && !items.some((it) => it.kind === 'dir' && it.rec.id === diskRoot.id && it.state === 'granted')) { diskRoot = null; treeRoot = ''; }
       // Un archivo del disco abierto por enlace: su rama, desde un par de carpetas más arriba, con el camino completo
       // en el título. Debajo, cómo abrir la carpeta de verdad (para ver todo y poder guardar).
-      if (!noDoc && appRoot && appRoot.kind === 'fs') {
+      if (!solo && !noDoc && appRoot && appRoot.kind === 'fs') {
         // En el visor (un PDF, un libro o una imagen, en la página de la extensión) la rama es la carpeta del archivo,
         // como en el lector de una nota del disco.
         const parts = vParts(HERE); const up = inDir() ? parts.length : Math.max(1, parts.length - 1 - (isBin() ? 0 : FS_UP)); // la página de una carpeta: su rama es ella misma
@@ -3484,8 +3490,7 @@
         const list = add('fs', { name: T('Del disco') + ' · ' + parts[up - 1], title: LMD.filePath(fsFile(top)), icon: ICON.folder, url: top });
         if (window.showDirectoryPicker && !isBin()) list.after(el('button', { type: 'button', class: 'lmd-link lmd-root-hint', 'data-fs': 'grant', text: T('Abrir esta carpeta') }));
       }
-      add('local', { name: T('En este navegador'), icon: ICON.browser, url: VBASE + 'local/', add: true });
-      cloudRoots(add, fills);
+      if (!solo) { add('local', { name: T('En este navegador'), icon: ICON.browser, url: VBASE + 'local/', add: true }); cloudRoots(add, fills); }
       // La guía no aparece sola: se llega desde "Ver cómo funciona" del inicio y desde Ajustes. Su raíz está a la vista
       // mientras se lee una de sus notas, para pasar de una a otra, y se va al salir.
       if (inGuide()) add('guide', { name: T('Guía'), title: T('Cómo funciona SharpMD'), icon: ICON.book, url: VBASE + 'guide/' });
@@ -3845,7 +3850,7 @@
       let n = 0; let more = false;
       for (const r of rows) {
         if (!settings.filesShowHidden && r.name.startsWith('.')) continue;
-        if (!r.dir) { if (listed(r.name)) n++; continue; }
+        if (!r.dir) { if (MD_RE.test(r.name) || TXT_RE.test(r.name)) n++; continue; } // cuenta notas: lo que se lee y se escribe acá
         if (SKIP_DIRS.test(r.name) || TREE_SKIP.test(r.name)) continue;
         const sub = await diskCount(r.url, depth + 1);
         n += sub.n; more = more || sub.more;
@@ -3869,8 +3874,7 @@
       const more = c.more || c.n > 999;
       // El número lo dibuja la hoja de estilos: el texto del renglón sigue siendo el nombre de la carpeta.
       tag.dataset.n = c.n > 999 ? '999+' : c.n + (c.more ? '+' : '');
-      const notes = settings.filesOnlyMarkdown || (APP && (rootOf(url) || {}).kind === 'cloud');
-      const full = T(notes ? (more ? 'Más de {n} notas' : c.n === 1 ? '1 nota' : '{n} notas') : (more ? 'Más de {n} archivos' : c.n === 1 ? '1 archivo' : '{n} archivos'), { n: Math.min(c.n, 999) });
+      const full = T(more ? 'Más de {n} notas' : c.n === 1 ? '1 nota' : '{n} notas', { n: Math.min(c.n, 999) });
       tag.setAttribute('aria-label', full); tag.title = full; tag.hidden = false;
     };
     if ((rootOf(url) || {}).kind === 'cloud') cloudCount(url).then(paint, () => {});
@@ -5126,6 +5130,7 @@
     localName: (url) => vParts(url).join('/'),
     localUrl: (name) => VBASE + 'local/' + String(name).split('/').map(encodeURIComponent).join('/'),
     // La carpeta compartida por enlace que se está leyendo: cómo se llegó (ref), qué trae (info) y con qué nota abre (fork.js).
+    useTemplate: (why) => useTemplate(why),
     pub: () => { const k = inPub(); return k ? { ref: k.ref, info: k.info, first: pubFirst(k.info) } : null; },
     urlOf: (path) => VBASE + 'cloud/' + path.split('/').map(encodeURIComponent).join('/'),
     rootOf,
@@ -5833,7 +5838,7 @@
     document.documentElement.classList.toggle('lmd-bin', isBin());
     document.documentElement.classList.toggle('lmd-noreload', !diskDoc());
     ui.main.querySelector('.lmd-report').hidden = !(APP && LMD.sync.reportRef());
-    if (settings && !ui.status.classList.contains('lmd-flash')) ui.status.textContent = idleStatus();
+    if (settings) ui.status.textContent = idleStatus();
   }
   function showEmpty(note) { ui.home.hidden = false; LMD.home.show(homeCtx(), note); core.hooks.home.forEach((fn) => fn(ui.home)); unsplash(); firstTour(); }
   // Primera vez en el celular: el recorrido de tres pasos, sin trabar el primer pintado.

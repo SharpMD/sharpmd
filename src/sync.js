@@ -1089,7 +1089,8 @@
   const canLinkFolder = (full) => !!core && !!account && !!account.share && !!full && LMD.cloud.signedIn() && !LMD.cloud.guest()
     && (LMD.cloud.isTeam(full + '/') ? LMD.cloud.teamCan('links') : !LMD.cloud.split(full + '/x').owner);
   const NAME_OK = /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,38}[a-z0-9]$/;
-  async function shareFolder(full) {
+  // opt.template: abre con "Es una plantilla" ya marcada (Mis plantillas, en el selector de plantillas).
+  async function shareFolder(full, opt) {
     const tm = LMD.cloud.isTeam(full + '/'); const pre = tm ? full.slice(0, full.indexOf('/') + 1) : '';
     const path = full.slice(pre.length); const title = T('Compartir la carpeta "{a}"', { a: path.split('/').pop() });
     // Ni la carpeta, ni una de más arriba, ni una de adentro pueden estar protegidas con contraseña.
@@ -1142,6 +1143,8 @@
       } catch (e) { fail(e); }
     };
     await draw();
+    // Una carpeta que todavía no tiene enlace arranca como plantilla si se llegó desde "Crear plantilla".
+    if (opt && opt.template && !(cur && cur.template) && q('tpl') && !q('tpl').disabled) { q('tpl').checked = true; sync(); }
     box.addEventListener('change', (e) => { if (e.target.closest('[data-sf=tpl]')) sync(); });
     // El nombre se acomoda mientras se escribe: sin mayúsculas ni acentos, y con guiones en lugar de espacios.
     if (q('name')) q('name').addEventListener('input', () => { const i = q('name'); const v = i.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-{2,}/g, '-'); if (v !== i.value) i.value = v; err.hidden = true; });
@@ -1265,5 +1268,5 @@
   const reload = async () => { account = await LMD.cloud.account(); asked = true; adopt(account, true); paint(); return account; };
 
   LMD.sync = { init, paint, click, panes, reload, dialog, feedback, report, reportRef, awaitPaid, openCloud, quota, room: roomNotice, full: fullWhy, PAY, login, me, foldersOf, signOut, dropSession, aiBrief, askName: () => { wantName = true; }, account: () => account, why: (text) => { planWhy = text || ''; },
-    repaintAi: () => { if (aiRedraw) aiRedraw(); if (secRedraw) secRedraw(); }, security, canPublish, publish, siteState, canLink, publicLink, linkWhy, canLinkFolder, shareFolder };
+    repaintAi: () => { if (aiRedraw) aiRedraw(); if (secRedraw) secRedraw(); }, security, canPublish, publish, siteState, canLink, publicLink, linkWhy, canLinkFolder, shareFolder, tplHost };
 })();

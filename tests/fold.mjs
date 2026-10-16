@@ -343,7 +343,7 @@ await step('Plegado por títulos: el chevron va en el margen, a la izquierda del
   check('el menú del bloque de un título ofrece copiar el enlace a la sección', (await b.page.textContent('.lmd-menu [data-extra=anchor]')).trim() === 'Copy link to this section');
   await b.page.click('.lmd-menu [data-extra=anchor]'); await sleep(250);
   const link = await b.page.evaluate(() => navigator.clipboard.readText());
-  check('y lo copia', /#alpha$/.test(link) && /Copied/.test(await b.page.textContent('.lmd-status')), link);
+  check('y lo copia', /#alpha$/.test(link) && /Copied/.test(await b.page.evaluate(() => [...document.querySelectorAll('.lmd-toast, .lmd-status')].map((n) => n.textContent).filter(Boolean).join(' '))), link);
   await overTitle();
   await b.page.click('.lmd-article > h2 > .lmd-fold-tog'); await sleep(250);
   check('editando, el chevron pliega igual', !(await seen(b.page)).includes('Alpha one.'), await seen(b.page));
