@@ -42,8 +42,10 @@ Alt+Shift+Z leaves only the text; Esc brings everything back. You can also pin t
 - On the phone, a short tour the first time, and a notice when you are offline.
 - An Open section in the explorer for the files and folders on your disk.
 - From a template shows the groups on the left. A shared template opens on its own, without your folders next to it.
+- A button above Files sorts by name or by what you opened last: what you open moves to the top.
+- A link to a file that is already in the sidebar opens it right there, without leaving the note, and Back takes you to where you were.
 
-*Up to version 2.89*
+*Up to version 2.90*
 
 ## October 5 to 11, 2026 {#2026-10-05}
 

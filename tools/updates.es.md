@@ -42,8 +42,10 @@ Alt+Shift+Z deja solo el texto; Esc vuelve. También podés fijar arriba las not
 - En el teléfono, un recorrido corto la primera vez, y un aviso cuando estás sin conexión.
 - Una sección Abiertos en el explorador para los archivos y carpetas de tu disco.
 - Desde una plantilla muestra los grupos a la izquierda. Una plantilla compartida se abre sola, sin tus carpetas al lado.
+- Un botón arriba de Archivos ordena por nombre o por lo último que abriste: lo que abrís sube solo.
+- Un enlace a un archivo que ya está en el lateral lo abre ahí mismo, sin salir de la nota, y Atrás te devuelve a donde estabas.
 
-*Hasta la versión 2.89*
+*Hasta la versión 2.90*
 
 ## Del 5 al 11 de octubre de 2026 {#2026-10-05}
 
