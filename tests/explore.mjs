@@ -385,7 +385,7 @@ await step('look', 'Temas, acento, sin movimiento y la plantilla', async () => {
     await until(() => page.evaluate(() => !!LMD.templates));
     const tpl = await page.evaluate(() => { const was = LMD.lang; const out = {}; for (const l of ['en', 'es']) { LMD.lang = () => l; const t = LMD.templates.get('archmap'); const item = LMD.templates.list().find((x) => x.id === 'archmap'); out[l] = { name: item && item.name, group: item && item.group, file: t && t.file, text: t ? t.text : '' }; } LMD.lang = was; return out; });
     check('la plantilla está en la lista, en los dos idiomas', tpl.en.name === 'Architecture map' && tpl.es.name === 'Mapa de arquitectura' && tpl.en.group === 'product' && tpl.en.file === 'architecture-map' && /```mermaid\nflowchart/.test(tpl.en.text) && /```mermaid\nflowchart/.test(tpl.es.text), [tpl.en.name, tpl.es.name, tpl.en.file]);
-    check('y no hay ninguna otra con ese id ni se perdió ninguna', await page.evaluate(() => { const l = LMD.templates.list(); return l.length === 29 && new Set(l.map((x) => x.id)).size === 29; }));
+    check('y no hay ninguna otra con ese id ni se perdió ninguna', await page.evaluate(() => { const l = LMD.templates.list(); return l.length === 35 && new Set(l.map((x) => x.id)).size === 35; }));
     for (const l of ['en', 'es']) {
       await note(page, true, tpl[l].text);
       const s = await st(page);

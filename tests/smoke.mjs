@@ -400,7 +400,7 @@ try {
     // Quien ya usó la app también ve la portada en la raíz: se le elige titular y cuenta como visita.
     await ab.evaluate(() => { localStorage.setItem('sharpmd:app', '1'); localStorage.removeItem('sharpmd:hero'); }); beats.length = 0;
     await ab.goto('https://sharpmd.app/').catch(() => {}); await ab.waitForSelector('.hero h1', { timeout: 10000 }).catch(() => {}); await ab.waitForTimeout(300);
-    check('titulares a prueba: quien entra directo a la app no cuenta como visita ni recibe un titular', /src\/app\.html/.test(ab.url()) && beats.filter((b) => /"p":"home"/.test(String(b.body))).length === 0 && (await ab.evaluate(() => localStorage.getItem('sharpmd:hero'))) === null, [ab.url(), beats.length]);
+    check('titulares a prueba: quien ya usó la app ve la portada en la raíz, cuenta como visita y recibe un titular', !/src\/app\.html/.test(ab.url()) && beats.filter((b) => /"p":"home"/.test(String(b.body))).length === 1 && (await ab.evaluate(() => localStorage.getItem('sharpmd:hero'))) !== null, [ab.url(), beats.length]);
     await ab.close();
   }
   await web.evaluate(async () => {

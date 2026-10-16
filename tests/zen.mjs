@@ -20,6 +20,8 @@ const newNote = async (page) => {
 };
 const zenOn = (page) => page.evaluate(() => document.documentElement.classList.contains('lmd-zen'));
 const shown = (page, sel) => page.evaluate((s) => { const n = document.querySelector(s); if (!n) return false; const r = n.getBoundingClientRect(); return getComputedStyle(n).display !== 'none' && r.width > 0 && r.height > 0; }, sel);
+// El menú de la nota: el botón "más" solo se ve con la barra apretada; con lugar, es el clic derecho sobre el nombre.
+const noteMenu = async (page) => { if (await shown(page, '[data-act=more]')) await page.click('[data-act=more]'); else await page.click('.lmd-docname', { button: 'right' }); };
 
 try {
   // ---------- Modo sin distracciones (escritorio) ----------
@@ -44,7 +46,8 @@ try {
   check('Alt+Shift+Z lo apaga', !(await zenOn(page)));
 
   // Editando: el primer Esc cierra la edición del bloque y el segundo sale del modo.
-  await page.click('[data-act=mode-edit]').catch(() => {}); await sleep(300);
+  if (!(await page.evaluate(() => document.documentElement.classList.contains('lmd-editing')))) { await page.click('[data-act=mode-edit]').catch(() => {}); await sleep(300); } // una nota nueva ya se abre editando
+  if (!(await page.$('.lmd-article .lmd-editable'))) { await page.click('.lmd-article .lmd-add'); await sleep(300); } // el párrafo vacío se va al perder el foco: "Keep writing" trae otro
   const block = page.locator('.lmd-article .lmd-editable').first();
   await block.click(); await page.keyboard.type('Escribo en el modo', { delay: 10 });
   await page.keyboard.press('Alt+Shift+Z'); await sleep(200);
@@ -56,17 +59,17 @@ try {
   check('con Esc se sale del modo aun editando', !(await zenOn(page)));
 
   // ---------- Fijar ----------
-  await page.click('[data-act=more]'); await page.waitForSelector('.lmd-menu', { timeout: 4000 });
-  const label = await page.evaluate(() => { const b = document.querySelector('.lmd-menu [data-more=pin]'); return b ? b.textContent.trim() : ''; });
+  await noteMenu(page); await page.waitForSelector('.lmd-menu', { timeout: 4000 });
+  const label = await page.evaluate(() => { const b = document.querySelector('.lmd-menu [data-more=pin], .lmd-menu [data-f=pin]'); return b ? b.textContent.trim() : ''; });
   check('el menú de la nota ofrece fijar', /Pin to the top/.test(label), label);
-  await page.click('.lmd-menu [data-more=pin]'); await sleep(500);
+  await page.click('.lmd-menu [data-more=pin], .lmd-menu [data-f=pin]'); await sleep(500);
   const pinned = await until(() => page.evaluate(() => (JSON.parse(localStorage.getItem('mdtools:settings') || '{}').pins || []).length));
   check('fijar guarda la nota en las preferencias de este navegador', pinned === 1, pinned);
   const section = await until(() => page.evaluate(() => { const s = document.querySelector('.lmd-xroot[data-root=pins]'); return s ? s.querySelectorAll('.lmd-node').length : 0; }));
   check('la sección Fijadas sale arriba del explorador con la nota', section === 1 && await page.evaluate(() => document.querySelector('#lmd-tree .lmd-xroot, .lmd-tree-box .lmd-xroot, .lmd-xroot') === document.querySelector('.lmd-xroot[data-root=pins]')), section);
 
-  await page.click('[data-act=more]'); await page.waitForSelector('.lmd-menu');
-  check('con la nota fijada el menú ofrece soltarla', /Unpin/.test(await page.textContent('.lmd-menu [data-more=pin]')));
+  await noteMenu(page); await page.waitForSelector('.lmd-menu');
+  check('con la nota fijada el menú ofrece soltarla', /Unpin/.test(await page.textContent('.lmd-menu [data-more=pin], .lmd-menu [data-f=pin]')));
   await page.keyboard.press('Escape'); await sleep(200);
 
   await page.reload(); await page.waitForSelector('.lmd-article', { timeout: 15000 }).catch(() => {}); await sleep(600);
@@ -80,7 +83,7 @@ try {
   check('y la saca de las preferencias', await page.evaluate(() => (JSON.parse(localStorage.getItem('mdtools:settings') || '{}').pins || []).length === 0));
 
   // El inicio muestra las fijadas.
-  await page.click('[data-act=more]'); await page.waitForSelector('.lmd-menu'); await page.click('.lmd-menu [data-more=pin]'); await sleep(400);
+  await noteMenu(page); await page.waitForSelector('.lmd-menu'); await page.click('.lmd-menu [data-more=pin], .lmd-menu [data-f=pin]'); await sleep(400);
   await page.goto(R.home); await page.waitForSelector('.lmd-home', { timeout: 15000 });
   check('el inicio lista las notas fijadas', await until(() => page.evaluate(() => document.querySelectorAll('.lmd-home-pins a.lmd-home-pin').length === 1)));
   await d.ctx.close();

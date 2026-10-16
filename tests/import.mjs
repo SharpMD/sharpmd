@@ -485,13 +485,13 @@ await step('bad', 'Archivo inválido', async () => {
   const { ctx, page } = await open(ON);
   await home(page);
   const junk = Buffer.from('this is not a zip file at all, just some text that says so');
-  for (const name of ['x.docx', 'x.xlsx', 'x.pptx', 'x.epub']) check(name + ' que no es un zip: se dice', (await conv(page, name, junk)).error === 'bad');
+  for (const name of ['x.docx', 'x.xlsx', 'x.pptx', 'x.epub', 'x.zip']) check(name + ' que no es un zip: se dice', (await conv(page, name, junk)).error === 'bad');
   check('un zip que no es Word', (await conv(page, 'x.docx', zip({ 'hello.txt': 'hi' }))).error === 'bad');
   check('un Word con el XML roto', (await conv(page, 'x.docx', zip({ 'word/document.xml': '<w:document><w:body><w:p>' }))).error === 'bad');
   check('un zip cortado por la mitad', (await conv(page, 'x.docx', DOCX.subarray(0, DOCX.length - 40))).error === 'bad');
-  check('un tipo que no se convierte', (await conv(page, 'x.zip', junk)).error === 'type' && (await conv(page, 'notes.txt', junk)).error === 'type' && (await conv(page, 'data.json', junk)).error === 'type');
+  check('un tipo que no se convierte', (await conv(page, 'notes.txt', junk)).error === 'type' && (await conv(page, 'data.json', junk)).error === 'type');
   check('un HTML sin texto', (await conv(page, 'e.html', '<html><body><script>1</script></body></html>')).error === 'empty');
-  check('lo que la herramienta acepta: ni .txt ni .json ni .yaml', await page.evaluate(() => LMD.import.accept === '.docx,.xlsx,.pptx,.epub,.pdf,.html,.htm,.csv,.tsv' && !LMD.import.takes('a.txt') && !LMD.import.takes('a.json') && !LMD.import.takes('a.yaml') && !LMD.import.takes('a.md') && LMD.import.takes('A.PDF')));
+  check('lo que la herramienta acepta: .zip sí, ni .txt ni .json ni .yaml', await page.evaluate(() => LMD.import.accept === '.docx,.xlsx,.pptx,.epub,.pdf,.html,.htm,.csv,.tsv,.zip' && LMD.import.takes('a.zip') && !LMD.import.takes('a.txt') && !LMD.import.takes('a.json') && !LMD.import.takes('a.yaml') && !LMD.import.takes('a.md') && LMD.import.takes('A.PDF')));
   await choose(page, file('broken.docx', junk)); await finished(page);
   const d = await dlg(page);
   check('el diálogo lo dice y deja solo Cerrar, con el foco ahí', d.err === 'The file is damaged or is not what its name says.' && J(d.buttons) === J(['Close']) && d.focus === 'Close' && d.sum === '', d);

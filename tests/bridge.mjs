@@ -602,7 +602,7 @@ try {
   await sibling.click({ button: 'right' }).catch(() => {}); await lk.waitForSelector('.lmd-menu-narrow [data-f=flink]', { timeout: 4000 }).catch(() => {});
   const treeItems = await lk.evaluate(() => [...document.querySelectorAll('.lmd-menu [data-f]')].map((b) => b.textContent.trim()));
   await lk.click('.lmd-menu [data-f=flink]').catch(() => {}); await lk.waitForTimeout(300);
-  check('y el clic derecho sobre un archivo del explorador, el de ese archivo', J(treeItems) === J(['Copy SharpMD link', 'Copy path', 'Copy as file:// address', 'View the folder in the browser', 'Show in Explorer…']) && (await clip(lk)) === linkTo(WEB, pathToFileURL(path.join(disk, 'other.md')).href), [treeItems, await clip(lk)]);
+  check('y el clic derecho sobre un archivo del explorador, el de ese archivo', J(treeItems) === J(['Copy SharpMD link', 'Pin to the top', 'Copy path', 'Copy as file:// address', 'View the folder in the browser', 'Show in Explorer…']) && (await clip(lk)) === linkTo(WEB, pathToFileURL(path.join(disk, 'other.md')).href), [treeItems, await clip(lk)]);
   await lk.close();
 
   // Un archivo que no está, y un nombre que quiere ser HTML: la ruta se muestra siempre como texto.

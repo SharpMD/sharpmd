@@ -425,7 +425,7 @@ try {
   await page.bringToFront();
   check('la ruta de la carpeta sale como la escribe el sistema, sin barra al final; la dirección, con ella', dirPath === odd && dirUrl === pathToFileURL(odd).href + '/', [dirPath, dirUrl]);
   const fileItems = await menuAt(node('carpeta%20%C3%B1and%C3%BA/d%C3%ADa%20uno.md'));
-  check('el de un archivo, lo mismo más el enlace de SharpMD', J(fileItems.filter((x) => !/cloud/i.test(x))) === J(['Copy SharpMD link', 'Copy path', 'Copy as file:// address', 'View the folder in the browser', 'Show in Explorer…']), fileItems);
+  check('el de un archivo, lo mismo más el enlace de SharpMD', J(fileItems.filter((x) => !/cloud/i.test(x))) === J(['Copy SharpMD link', 'Pin to the top', 'Copy path', 'Copy as file:// address', 'View the folder in the browser', 'Show in Explorer…']), fileItems);
   await page.click('.lmd-menu-narrow [data-f=reveal-how]').catch(() => {}); await page.waitForSelector('.lmd-dlg-card', { timeout: 4000 }).catch(() => {});
   const how = await page.evaluate(() => { const c = document.querySelector('.lmd-dlg-card'); return c ? { title: c.querySelector('h3').textContent, text: c.querySelector('p').textContent, ok: c.querySelector('[data-dlg=ok]').textContent, all: c.textContent } : null; });
   check('sin el programa local, "Mostrar en el Explorador…" dice en una línea qué hace falta y lleva a su página', !!how && how.title === 'Show in Explorer' && how.text === 'Opening the file explorer needs the SharpMD local program, which runs on your computer.' && how.ok === 'See how to install it' && !/[!¡—–]/.test(how.all), how);

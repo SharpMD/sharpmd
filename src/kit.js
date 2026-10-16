@@ -91,7 +91,8 @@
       else if (k === 'text') n.textContent = attrs[k];
       else n.setAttribute(k, attrs[k]);
     }
-    if (html != null) n.innerHTML = html;
+    if (Array.isArray(html)) html.forEach((c) => { if (c) n.appendChild(c); }); // hijos ya armados (el recorrido de la primera vez)
+    else if (html != null) n.innerHTML = html;
     return n;
   };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

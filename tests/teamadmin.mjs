@@ -179,12 +179,12 @@ try {
   const ttBad = [await api('POST', '/team/tokens', { name: 'x', write: true }, B.s), await api('GET', '/team/tokens', undefined, RD.s), await api('POST', '/team/tokens', { name: 'x' }, Z.s)];
   check('solo quien administra crea y ve los tokens del equipo', ttBad[0].status === 403 && ttBad[1].status === 403 && ttBad[2].status === 404, ttBad.map((r) => r.json));
   check('un token sin nombre no se crea', (await api('POST', '/team/tokens', { name: '  ', write: true }, D.s)).status === 400);
-  const full = (await api('POST', '/team/tokens', { name: 'Bot de despliegue', write: true, share: true }, D.s)).json;
+  const full = (await api('POST', '/team/tokens', { name: 'Bot de despliegue', write: true, share: true }, A.s)).json;
   const ro = (await api('POST', '/team/tokens', { name: 'Solo lectura' }, A.s)).json;
   const sc = (await api('POST', '/team/tokens', { name: 'Docs', folder: 'docs', write: true }, A.s)).json;
   check('se crean con nombre, carpeta y permisos, y el token se entrega una sola vez', /^mdt_/.test(full.token) && full.write === true && full.share === true && ro.write === false && ro.share === false && sc.scope === 'docs', [full, ro, sc]);
   const tl = (await api('GET', '/team/tokens', undefined, A.s)).json;
-  check('la lista dice quién creó cada uno, y no trae el token', tl.length === 3 && tl.find((x) => x.name === 'Bot de despliegue').by === D.email && !/mdt_/.test(JSON.stringify(tl)), tl);
+  check('la lista dice quién creó cada uno, y no trae el token', tl.length === 3 && tl.find((x) => x.name === 'Bot de despliegue').by === A.email && !/mdt_/.test(JSON.stringify(tl)), tl);
   check('no se mezclan con los tokens personales de nadie', !(await api('GET', '/tokens', undefined, A.s)).json.some((x) => x.name === 'Docs') && !(await api('GET', '/tokens', undefined, D.s)).json.length);
   const tlist = text(await tool(full.token, 'list_notes', {}));
   check('ve el espacio del equipo como raíz, sin @team/, y nada de ninguna persona', /"plan\.md"/.test(tlist) && !/@team/.test(tlist) && !/mia\.md/.test(tlist), tlist.slice(0, 300));
@@ -195,8 +195,9 @@ try {
   const tSh = await tool(full.token, 'share_note', { path: 'bot/estado.md', email: Z.email }); const tLk = await tool(full.token, 'create_public_link', { path: 'bot/estado.md' });
   check('respeta las políticas: comparte porque está permitido, y no crea enlaces porque no', tSh.isError !== true && tLk.isError === true, [text(tSh), text(tLk)]);
   check('con la sesión de una cuenta no sirve, ni para la administración', (await api('GET', '/account', undefined, full.token)).status === 401 && (await api('GET', '/team/tokens', undefined, full.token)).status === 401);
+  const gone = (await api('POST', '/team/tokens', { name: 'Bot de Dana' }, D.s)).json;
   await api('POST', '/team/remove', { id: D.id }, A.s);
-  check('sigue andando cuando quien lo creó ya no está en el equipo', text(await tool(full.token, 'read_note', { path: 'plan.md' })).includes('tres') && (await api('GET', '/team/tokens', undefined, A.s)).json.length === 3);
+  check('al salir quien lo creó, su token se revoca y los de los demás siguen andando', (await api('POST', '/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, gone.token)).status === 401 && text(await tool(full.token, 'read_note', { path: 'plan.md' })).includes('tres') && (await api('GET', '/team/tokens', undefined, A.s)).json.length === 3);
   check('quien salió ya no administra nada', (await api('GET', '/team/tokens', undefined, D.s)).status === 404 && (await api('GET', '/team/log', undefined, D.s)).status === 404 && (await api('PUT', '/team/policies', { share: false }, D.s)).status === 404);
   const rev = await api('DELETE', '/team/tokens/' + sc.id, undefined, A.s);
   check('revocado, deja de entrar', rev.status === 200 && (await api('POST', '/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, sc.token)).status === 401);

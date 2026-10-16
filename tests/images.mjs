@@ -66,7 +66,7 @@ const IN_PAGE = () => {
   const photo = async (w, h, q) => bytes(await blobOf(paint(w || 900, h || 600), 'image/jpeg', q || 0.9));
   window.__img = { blobOf, paint, bytes, withExif, has, fileOf, sizeOf, pixel, paste, photo };
 };
-const prep = async (page) => { await page.evaluate(IN_PAGE); };
+const prep = async (page) => { await page.evaluate(IN_PAGE); await page.evaluate(() => { try { localStorage.setItem('lmd-image-public-seen', '1'); } catch (e) { /* sin almacenamiento */ } }); }; // el aviso de "las imágenes no son privadas" sale una vez por navegador: acá ya se vio
 const until = async (fn, ms) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > (ms || 8000)) return v; await sleep(120); } };
 
 const R = await rig((port) => ({ PAGES_URL: 'http://pages.localhost:' + port, AUTH_PER_IP: '500' }));

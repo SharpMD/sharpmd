@@ -169,6 +169,7 @@ const browser = null;
 async function web(opt, files) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'sharpmd-htmlweb-'));
   const ctx = await chromium.launchPersistentContext(profile, Object.assign({ executablePath: process.env.CHROME_BIN || chromium.executablePath(), viewport: { width: 1280, height: 800 }, colorScheme: 'dark', locale: 'en-US' }, opt || {}));
+  await ctx.addInitScript(() => { try { localStorage.setItem('lmd-tour-seen', '1'); } catch (e) { /* sin almacenamiento */ } }); // el recorrido de la primera vez tapa la pantalla chica: ya se vio
   await ctx.route((url) => /(^|\.)sharpmd\.app$/.test(url.hostname), (r) => r.abort());
   const page = await ctx.newPage(); page.on('pageerror', (e) => errors.push(e.message));
   if (process.env.DEBUG) { page.on('framenavigated', (fr) => { if (fr !== page.mainFrame()) console.log('    [marco] ' + fr.url().slice(0, 90)); }); page.on('console', (m) => { if (m.type() === 'error') console.log('    [consola] ' + m.text().slice(0, 200)); }); }

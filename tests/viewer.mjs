@@ -22,6 +22,7 @@ async function openCtx(opt) {
   const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker', { timeout: 15000 });
   EXT = 'chrome-extension://' + new URL(sw.url()).host;
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: EXT }).catch(() => {});
+  await ctx.addInitScript(() => { try { localStorage.setItem('lmd-tour-seen', '1'); } catch (e) { /* sin almacenamiento */ } }); // el recorrido de la primera vez tapa la pantalla chica: ya se vio
   const page = await ctx.newPage(); page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(EXT + '/src/app.html'); await page.waitForSelector('.lmd-home');
   await page.evaluate(() => new Promise((resolve) => chrome.storage.local.set({ settings: { cloudUrl: 'off' } }, resolve)));

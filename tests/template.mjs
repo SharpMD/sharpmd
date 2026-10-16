@@ -71,7 +71,7 @@ try {
   const out3 = await api('GET', '/public/' + tok + '?note=' + encodeURIComponent('/privado/diario.md'));
   check('una ruta que sale de la carpeta no devuelve nada', out1.status >= 400 && out2.status === 404 && out3.status === 404 && ![out1, out2, out3].some((r) => /SECRETO/.test(J(r.json))), [out1.status, out2.status, out3.status]);
   check('sin marcarla como plantilla no se entrega entera ni cuenta copias', (await api('GET', '/public/' + tok + '?all=1')).json.error === 'not_template' && (await api('POST', '/public/' + tok + '/copied')).json.error === 'not_template');
-  check('un enlace de carpeta no lleva contraseña', (await api('POST', '/links', { path: 'Planillas', kind: 'folder', password: 'x' }, autora.s)).json.error === 'folder_password');
+  check('una plantilla no lleva contraseña', (await api('POST', '/links', { path: 'Planillas', kind: 'folder', template: true, password: 'x' }, autora.s)).json.error === 'template_password');
   check('una carpeta que no existe no se comparte, y sin el plan pago tampoco', (await api('POST', '/links', { path: 'no-hay', kind: 'folder' }, autora.s)).status === 404 && (await api('POST', '/links', { path: 'x', kind: 'folder' }, (await R.signup('gratis@example.test')).s)).json.error === 'share_needs_plan');
 
   console.log('Plantilla, nombre corto y nombres que no se dan');
@@ -85,7 +85,7 @@ try {
   check('marcada como plantilla, con su nombre: se guarda con el enlace', named.status === 200 && named.json.template === true && named.json.login === false && named.json.name === 'planillas-libro' && named.json.copies === 0, named.json);
   const mine = (await links(autora, 'Planillas'))[0];
   check('quien administra el enlace lo ve con sus opciones y su contador', mine.kind === 'folder' && mine.path === 'Planillas' && mine.template && !mine.login && mine.name === 'planillas-libro' && mine.copies === 0, mine);
-  check('la lista de enlaces de una nota no cambia de forma', J(Object.keys((await api('POST', '/links', { path: 'privado/diario.md' }, autora.s)).json).sort()) === J(['id', 'protected', 'token']) && J(Object.keys((await links(autora, 'privado/diario.md'))[0]).sort()) === J(['created', 'id', 'path', 'protected']));
+  check('la lista de enlaces de una nota no cambia de forma', J(Object.keys((await api('POST', '/links', { path: 'privado/diario.md' }, autora.s)).json).sort()) === J(['expires', 'id', 'protected', 'token']) && J(Object.keys((await links(autora, 'privado/diario.md'))[0]).sort()) === J(['created', 'expired', 'expires', 'id', 'path', 'protected']));
   const theirs = (await api('POST', '/links', { path: 'Suya', kind: 'folder', template: true, name: 'planillas-libro' }, colega.s));
   check('otra cuenta no puede tomar ese nombre, y su enlace no queda creado', theirs.json.error === 'name_taken' && !(await links(colega, 'Suya')).length, theirs.json);
   const byName = (await api('GET', '/template/planillas-libro')).json;
@@ -113,7 +113,7 @@ try {
   check('desde una misma red el contador de un enlace sube hasta su tope (30 por día) y no más', (await copiesOf('Planillas')) === 31, await copiesOf('Planillas'));
   const acct = []; await api('POST', '/links', { path: 'Nueva', kind: 'folder', template: true }, autora.s).then(async (r) => { for (let i = 0; i < 5; i++) { await api('GET', '/public/' + r.json.token + '?all=1', undefined, colega.s, from('10.1.1.' + (10 + i))); acct.push((await api('POST', '/public/' + r.json.token + '/copied', undefined, colega.s, from('10.1.1.' + (10 + i)))).json.counted); } await api('DELETE', '/links/' + r.json.id, undefined, autora.s); });
   check('y una misma cuenta suma hasta tres por día a un enlace, aunque cambie de red', J(acct) === J([true, true, true, false, false]), acct);
-  check('el contador no anota de quién fue cada copia', J(Object.keys((await links(autora, 'Planillas'))[0]).sort()) === J(['copies', 'created', 'id', 'kind', 'login', 'name', 'path', 'protected', 'template']));
+  check('el contador no anota de quién fue cada copia', J(Object.keys((await links(autora, 'Planillas'))[0]).sort()) === J(['copies', 'created', 'expired', 'expires', 'id', 'kind', 'login', 'name', 'path', 'protected', 'template']));
   await api('DELETE', '/links/' + linkId, undefined, autora.s);
   const again = await api('POST', '/links', { path: 'Planillas', kind: 'folder', template: true, name: 'planillas-libro' }, autora.s);
   const tok2 = again.json.token;
