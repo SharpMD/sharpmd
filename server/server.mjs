@@ -967,8 +967,8 @@ function sharesOf(user, of) {
   const people = q('SELECT id, path, kind, email, role FROM shares WHERE owner = ?').all(user.id).filter((s) => (!of || s.path === of) && !hiddenIn(user, s.path));
   // Un enlace de carpeta sale con su tipo, sus opciones de plantilla, las copias que se hicieron y su nombre corto.
   // expires: cuándo vence (0, nunca); expired, si ya venció.
-  const links = q('SELECT l.id, l.path, l.pass IS NOT NULL AS protected, l.created, l.expires, l.kind, l.tpl, l.tpl_login, l.copies, (SELECT name FROM template_names WHERE link = l.id AND owner = l.owner) AS name FROM links l WHERE l.owner = ?').all(user.id)
-    .map((l) => Object.assign(l.kind === 'folder' ? { id: l.id, path: l.path.replace(/\/$/, ''), protected: l.protected, created: l.created, kind: 'folder', template: !!l.tpl, login: !!l.tpl_login, copies: l.copies, name: l.name || '' } : { id: l.id, path: l.path, protected: l.protected, created: l.created },
+  const links = q('SELECT l.id, l.path, l.pass IS NOT NULL AS protected, l.created, l.expires, l.kind, l.tpl, l.tpl_login, l.tpl_lang, l.copies, (SELECT name FROM template_names WHERE link = l.id AND owner = l.owner) AS name FROM links l WHERE l.owner = ?').all(user.id)
+    .map((l) => Object.assign(l.kind === 'folder' ? { id: l.id, path: l.path.replace(/\/$/, ''), protected: l.protected, created: l.created, kind: 'folder', template: !!l.tpl, login: !!l.tpl_login, lang: l.tpl_lang || '', copies: l.copies, name: l.name || '' } : { id: l.id, path: l.path, protected: l.protected, created: l.created },
       { expires: l.expires || 0, expired: !!l.expires && l.expires <= now() }))
     .filter((l) => (!of || l.path === of) && !hiddenIn(user, l.path));
   return { people, links };
@@ -1067,7 +1067,7 @@ function publicNote(token, password, req, url) {
 // cuenta para llevársela (leerla sigue abierto). copies cuenta las copias completas, sin anotar de quién.
 // Un enlace de carpeta puede llevar contraseña y vencimiento, como el de una nota (una plantilla, contraseña no). Una
 // carpeta protegida con contraseña (cifrada) no se comparte así.
-for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'tpl INTEGER NOT NULL DEFAULT 0', 'tpl_login INTEGER NOT NULL DEFAULT 0', 'copies INTEGER NOT NULL DEFAULT 0']) { try { db.exec('ALTER TABLE links ADD COLUMN ' + col); } catch (e) { /* ya estaba */ } }
+for (const col of ["kind TEXT NOT NULL DEFAULT 'note'", 'tpl INTEGER NOT NULL DEFAULT 0', 'tpl_login INTEGER NOT NULL DEFAULT 0', 'copies INTEGER NOT NULL DEFAULT 0', "tpl_lang TEXT NOT NULL DEFAULT ''"]) { try { db.exec('ALTER TABLE links ADD COLUMN ' + col); } catch (e) { /* ya estaba */ } }
 // El nombre corto de una plantilla (la dirección /t/<nombre>, que puede ir impresa). Es de la cuenta que lo eligió
 // para siempre: puede apuntarlo a otro enlace suyo, y nadie más lo puede tomar aunque quede sin enlace (link nulo,
 // o de un enlace que ya no existe) o la cuenta se elimine (owner 0).
@@ -1119,7 +1119,9 @@ function tplNameSet(owner, link, raw) {
   if (name) q('INSERT INTO template_names (name, owner, link, created) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET link = excluded.link').run(name, owner.id, link.id, now());
   return name;
 }
-const folderLinkView = (link) => ({ id: link.id, path: link.path.replace(/\/$/, ''), kind: 'folder', template: !!link.tpl, login: !!link.tpl_login, copies: link.copies, name: tplNameOf(link), protected: !!link.pass, expires: link.expires || 0 });
+// El idioma de una plantilla: la app de quien la abre se muestra en ese, si no eligió uno. '' sigue al visitante.
+const tplLang = (v) => (v === 'es' || v === 'en' ? v : '');
+const folderLinkView = (link) => ({ id: link.id, path: link.path.replace(/\/$/, ''), kind: 'folder', template: !!link.tpl, login: !!link.tpl_login, lang: link.tpl_lang || '', copies: link.copies, name: tplNameOf(link), protected: !!link.pass, expires: link.expires || 0 });
 // Una plantilla es para que cualquiera se lleve una copia (y su dirección corta puede ir impresa): no lleva contraseña.
 const TPL_PASS = 'A template cannot have a password. Share the folder as read only to protect it with one.';
 function addFolderLink(user, body) {
@@ -1134,7 +1136,7 @@ function addFolderLink(user, body) {
   const token = random(24); let made = null;
   db.exec('BEGIN');
   try {
-    const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login, expires) VALUES (?, ?, ?, ?, ?, 'folder', ?, ?, ?)").run(sha(token), user.id, pre, pass, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0, expires);
+    const r = q("INSERT INTO links (hash, owner, path, pass, created, kind, tpl, tpl_login, tpl_lang, expires) VALUES (?, ?, ?, ?, ?, 'folder', ?, ?, ?, ?)").run(sha(token), user.id, pre, pass, now(), tpl ? 1 : 0, tpl && body.login ? 1 : 0, tpl ? tplLang(body.lang) : '', expires);
     made = q('SELECT * FROM links WHERE id = ?').get(Number(r.lastInsertRowid));
     q('UPDATE template_names SET link = NULL WHERE link = ?').run(made.id); // un enlace nuevo nunca hereda el nombre de otro que tuvo su número
     if (name) tplNameSet(user, made, name);
@@ -1149,10 +1151,11 @@ function setFolderLink(owner, id, body) {
   const link = q("SELECT * FROM links WHERE id = ? AND owner = ? AND kind = 'folder'").get(id, owner.id);
   if (!link) throw new Fail(404, 'not_found');
   const tpl = body.template == null ? !!link.tpl : !!body.template; const login = tpl && (body.login == null ? !!link.tpl_login : !!body.login);
+  const lang = tpl ? (body.lang == null ? tplLang(link.tpl_lang) : tplLang(body.lang)) : '';
   if (tpl && link.pass) throw new Fail(400, 'template_password', TPL_PASS);
   db.exec('BEGIN');
   try {
-    q('UPDATE links SET tpl = ?, tpl_login = ? WHERE id = ?').run(tpl ? 1 : 0, login ? 1 : 0, link.id);
+    q('UPDATE links SET tpl = ?, tpl_login = ?, tpl_lang = ? WHERE id = ?').run(tpl ? 1 : 0, login ? 1 : 0, lang, link.id);
     if (!tpl) tplNameSet(owner, link, ''); else if (body.name != null) tplNameSet(owner, link, body.name);
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
@@ -1167,7 +1170,7 @@ function folderPublic(link, req, url) {
   const rows = folderRows(link);
   if (!rows.length) throw new Fail(404, 'not_found');
   const rel = (n) => n.path.slice(link.path.length);
-  const head = { kind: 'folder', name: link.path.slice(0, -1).split('/').pop(), template: link.tpl ? { login: !!link.tpl_login, name: tplNameOf(link) } : null };
+  const head = { kind: 'folder', name: link.path.slice(0, -1).split('/').pop(), template: link.tpl ? { login: !!link.tpl_login, name: tplNameOf(link), lang: link.tpl_lang || '' } : null };
   const one = url.searchParams.get('note');
   if (one != null) {
     const want = link.path + cleanPath(one); const n = rows.find((r) => r.path === want);

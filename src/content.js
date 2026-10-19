@@ -6002,13 +6002,23 @@
     const want = addressed();
     return sameUrl(want, HERE) ? null : bg({ type: 'fetchText', url: want }).then((r) => ({ url: want, r }), () => ({ url: want, r: null }));
   };
-  Promise.all([LMD.load(), loadSide(), bootFile()]).then(async ([s, saved, other]) => {
+  // Una plantilla puede venir con su idioma (sharpmd.app/t/<nombre>): se pregunta antes de dibujar, así la app ya
+  // aparece en ese si la persona no eligió uno. Si el servidor tarda, se sigue sin esperarlo.
+  const bootTplLang = () => {
+    if (!APP) return null;
+    const p = new URLSearchParams(location.search); const m = /^t\/([^/]+)/.exec(p.has('t') ? 't/' + encodeURIComponent(String(p.get('t')).trim()) : p.get('f') || '');
+    if (!m) return null;
+    let key = ''; try { key = decodeURIComponent(m[1]).trim().toLowerCase(); } catch (e) { return null; }
+    const ask = LMD.cloud.pubFolder({ by: 't', key }, '').then((r) => (r && r.template && r.template.lang) || '', () => '');
+    return Promise.race([ask, new Promise((ok) => setTimeout(() => ok(''), 1500))]);
+  };
+  Promise.all([LMD.load(), loadSide(), bootFile(), bootTplLang()]).then(async ([s, saved, other, tplLang]) => {
     settings = s;
     let missing = '';
     if (other && readable(other.r)) { HERE = other.url; DOC_NAME = unesc(HERE.split('/').pop() || ''); raw = other.r.text; diskText = raw; }
     else if (other) missing = unesc(other.url.split('/').pop() || '');
     if (saved) side = Object.assign(side, saved, { shut: Object.assign({}, saved.shut) });
-    LMD.setLang(settings.language);
+    LMD.setLang(settings.language === 'es' || settings.language === 'en' ? settings.language : tplLang || settings.language);
     if (APP) { roots.fs = { id: 'fs', kind: 'fs', name: T('Del disco') }; roots.local = { id: 'local', kind: 'local', name: T('En este navegador') }; roots.cloud = { id: 'cloud', kind: 'cloud', name: T('Nube') }; roots.guide = { id: 'guide', kind: 'guide', name: T('Guía') }; }
     // Sobre un archivo del disco la nube es la única raíz virtual: se lista por la extensión.
     else if (isFile) roots.cloud = { id: 'cloud', kind: 'cloud', name: T('Nube') };

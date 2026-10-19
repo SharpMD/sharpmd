@@ -113,7 +113,7 @@ try {
   check('desde una misma red el contador de un enlace sube hasta su tope (30 por día) y no más', (await copiesOf('Planillas')) === 31, await copiesOf('Planillas'));
   const acct = []; await api('POST', '/links', { path: 'Nueva', kind: 'folder', template: true }, autora.s).then(async (r) => { for (let i = 0; i < 5; i++) { await api('GET', '/public/' + r.json.token + '?all=1', undefined, colega.s, from('10.1.1.' + (10 + i))); acct.push((await api('POST', '/public/' + r.json.token + '/copied', undefined, colega.s, from('10.1.1.' + (10 + i)))).json.counted); } await api('DELETE', '/links/' + r.json.id, undefined, autora.s); });
   check('y una misma cuenta suma hasta tres por día a un enlace, aunque cambie de red', J(acct) === J([true, true, true, false, false]), acct);
-  check('el contador no anota de quién fue cada copia', J(Object.keys((await links(autora, 'Planillas'))[0]).sort()) === J(['copies', 'created', 'expired', 'expires', 'id', 'kind', 'login', 'name', 'path', 'protected', 'template']));
+  check('el contador no anota de quién fue cada copia', J(Object.keys((await links(autora, 'Planillas'))[0]).sort()) === J(['copies', 'created', 'expired', 'expires', 'id', 'kind', 'lang', 'login', 'name', 'path', 'protected', 'template']));
   await api('DELETE', '/links/' + linkId, undefined, autora.s);
   const again = await api('POST', '/links', { path: 'Planillas', kind: 'folder', template: true, name: 'planillas-libro' }, autora.s);
   const tok2 = again.json.token;
