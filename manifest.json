@@ -151,7 +151,7 @@
         "file:///*.MKD",
         "file:///*.MARKDOWN",
         "file:///*.md?*",
-        "file:///*.markdown?*",
+        "file:///*.markdown?*", "file:///*.json", "file:///*.JSON", "file:///*.yaml", "file:///*.yml", "file:///*.YAML", "file:///*.YML",
         "*://*/*.md",
         "*://*/*.mdx",
         "*://*/*.mkd",

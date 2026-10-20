@@ -374,8 +374,10 @@ await step('file', 'Un .json o un .yaml suelto: mismo árbol, y se guarda en su 
   await note(page, 'roto.yaml', 'a: [1, 2\n'); await page.waitForSelector('.lmd-jy-bad');
   check('un .yaml que no se lee queda como código, con el aviso', await preShown(page) && /Invalid YAML on line/.test(await page.evaluate(() => document.querySelector('.lmd-jy-note').textContent)));
   const off = await open();
-  await note(off.page, 'data.json', '{"a":1}\n');
-  check('con la herramienta apagada un .json se ve como código, como siempre', await off.page.evaluate(() => !document.querySelector('.lmd-jy') && document.querySelector('.lmd-code pre code').textContent === '{"a":1}\n'));
+  await note(off.page, 'data.json', '{"a":1}\n'); await off.page.waitForSelector('.lmd-jy-tree', { timeout: 8000 }).catch(() => {});
+  check('con la herramienta apagada un .json igual se ve como árbol', await off.page.evaluate(() => !!document.querySelector('.lmd-jy-tree') && !(JSON.parse(localStorage.getItem('mdtools:settings') || '{}').tools || {}).jsonyaml));
+  await note(off.page, 'off.md', '```json\n{"a":1}\n```\n'); await sleep(400);
+  check('pero un bloque json de una nota sigue como código', await off.page.evaluate(() => !document.querySelector('.lmd-jy') && document.querySelector('.lmd-code pre code').textContent.trim() === '{"a":1}'));
   await off.ctx.close(); await ctx.close();
 });
 

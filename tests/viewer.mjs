@@ -634,9 +634,9 @@ await step('md', 'Un Markdown se abre y se edita como siempre', async () => {
   const s = await page.evaluate(() => ({ edit: !!document.querySelector('[data-act=mode-edit]').offsetParent, raw: !!document.querySelector('[data-act=view-raw]').offsetParent, copy: !!document.querySelector('[data-act=copy]').offsetParent, outline: document.querySelector('.lmd-pane-outline .lmd-o-title').textContent, bin: document.documentElement.classList.contains('lmd-bin'), viewer: !!LMD.viewer }));
   check('con la barra entera, su índice, y sin pedir el visor', s.edit && s.raw && s.copy && /Readme/.test(s.outline) && !s.bin && !s.viewer && !hits.some((u) => /viewer\.js/.test(u)), s);
   await page.click(node('table.csv')); await page.waitForSelector('.lmd-article table');
-  await page.click(node('data.json')); await page.waitForSelector('.lmd-article pre code');
+  await page.click(node('data.json')); await page.waitForSelector('.lmd-article .lmd-jy-tree');
   await page.click(node('notes.txt')); await page.waitForSelector('.lmd-article .lmd-plain');
-  check('CSV como tabla, JSON como código y texto plano, como antes', await page.evaluate(() => document.querySelector('.lmd-plain').textContent.trim() === 'plain notes'));
+  check('CSV como tabla, JSON como árbol y texto plano', await page.evaluate(() => document.querySelector('.lmd-plain').textContent.trim() === 'plain notes'));
   check('las listas de archivos de la app nombran al visor', /'src\/viewer\.js'/.test(fs.readFileSync(path.join(root, 'sw.js'), 'utf8')) && JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')).content_scripts[1].js.includes('src/viewer.js') && /viewer: \{ js: \['src\/viewer\.js'\] \}/.test(fs.readFileSync(path.join(root, 'src', 'content.js'), 'utf8')));
   const man = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   check('la extensión no toma los PDF ni los EPUB del navegador', !man.content_scripts.some((c) => c.matches.some((m) => /pdf|epub|\*\.\*|<all_urls>/i.test(m))), man.content_scripts.map((c) => c.matches.length));

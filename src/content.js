@@ -13,9 +13,11 @@
   let pre = null;
   if (!APP) {
     // El manifest también engancha direcciones que solo terminan en .md en la consulta: acá cuenta la ruta.
-    if (!/\.(md|mdx|mkd|mdown|markdown)$/i.test(location.pathname)) return;
+    // Un .json o .yaml se toma solo del disco (doble clic en el archivo): en la web es la respuesta de algún servicio.
+    const jy = location.protocol === 'file:' && /\.(json|ya?ml)$/i.test(location.pathname);
+    if (!jy && !/\.(md|mdx|mkd|mdown|markdown)$/i.test(location.pathname)) return;
     const type = (document.contentType || '').toLowerCase();
-    if (type && !/^text\/(plain|markdown|x-markdown)/.test(type)) return;
+    if (type && !(jy ? /^(application\/(json|x-yaml|yaml)|text\/(plain|yaml|x-yaml))/ : /^text\/(plain|markdown|x-markdown)/).test(type)) return;
     pre = document.body && document.body.querySelector('pre');
     if (!pre || document.body.children.length > 2) return;
   }
@@ -2515,6 +2517,13 @@
     if (ui.searchInput.value) runSearch(ui.searchInput.value, false, true);
     core.hooks.render.forEach((fn) => fn());
     if (kind === 'code') wantCodeView();
+    if (codeDoc && JY_RE.test(DOC_NAME)) wantTree();
+  }
+  // Un archivo .json o .yaml se lee como árbol (jsonyaml.js), con la herramienta prendida o no.
+  let treeAsked = false;
+  function wantTree() {
+    if (treeAsked) return; treeAsked = true;
+    ensure('jsonyaml').then((ok) => { if (ok && LMD.jsonyaml) LMD.jsonyaml.file(core); else treeAsked = false; });
   }
   // La vista de un archivo de código (codeview.js) llega con el primero que se abre, ya dibujado como texto.
   let codeViewAsked = false;

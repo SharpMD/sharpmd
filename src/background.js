@@ -104,7 +104,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const own = chrome.runtime.getURL('');
     chrome.tabs.query({}).then((tabs) => {
       const reopen = tabs.filter((t) => t.url && t.url.startsWith(own + 'src/app.html')).map((t) => ({ url: t.url, index: t.index, windowId: t.windowId, active: t.active }));
-      const reload = tabs.filter((t) => t.url && !t.url.startsWith(own) && /\.(md|mdx|mkd|mdown|markdown)([?#]|$)/i.test(t.url)).map((t) => t.id);
+      const reload = tabs.filter((t) => t.url && !t.url.startsWith(own) && (/\.(md|mdx|mkd|mdown|markdown)([?#]|$)/i.test(t.url) || /^file:.*\.(json|ya?ml)$/i.test(t.url))).map((t) => t.id);
       return chrome.storage.local.set({ afterUpdate: { reopen, reload, at: Date.now() } });
     }).catch(() => {}).then(() => setTimeout(() => chrome.runtime.reload(), 150));
     return;

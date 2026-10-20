@@ -648,7 +648,7 @@
   const TYPES = [['string', 'Texto'], ['number', 'Número'], ['boolean', 'Booleano'], ['null', 'Null'], ['object', 'Objeto'], ['array', 'Lista']];
   const WHY = { multi: 'Solo lectura: usa varios documentos o directivas.', anchors: 'Solo lectura: usa anclas o alias.', tags: 'Solo lectura: usa etiquetas.', dup: 'Solo lectura: tiene claves repetidas.',
     comments: 'Solo lectura: tiene comentarios que se perderían.', shape: 'Solo lectura: el árbol no puede reescribirlo igual.', big: 'Solo lectura: es muy grande.', place: 'Solo lectura: el bloque está dentro de una lista o una cita.' };
-  let core = null; let on = false; let wired = false; let menuEl = null;
+  let core = null; let on = false; let files = false; let wired = false; let menuEl = null;
   const states = new Map();
   const langOf = (code) => { const m = /(?:^|\s)language-([\w+#-]+)/.exec(code.className || ''); return (m && LANGS.get(m[1].toLowerCase())) || ''; };
   const startShut = () => !!LMD.tools.opt('jsonyamlCollapsed', false);
@@ -1026,7 +1026,7 @@
   function paint() {
     if (!core || !core.ui || !core.ui.article) return;
     const art = core.ui.article;
-    if (!on) { closeMenu(); art.querySelectorAll('.lmd-jy').forEach((n) => n.remove()); return; }
+    if (!on && (!files || core.blocks)) { closeMenu(); art.querySelectorAll('.lmd-jy').forEach((n) => n.remove()); return; }
     let ord = 0;
     art.querySelectorAll('.lmd-code').forEach((wrap) => {
       const code = wrap.querySelector('pre > code'); const lang = code ? langOf(code) : ''; if (!lang) return;
@@ -1045,11 +1045,11 @@
   }
   function repaint() { if (core && core.ui && core.ui.article) core.ui.article.querySelectorAll('.lmd-jy').forEach((n) => n.remove()); paint(); }
 
-  function enable(c) {
-    core = c; on = true;
-    if (!wired) { wired = true; core.hooks.render.push(paint); core.hooks.patch.push(paint); }
-    paint();
-  }
+  function hook(c) { core = c; if (!wired) { wired = true; core.hooks.render.push(paint); core.hooks.patch.push(paint); } }
+  function enable(c) { hook(c); on = true; paint(); }
+  // Un archivo .json o .yaml abierto se ve como árbol aunque la herramienta esté apagada: la herramienta decide los
+  // bloques de las notas, no el archivo entero.
+  function file(c) { hook(c); files = true; paint(); }
   function disable() { on = false; paint(); }
   function settings(area) {
     area.textContent = '';
@@ -1064,5 +1064,5 @@
     area.appendChild(label);
   }
 
-  LMD.jsonyaml = { enable, disable, settings, model };
+  LMD.jsonyaml = { enable, disable, file, settings, model };
 })();
