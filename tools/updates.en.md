@@ -44,8 +44,9 @@ Alt+Shift+Z leaves only the text; Esc brings everything back. You can also pin t
 - From a template shows the groups on the left. A shared template opens on its own, without your folders next to it.
 - A button above Files sorts by name or by what you opened last: what you open moves to the top.
 - A link to a file that is already in the sidebar opens it right there, without leaving the note, and Back takes you to where you were.
+- A .json or .yaml file on your disk opens with a double click as a tree you can read and edit.
 
-*Up to version 2.90*
+*Up to version 2.91*
 
 ## October 5 to 11, 2026 {#2026-10-05}
 

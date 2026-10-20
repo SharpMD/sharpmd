@@ -44,8 +44,9 @@ Alt+Shift+Z deja solo el texto; Esc vuelve. También podés fijar arriba las not
 - Desde una plantilla muestra los grupos a la izquierda. Una plantilla compartida se abre sola, sin tus carpetas al lado.
 - Un botón arriba de Archivos ordena por nombre o por lo último que abriste: lo que abrís sube solo.
 - Un enlace a un archivo que ya está en el lateral lo abre ahí mismo, sin salir de la nota, y Atrás te devuelve a donde estabas.
+- Un .json o un .yaml de tu disco se abre con doble clic como un árbol que se lee y se edita.
 
-*Hasta la versión 2.90*
+*Hasta la versión 2.91*
 
 ## Del 5 al 11 de octubre de 2026
 
