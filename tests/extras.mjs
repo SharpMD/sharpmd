@@ -74,8 +74,8 @@ await app.keyboard.press('Control+s'); await app.waitForTimeout(800);
 
 await app.goto(base + 'datos.csv'); await app.waitForSelector('.markdown-body table');
 o.csv = await app.evaluate(() => [...document.querySelectorAll('.markdown-body tr')].map((tr) => [...tr.cells].map((c) => c.textContent)));
-await app.goto(base + 'conf.json'); await app.waitForSelector('.markdown-body pre code');
-o.json = await app.evaluate(() => ({ lang: (document.querySelector('.lmd-code-lang') || {}).textContent, hl: !!document.querySelector('.markdown-body pre code span') }));
+await app.goto(base + 'conf.json'); await app.waitForSelector('.lmd-jy-tree li[role=treeitem]');
+o.json = await app.evaluate(() => ({ lang: (document.querySelector('.lmd-jy-lang') || {}).textContent, tree: document.querySelectorAll('.lmd-jy-tree li[role=treeitem]').length }));
 await app.click('[data-act=mode-edit]'); await app.waitForTimeout(300);
 o.jsonEdit = await app.evaluate(() => !document.querySelector('.lmd-raw-edit').hidden && !document.querySelector('.lmd-add'));
 await app.goto(base + 'punto.svg'); await app.waitForSelector('.markdown-body img'); await app.waitForTimeout(600);
@@ -233,7 +233,7 @@ const checks = [
   ['modo foco y máquina de escribir', o.foco],
   ['exportar a HTML', o.html.name === 'README.html' && o.html.h1 && o.html.limpio && o.html.math && o.html.img, o.html],
   ['un CSV se ve como tabla', J(o.csv) === J([['nombre', 'cantidad'], ['Pérez, Ana', '3'], ['Luis', '5']]), o.csv],
-  ['un JSON se ve resaltado y se edita como texto', o.json.lang === 'json' && o.json.hl && o.jsonEdit, o.json],
+  ['un JSON se ve como árbol y se edita como texto', /json/i.test(o.json.lang || '') && o.json.tree > 0 && o.jsonEdit, o.json],
   ['una imagen se abre', o.svg === 40, o.svg],
   ['doble clic en el título lo vuelve un campo con el nombre seleccionado', J(o.tituloCampo) === J(['abierta.md', 'abierta', true]), o.tituloCampo],
   ['el aviso es un toast abajo a la derecha, sobre el pie, que no pisa el estado y se va solo', o.toast.live && o.toast.right && o.toast.above && !/Ya hay/.test(o.toast.status) && o.toast.gone, o.toast],
