@@ -527,7 +527,7 @@
       let dir = root.handle;
       for (const p of vParts(dirUrl)) dir = await dir.getDirectoryHandle(p);
       const rows = [];
-      for await (const [name, h] of dir.entries()) rows.push({ name, url: dirUrl + encodeURIComponent(name) + (h.kind === 'directory' ? '/' : ''), dir: h.kind === 'directory' });
+      for await (const [name, h] of dir.entries()) rows.push({ name, url: dirUrl + encodeURIComponent(name) + (h.kind === 'directory' ? '/' : ''), dir: h.kind === 'directory', handle: h });
       return rows;
     } catch (e) { return null; }
   }
@@ -4015,27 +4015,37 @@
   const TEXT_KINDS = { text: 1, data: 1, table: 1, code: 1 };
   async function collectFiles(root, wide) {
     const out = [];
-    const queue = [{ url: root, rel: '', depth: 0 }];
+    let queue = [{ url: root, rel: '', depth: 0 }];
+    // Nivel por nivel, con las carpetas de cada nivel pedidas a la vez y recorridas en orden: el mismo resultado que de a una.
     while (queue.length && out.length < FOLDER_MAX_FILES) {
-      const d = queue.shift();
-      const rows = await listDir(d.url, true);
-      if (!rows) { if (d.depth === 0) return null; continue; }
-      rows.sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true, sensitivity: 'base' }));
-      for (const r of rows) {
-        if (!settings.filesShowHidden && r.name.startsWith('.')) continue;
-        if (r.dir) {
-          if (d.depth < FOLDER_MAX_DEPTH && !SKIP_DIRS.test(r.name) && !TREE_SKIP.test(r.name)) queue.push({ url: r.url, rel: d.rel + r.name + '/', depth: d.depth + 1 });
-        } else if (MD_RE.test(r.name) || (wide && TEXT_KINDS[kindOf(r.name)])) out.push({ rel: d.rel + r.name, url: r.url });
+      const lists = [];
+      for (let i = 0; i < queue.length; i += 16) lists.push(...await Promise.all(queue.slice(i, i + 16).map((d) => listDir(d.url, true))));
+      const next = [];
+      for (let k = 0; k < queue.length && out.length < FOLDER_MAX_FILES; k++) {
+        const d = queue[k]; const rows = lists[k];
+        if (!rows) { if (d.depth === 0) return null; continue; }
+        rows.sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true, sensitivity: 'base' }));
+        for (const r of rows) {
+          if (!settings.filesShowHidden && r.name.startsWith('.')) continue;
+          if (r.dir) {
+            if (d.depth < FOLDER_MAX_DEPTH && !SKIP_DIRS.test(r.name) && !TREE_SKIP.test(r.name)) next.push({ url: r.url, rel: d.rel + r.name + '/', depth: d.depth + 1 });
+          } else if (MD_RE.test(r.name) || (wide && TEXT_KINDS[kindOf(r.name)])) out.push({ rel: d.rel + r.name, url: r.url, handle: r.handle });
+        }
       }
+      queue = next;
     }
-    return out;
+    return out.slice(0, FOLDER_MAX_FILES);
   }
 
-  async function readFile(url) {
+  // handle: el del archivo, si ya vino con el listado de la carpeta (no hace falta bajar de nuevo desde la raíz).
+  async function readFile(url, handle) {
     if (fileCache.has(url)) return fileCache.get(url);
     let text = '';
+    // De la nube, la copia de este navegador si está al día: bajar las notas de a una es lo que hace lenta la búsqueda.
+    const root = APP && rootOf(url);
+    if (root && root.kind === 'cloud') { const t = await LMD.cloud.cached(vParts(url).join('/')); if (t != null) { fileCache.set(url, t); return t; } }
     // Un archivo de texto enorme (un registro de cientos de megas) no se lee para buscar en él.
-    if (APP) { try { const h = await vFile(url); const f = h ? await h.getFile() : null; text = f && !(f.size > 4194304) ? await f.text() : ''; } catch (e) { text = ''; } }
+    if (APP) { try { const h = handle || await vFile(url); const f = h ? await h.getFile() : null; text = f && !(f.size > 4194304) ? await f.text() : ''; } catch (e) { text = ''; } }
     else { const r = await bg({ type: 'fetchText', url }); text = r && r.ok ? r.text : ''; }
     fileCache.set(url, text);
     return text;
@@ -4089,14 +4099,17 @@
         }
         folderIndex.set(r.url, got);
       }
-      folderIndex.get(r.url).forEach((f) => files.push({ rel: f.rel, url: f.url, root: r }));
+      folderIndex.get(r.url).forEach((f) => files.push({ rel: f.rel, url: f.url, handle: f.handle, root: r }));
     }
     const found = [];
-    let next = 0; let total = 0;
+    let next = 0; let total = 0; let read = 0;
+    // Con muchos archivos, cuántos van: se ve que avanza.
+    const tick = () => { if (files.length > 50 && read % 25 === 0) wait.textContent = T('Buscando en los archivos… {a} de {n}', { a: read, n: files.length }); };
     const worker = async () => {
       while (next < files.length && token === folderToken) {
         const f = files[next++];
-        const text = await readFile(f.url);
+        const text = await readFile(f.url, f.handle);
+        read++; tick();
         if (!text) continue;
         if (text.toLowerCase().indexOf(needle) === -1) continue;
         const lines = text.split(/\r?\n/); const hits = []; let count = 0;

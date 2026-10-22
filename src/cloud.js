@@ -655,6 +655,14 @@
   LMD.cloud = {
     ready, api, list: listOr, handle, events, split, merge3, merge, hunks, settle, open, hold, flush, kept,
     read: (p) => getNote(p),
+    // El texto de la copia de este navegador, si está al día con el servidor (la buscó la búsqueda en los archivos). Si
+    // no hay copia, o el servidor tiene algo más nuevo, null: hay que bajarla.
+    cached: async (p) => {
+      const s = split(p); let n = null;
+      try { n = (await listOr(false, s.owner)).find((r) => r.path === s.path); } catch (e) { return null; }
+      const c = n ? await copyOf(p).catch(() => null) : null;
+      return c && c.at >= n.updated ? c.text : null;
+    },
     // Sesión en vivo. De un lado, quien entra por el enlace (mirar, entrar, retomar tras recargar, salir); del otro,
     // quien la abre sobre una nota propia (abrir, ver quiénes están, cambiar el enlace, sacar a alguien, terminarla).
     // at() dice en qué bloque se está, para los dos.

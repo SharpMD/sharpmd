@@ -1137,6 +1137,7 @@
       "Creá una nota con el botón +.": "Create a note with the + button.",
       "En esta nota": "In this note",
       "Buscando en los archivos…": "Searching your files…",
+      "Buscando en los archivos… {a} de {n}": "Searching your files… {a} of {n}",
       "Nota en blanco": "Blank note",
       "Nueva nota": "New note",
       "Elegí una nota de la izquierda o empezá una nueva.": "Pick a note on the left or start a new one.",
