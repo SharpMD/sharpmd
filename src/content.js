@@ -5657,7 +5657,11 @@
     if (id === 'fs') {
       const view = fsViews(name);
       const file = LMD.fileUrl(fsFile(url), view); const known = file ? await fsKnown(file) : null;
-      if (known && known.granted) { try { await walk(known.rec.handle, known.rest); return { goto: known.rec.id + '/' + known.rest.map(encodeURIComponent).join('/') }; } catch (e) { /* ya no está en esa carpeta: queda lo que lea la extensión */ } }
+      if (known && known.granted) {
+        try { await walk(known.rec.handle, known.rest); return { goto: known.rec.id + '/' + known.rest.map(encodeURIComponent).join('/') }; }
+        // La carpeta abierta es la de este archivo y el archivo no está: se dice eso, sin preguntar nada más.
+        catch (e) { if (e && (e.name === 'NotFoundError' || e.name === 'TypeMismatchError')) return fail(T('No se encontró "{a}". Puede que se haya movido o que tenga otro nombre.', { a: name })); }
+      }
       // Un PDF, un libro o una imagen: en la página de la extensión lo lee su service worker, entero, y va al visor.
       if (view && OWN_PAGE && file) {
         let got = null; let why = '';
@@ -5672,6 +5676,8 @@
       let text = null; let why = 'shape';
       if (file) { try { text = await fsRead(file); } catch (e) { why = e.why || 'failed'; } }
       // No falla en silencio: lo dice, y ofrece elegir el archivo (install.js sabe por qué no se pudo).
+      // Si la extensión sabe que no existe, alcanza con decirlo: elegir otro archivo no lo arregla.
+      if (text == null && why === 'missing') return fail(T('No se encontró "{a}". Puede que se haya movido o que tenga otro nombre.', { a: name }));
       if (text == null) { if (file) setTimeout(() => LMD.install.offer(file, homeCtx(), why), 0); return fail(T('No se pudo abrir "{a}".', { a: name })); }
       // Una carpeta ya abierta acá, sin ruta anotada, resulta ser la de este archivo (mismo camino, mismo texto): desde
       // ahora se la conoce. Si además deja guardar, se abre el archivo real y no hay copia.

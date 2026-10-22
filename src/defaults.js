@@ -953,7 +953,7 @@
       "Editar: el navegador va a pedir permiso para guardar": "Edit: the browser will ask for permission to save",
       "Continuar": "Continue",
       "Ese acceso ya no está guardado. Abrí el archivo o la carpeta de nuevo.": "That access is no longer saved. Open the file or folder again.",
-      "No se encontró \"{a}\".": "Could not find \"{a}\".",
+      "No se encontró \"{a}\".": "Could not find \"{a}\".", "No se encontró \"{a}\". Puede que se haya movido o que tenga otro nombre.": "Could not find \"{a}\". It may have been moved or renamed.",
       "Buscar versiones nuevas": "Check for new versions",
       "Por día": "Daily",
       "Por semana": "Weekly",

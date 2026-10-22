@@ -585,7 +585,7 @@
     if (!url && OWN && !failed) {
       const any = LMD.fileUrl(given, true); let seen = '';
       try { seen = any ? decodeURIComponent(new URL(any).pathname.split('/').pop()) : ''; } catch (e) { seen = ''; }
-      if (seen && ctx.disk.views(seen)) { if (!(await D.confirm({ title, path: LMD.filePath(any), ok: T('Abrir') }))) return false; return ctx.open(ctx.disk.doc(any)); }
+      if (seen && ctx.disk.views(seen)) return ctx.open(ctx.disk.doc(any));
     }
     if (!url) { await D.confirm({ title: T('Este enlace no se puede abrir'), text: T('Solo se abren archivos Markdown del disco.'), ok: T('Cerrar'), cancel: false }); return false; }
     const path = LMD.filePath(url);
@@ -631,7 +631,7 @@
     // Con "Abrir SharpMD en: la extensión", y en su página propia, lo muestra el lector de la extensión en esta pestaña.
     const inReader = ext && (OWN || (await LMD.load()).openIn === 'ext');
     // La web ya tiene abierta, con permiso, una carpeta que lo contiene: es el archivo real, con o sin extensión.
-    if (!inReader && await ctx.disk.real(url)) { if (!(await D.confirm({ title, path, ok: T('Abrir') }))) return false; return show(); }
+    if (!inReader && await ctx.disk.real(url)) return show();
     // La web guarda una carpeta que lo contiene, pero el navegador pide el permiso de nuevo en cada sesión: un toque
     // acá adentro lo pide, y se abre el archivo real. Con near.sure la ruta de esa carpeta ya se conoce y no hace
     // falta la extensión. Sin eso es una carpeta abierta cuyo nombre figura en la ruta: content.js comprueba, con el
@@ -643,8 +643,7 @@
       return D.confirm({ title, path, ok: near.granted ? T('Abrir') : T('Abrir carpeta "{a}" para editar', { a: near.name }),
         act: (d) => { if (busy) return; busy = true; ctx.disk.claim(url, near).then((real) => d.close(real ? 'real' : 'copy'), () => d.close('copy')); } });
     };
-    let agreed = false;
-    if (near && near.sure) { const r = await viaFolder(); if (!r) return false; if (r === 'real') return show(); agreed = true; }
+        if (near && near.sure) { const r = await viaFolder(); if (!r) return false; if (r === 'real') return show(); }
     if (!ext) return because('none');
     // can: true si la extensión lo entrega, false si no (no dice si el archivo existe), null si es una extensión anterior.
     const can = inReader ? true : await LMD.bridge.canRead(url);
@@ -669,8 +668,7 @@
       } });
     }
     if (!can) return because('refused');
-    if (near && !near.sure) { if (!(await viaFolder())) return false; return show(); }
-    if (!agreed && !(await D.confirm({ title, path, ok: T('Abrir') }))) return false;
+    if (near && !near.sure) { if (near.granted) { await ctx.disk.claim(url, near).catch(() => false); return show(); } if (!(await viaFolder())) return false; return show(); }
     if (inReader) {
       const r = await LMD.bridge.openFile(url);
       if (r && r.ok && r.opened) return true;

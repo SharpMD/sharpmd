@@ -232,12 +232,9 @@ try {
   // ---------- El enlace que abre un archivo del disco, en la página de la extensión ----------
   console.log('El enlace #open= en la página de la extensión');
   await page.goto('about:blank'); await page.goto(OWN + '#open=' + encodeURIComponent(urlOf('libro.pdf')));
-  await page.waitForSelector('.lmd-dlg [data-dlg=ok]');
-  const asked = await page.evaluate(() => ({ title: document.querySelector('.lmd-dlg h3').textContent, text: document.querySelector('.lmd-dlg').textContent, hash: location.hash }));
-  check('un enlace a un PDF del disco pregunta antes de abrir, con la ruta a la vista', asked.title === 'Open this file from your disk?' && asked.text.includes(path.join(disk, 'libro.pdf')) && asked.hash === '', asked);
-  await page.click('.lmd-dlg [data-dlg=ok]');
   const o1 = await viewing('pdf');
-  check('y al aceptar se ve en el visor', !!o1 && o1.n === 5, [page.url(), o1]);
+  const askedNone = await page.evaluate(() => ({ dlgs: document.querySelectorAll('.lmd-dlg').length, hash: location.hash }));
+  check('un enlace a un PDF del disco se abre solo en el visor, sin preguntar antes', !!o1 && o1.n === 5 && askedNone.dlgs === 0 && askedNone.hash === '', [page.url(), o1, askedNone]);
   await page.goto('about:blank'); await page.goto(OWN + '#open=' + encodeURIComponent(urlOf('datos.bin')));
   await page.waitForSelector('.lmd-dlg [data-dlg=ok]');
   check('un enlace a otro tipo de archivo se sigue rechazando', (await page.evaluate(() => document.querySelector('.lmd-dlg h3').textContent)) === 'This link cannot be opened');
