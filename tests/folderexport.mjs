@@ -11,10 +11,10 @@ import fs from 'fs'; import os from 'os'; import path from 'path'; import { path
 import { rig, tally, sleep, root } from './rig.mjs';
 
 // pdf.js avisa por la consola que en Node no tiene canvas: acá solo se le pide el texto.
-const warn = console.warn; const log = console.log; const mute = (fn) => (...a) => { if (!/canvas|polyfill|Require stack|pdf\.min\.js/i.test(String(a[0]))) fn(...a); };
+const warn = console.warn; const log = console.log; const mute = (fn) => (...a) => { if (!/canvas|polyfill|Require stack|pdfjs.pdf\.js/i.test(String(a[0]))) fn(...a); };
 console.warn = mute(warn); console.log = mute(log);
-const pdfjs = await import(pathToFileURL(path.join(root, 'vendor', 'pdfjs', 'pdf.min.js')).href);
-pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(path.join(root, 'vendor', 'pdfjs', 'pdf.worker.min.js')).href;
+const pdfjs = await import(pathToFileURL(path.join(root, 'vendor', 'pdfjs', 'pdf.js')).href);
+pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(path.join(root, 'vendor', 'pdfjs', 'pdf.worker.js')).href;
 
 const { check, done } = tally();
 const J = (v) => JSON.stringify(v);

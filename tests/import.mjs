@@ -364,7 +364,7 @@ await step('pdf', 'PDF a Markdown, con pdf.js pedido recién ahí', async () => 
   const r = await conv(page, 'report.pdf', PDF);
   check('texto por página: títulos por tamaño, párrafos, palabra cortada, listas y la línea entre páginas', r.md === PDF_MD && J(r.units) === J(['pages', 2]), r.md || r);
   check('el número de página suelto no entra', !!r.md && !/^\d$/m.test(r.md));
-  check('recién ahí se pidió pdf.js: su código y su trabajador, de la propia app', pdfHits.includes('pdf.min.js') && pdfHits.includes('pdf.worker.min.js') && pdfHits.every((h) => /^pdf\.(worker\.)?min\.js$/.test(h)), pdfHits);
+  check('recién ahí se pidió pdf.js: su código y su trabajador, de la propia app', pdfHits.includes('pdf.js') && pdfHits.includes('pdf.worker.js') && pdfHits.every((h) => /^pdf\.(worker\.)?js$/.test(h)), pdfHits);
   check('el trabajador de pdf.js corre de verdad, sin romper la política de contenido', r.worker === true && csp.length === 0, [r.worker, csp]);
   const scan = await conv(page, 'scan.pdf', SCAN);
   check('un PDF sin texto se dice, sin OCR', scan.error === 'pdf_empty', scan);
@@ -583,7 +583,7 @@ await step('ext', 'En la extensión: bajo su política de contenido', async () =
     check('el diálogo termina con su resumen', (await dlg(page)).sum === '2 pages converted', await dlg(page));
     await page.click('[data-imp=new]'); await page.waitForSelector('.lmd-article h1'); await sleep(300);
     check('y la nota se abre en la extensión', await page.evaluate(() => document.querySelector('.lmd-article h1').textContent.replace('#', '').trim() === 'Annual Report' && document.querySelectorAll('.lmd-article li').length === 4), await article(page));
-    check('el paquete de la extensión lleva pdf.js con su licencia', ['pdf.min.js', 'pdf.worker.min.js', 'LICENSE'].every((f) => fs.existsSync(path.join(root, 'vendor', 'pdfjs', f))) && !/^\/vendor/m.test(fs.readFileSync(path.join(root, '.gitattributes'), 'utf8')));
+    check('el paquete de la extensión lleva pdf.js con su licencia', ['pdf.js', 'pdf.worker.js', 'LICENSE'].every((f) => fs.existsSync(path.join(root, 'vendor', 'pdfjs', f))) && !/^\/vendor/m.test(fs.readFileSync(path.join(root, '.gitattributes'), 'utf8')));
   } finally { await ctx.close(); await sleep(300); try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) { /* Windows suelta el perfil después */ } }
 });
 
