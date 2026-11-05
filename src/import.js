@@ -853,9 +853,9 @@
 
   // ---------- PDF ----------
   const PDF_MAIN = 'vendor/pdfjs/pdf.js'; const PDF_WORKER = 'vendor/pdfjs/pdf.worker.js';
-  const PDF_SIZE = { [PDF_MAIN]: 801811, [PDF_WORKER]: 2346450 };
+  const PDF_SIZE = { [PDF_MAIN]: 658371, [PDF_WORKER]: 2209730 };
   let pdfLib = null;
-  // En vendor/pdfjs va pdf.js 4.10.38 (pdfjs-dist, build legacy) sin minificar (el código legible que pide Chrome Web Store), con los dos archivos renombrados de .mjs
+  // En vendor/pdfjs va pdf.js 4.10.38 (pdfjs-dist, build moderno: el legacy trae core-js y Chrome Web Store lo rechazó por su scriptTag) sin minificar (el código legible que pide Chrome Web Store), con los dos archivos renombrados de .mjs
   // a .js para que cualquier servidor los entregue como JavaScript. No está en LAZY_APP ni en las listas de sw.js.
   // pdf.js se pide acá, la primera vez que hace falta. Sus dos archivos se bajan contando los bytes, para mostrar el
   // avance; después se cargan desde la caché. El trabajador es un archivo de la app: ni eval ni código de otro origen.
