@@ -815,6 +815,10 @@
       // Con el dedo, mantener apretado mientras se edita es elegir texto: el menú de bloques sale de la manija.
       if (LMD.touch.touched()) return;
       e.preventDefault();
+      // Sobre un renglón nuevo todavía vacío, el menú inserta ahí mismo. Si se soltaba el cursor, el renglón se iba
+      // y lo elegido caía debajo de otro bloque, el que había quedado a esa altura.
+      const d = e.target.closest('.lmd-draft');
+      if (d && !d._li && d.dataset.kind === 'p' && !d.textContent.trim()) { openMenu(e.clientX, e.clientY, d._anchor, d); return; }
       const active = document.activeElement;
       if (active && active.blur && active.isContentEditable) active.blur();
       const block = e.target === article ? blockNear(e.clientY) : topBlock(e.target);

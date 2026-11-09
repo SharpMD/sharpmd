@@ -567,6 +567,18 @@ await step('Menú contextual y manija sobre lo marcado', async () => {
   await ctx.close();
 });
 
+await step('Clic derecho en un renglón nuevo vacío: lo insertado queda ahí', async () => {
+  const { ctx, page } = await open({ fold: true });
+  await note(page, 'r.md', '# Doc\n\nIntro.\n\n## Titulo\n\nTexto debajo.\n', true);
+  await para(page, 'Titulo').click(); await page.keyboard.press('End'); await page.keyboard.press('Enter'); await sleep(250);
+  await page.locator('.lmd-draft').first().click({ button: 'right' }); await sleep(250);
+  await page.click('.lmd-menu [data-ins=ul]'); await sleep(250);
+  await page.keyboard.type('uno'); await page.keyboard.press('Enter'); await sleep(300);
+  await page.keyboard.type('dos'); await blur(page); await sleep(400);
+  check('la lista con viñetas queda debajo del título, no después del párrafo siguiente', /## Titulo\n\n- uno\n- dos\n\nTexto debajo\./.test(await md(page)), await md(page));
+  await ctx.close();
+});
+
 await step('Los doce temas: lo marcado se distingue', async () => {
   const { ctx, page } = await open();
   await note(page, 'm.md', DOC, true);
