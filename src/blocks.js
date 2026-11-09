@@ -921,7 +921,7 @@
       drag.on = true; W.closeMenu(); closeMenu();
       freeze();
       root.classList.add(/move/.test(drag.kind) ? 'lmd-bsel-moving' : 'lmd-bsel-ranging');
-      if (drag.kind === 'range') setSel([drag.from]);
+      if (drag.kind === 'range' || drag.grab) setSel([drag.from]);
       // Cerca del borde de arriba o de abajo, la página se desplaza sola.
       const tick = () => {
         if (!drag || !drag.on) return;
@@ -942,6 +942,8 @@
     const spot = drop_; showDrop(null);
     if (!d.on) return false;
     if (done && d.kind === 'move' && spot) moveTo(spot.next);
+    // Agarrado de la manija sin marcar nada antes: al soltar no queda marcado.
+    if (d.grab) { clear(); return true; }
     if (done && d.kind === 'imove' && spot) act(I.place, spot.before);
     placeBar();
     return true;
@@ -1049,9 +1051,11 @@
     }
     if (!margin) { clear(); return; }
     e.preventDefault();
-    const moving = !items && picked.has(b) && canEdit();
+    // Editando, la manija agarra el bloque y lo lleva a otro lugar; si no estaba marcado, se marca solo al arrastrar.
+    const grab = !!handle && !items && canEdit() && !picked.has(b);
+    const moving = grab || (!items && picked.has(b) && canEdit());
     if (!moving && !handle) setSel([b]);
-    drag = { kind: moving ? 'move' : 'range', from: b, x: e.clientX, y: e.clientY, last: e.clientY, on: false, handle: !!handle };
+    drag = { kind: moving ? 'move' : 'range', from: b, x: e.clientX, y: e.clientY, last: e.clientY, on: false, handle: !!handle, grab };
     document.addEventListener('mousemove', onMove, true); document.addEventListener('mouseup', onUp, true);
   }
   function onClick(e) {

@@ -541,7 +541,7 @@ await step('Menú contextual y manija sobre lo marcado', async () => {
   check('clic derecho en otro bloque abre el menú de ese bloque, y suelta lo marcado', await page.evaluate(() => !document.querySelector('.lmd-bsel-menu') && !!document.querySelector('.lmd-menu [data-op=dup]')) && (await sel(page)).length === 0, await sel(page));
   check('con mouse ese menú queda como estaba', await page.evaluate(() => !document.querySelector('.lmd-menu [data-extra=bsel-pick]')));
   await page.keyboard.press('Escape');
-  // La manija de un bloque marcado entre varios abre las acciones de todos; arrastrarla marca un rango.
+  // La manija de un bloque marcado entre varios abre las acciones de todos; arrastrarla lleva el bloque a otro lugar.
   await marginDrag(page, 'Alpha one', 'Beta two');
   await para(page, 'Beta two').hover(); await sleep(150);
   await page.click('.lmd-handle'); await sleep(200);
@@ -550,8 +550,17 @@ await step('Menú contextual y manija sobre lo marcado', async () => {
   await para(page, 'Gamma three').hover(); await sleep(150);
   const h = await page.evaluate(() => { const r = document.querySelector('.lmd-handle').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
   const o = await box(page, 'Omega end');
-  await page.mouse.move(h.x, h.y); await page.mouse.down(); await page.mouse.move(h.x, h.y + 10, { steps: 2 }); await page.mouse.move(h.x, o.mid, { steps: 8 }); await page.mouse.up(); await sleep(250);
-  check('arrastrar desde la manija marca un rango', (await sel(page)).length === 6 && (await sel(page))[0] === 'Gamma three.' && !(await page.evaluate(() => !!document.querySelector('.lmd-menu'))), await sel(page));
+  await page.mouse.move(h.x, h.y); await page.mouse.down(); await page.mouse.move(h.x, h.y + 10, { steps: 2 }); await page.mouse.move(h.x, o.y + 3, { steps: 8 }); await page.mouse.up(); await sleep(350);
+  const moved = await md(page);
+  check('arrastrar desde la manija mueve el bloque, sin dejarlo marcado ni abrir el menú', /:::\n\nGamma three\.\n\nOmega end\./.test(moved) && !/## Section\n\nGamma three/.test(moved) && (await sel(page)).length === 0 && !(await page.evaluate(() => !!document.querySelector('.lmd-menu'))), moved);
+  await undo(page);
+  // Un título se agarra igual y se lleva arriba de otro bloque.
+  await para(page, 'Section').hover(); await sleep(150);
+  const t = await page.evaluate(() => { const r = document.querySelector('.lmd-handle').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  const a1 = await box(page, 'Alpha one');
+  await page.mouse.move(t.x, t.y); await page.mouse.down(); await page.mouse.move(t.x, t.y - 10, { steps: 2 }); await page.mouse.move(t.x, a1.y + 3, { steps: 8 }); await page.mouse.up(); await sleep(350);
+  check('un título se arrastra arriba de otro bloque', /^# Doc\n\n## Section\n\nAlpha one\.\n\nBeta two\.\n\nGamma three\./.test(await md(page)), await md(page));
+  await undo(page);
   await page.keyboard.press('Escape');
   await para(page, 'Gamma three').hover(); await sleep(150); await page.click('.lmd-handle'); await sleep(200);
   check('y un clic en la manija sin nada marcado abre el menú del bloque, como siempre', await page.evaluate(() => !!document.querySelector('.lmd-menu [data-op=del]') && !document.querySelector('.lmd-bsel-menu')));
