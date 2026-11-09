@@ -579,6 +579,24 @@ await step('Clic derecho en un renglón nuevo vacío: lo insertado queda ahí', 
   await ctx.close();
 });
 
+await step('Un ítem largo: la viñeta, el número y la casilla quedan en el primer renglón', async () => {
+  const { ctx, page } = await open();
+  await page.setViewportSize({ width: 700, height: 700 });
+  const long = 'con un texto bastante largo que tiene que ocupar dos renglones o más para ver dónde queda la marca';
+  await note(page, 'w.md', '- Viñeta ' + long + '\n\n1. Número ' + long + '\n\n- [ ] Tarea ' + long + '\n', true);
+  // Una marca de ancho cero delante del texto se ubica donde la viñeta: en el renglón del li.
+  const got = await page.evaluate(() => [...document.querySelectorAll('.lmd-article li')].map((li) => {
+    const t = li.querySelector('.lmd-li-text'); const r = t.getBoundingClientRect();
+    const probe = document.createElement('i'); probe.textContent = '​'; li.insertBefore(probe, t);
+    const p = probe.getBoundingClientRect(); probe.remove();
+    const lh = parseFloat(getComputedStyle(t).lineHeight) || 24;
+    return { lines: Math.round(r.height / lh), first: Math.abs(p.top - r.top) < lh / 2, beside: !li.classList.contains('lmd-task-item') && p.left <= r.left + 1 || li.classList.contains('lmd-task-item') && li.querySelector('.lmd-task').getBoundingClientRect().top >= r.top - lh / 2 && li.querySelector('.lmd-task').getBoundingClientRect().bottom <= r.top + lh };
+  }));
+  check('los tres ocupan más de un renglón', got.length === 3 && got.every((g) => g.lines >= 2), got);
+  check('y la marca queda en el primero, al lado del texto', got.every((g) => g.first && g.beside), got);
+  await ctx.close();
+});
+
 await step('Los doce temas: lo marcado se distingue', async () => {
   const { ctx, page } = await open();
   await note(page, 'm.md', DOC, true);
