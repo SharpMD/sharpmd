@@ -1636,6 +1636,7 @@
           '<button class="lmd-icon-btn lmd-doc-only" data-act="copy" aria-haspopup="menu" aria-expanded="false" title="' + T('Copiar') + '">' + ICON.copy + '</button>' +
           '<button class="lmd-icon-btn lmd-doc-only" data-act="export" aria-haspopup="menu" aria-expanded="false" title="' + T('Exportar') + '">' + ICON.download + '</button>' +
           // Recargar solo sirve para lo que vive en el disco: lo demás se actualiza solo.
+          '<span class="lmd-updated lmd-doc-only"></span>' +
           '<button class="lmd-icon-btn lmd-doc-only lmd-reload" data-act="reload" title="' + T('Recargar ahora') + '">' + ICON.reload + '</button>' +
           // Lo que vale para esta nota y no para la persona: el ancho de la página y lo que siga (page.js).
           '<button class="lmd-icon-btn lmd-doc-only lmd-page-btn" data-act="page" aria-haspopup="dialog" title="' + T('Ajustes de la página') + '"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12h8M10 9.5 7.5 12l2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/></svg></button>' +
@@ -2179,7 +2180,7 @@
     ].concat(toolItems('more')));
   }
   // Una nota del disco puede cambiar por fuera; las del navegador y las de la nube no se recargan a mano.
-  const diskDoc = () => !APP || !appRoot || appRoot.kind === 'dir' || appRoot.kind === 'file';
+  const diskDoc = () => !APP || !appRoot || appRoot.kind === 'dir' || appRoot.kind === 'file' || appRoot.kind === 'fs';
   function downloadDoc() {
     if (isBin()) { binFile().then((f) => { if (f && LMD.kit.saveFile(f, DOC_NAME) === 'download') flash(T('Archivo descargado')); }); return; }
     flushTyping();
@@ -2651,10 +2652,18 @@
   let diskRev = null; let readRev = null; let readBy = null; let readFresh = false;
   const isCloud = () => !!appRoot && appRoot.kind === 'cloud';
 
+  let fsPoll = 0; let manualRead = false;
   async function readCurrent() {
     // La nube se consulta cada diez segundos: alcanza para ver lo que escribió una IA sin martillar el servidor.
     polled = true; readRev = null; readBy = null; readFresh = false; const seq = docSeq;
     if (APP && appRoot && appRoot.kind === 'cloud') { if (Date.now() - cloudPoll < (cloudState === 'error' ? 5000 : 10000)) { polled = false; return diskText; } cloudPoll = Date.now(); }
+    // Un archivo abierto por su ruta lo lee la extensión entero, sin fecha ni tamaño, y con un tope de lecturas por
+    // minuto: se relee cada tres segundos, y al recargar a mano en el momento.
+    if (APP && appRoot && appRoot.kind === 'fs') {
+      if (!manualRead && Date.now() - fsPoll < 3000) { polled = false; return diskText; }
+      fsPoll = Date.now();
+      try { const text = await (await (await vFile(HERE)).getFile()).text(); if (seq === docSeq) readFresh = true; return text; } catch (e) { return null; }
+    }
     if (APP) {
       // Con el permiso de la carpeta alcanza con mirar fecha y tamaño: el archivo se lee solo si cambió.
       try {
@@ -2690,7 +2699,7 @@
     if (inDir()) { if (manual) { redrawDir(); flash(T('Lista de archivos actualizada')); } return; }
     // Una nota que todavía no tiene archivo (vive en la sesión) no tiene nada afuera que releer. Su "archivo" es
     // lo que hay en memoria: compararlo con lo guardado (nada, en una nota nueva) daba un cambio en el disco falso.
-    if (appRoot && (appRoot.id === 'mem' || appRoot.id === 'bin' || appRoot.kind === 'fs')) { if (manual) flash(T('Sin cambios')); return; }
+    if (appRoot && (appRoot.id === 'mem' || appRoot.id === 'bin')) { if (manual) flash(T('Sin cambios')); return; }
     // Lo que está en el visor no se lee como texto: alcanza con la fecha y el tamaño. Si cambió (se volvió a exportar
     // el libro), se abre de nuevo en el mismo lugar.
     if (isBin()) {
@@ -2703,7 +2712,7 @@
     checking = true;
     const seq = docSeq;
     try {
-      const text = await readCurrent();
+      manualRead = !!manual; const text = await readCurrent(); manualRead = false;
       if (seq !== docSeq || saving) return; // mientras se leía, se pasó a otra nota o salió un guardado propio
       // En una nota de la nube, no poder leer es estar sin conexión; volver a leer es haberla recuperado.
       if (appRoot && appRoot.kind === 'cloud') { const was = cloudState; if (text == null) cloudState = 'error'; else if (polled && cloudState === 'error' && !dirty) cloudState = 'ok'; if (was !== cloudState) updateSaveState(); }
@@ -2726,7 +2735,7 @@
         if (held && readFresh) { held = null; markDirty(); }
         if (manual) flash(T('Sin cambios'));
       }
-    } finally { checking = false; }
+    } finally { checking = false; paintFresh(); }
   }
 
   // Lo que cambió afuera (el archivo del disco, la nota de la nube) entra al documento. Sin cambios propios se toma
@@ -4267,7 +4276,9 @@
     '</div>';
     ui.panel.innerHTML =
       '<div class="lmd-panel-card" role="dialog" aria-modal="true" aria-label="' + T('Ajustes') + '">' +
-        '<header><h2>' + T('Ajustes') + '</h2><button class="lmd-icon-btn" data-act="close-panel" title="' + T('Cerrar') + '" aria-label="' + T('Cerrar') + '">' + ICON.close + '</button></header>' +
+        '<header><h2>' + T('Ajustes') + '</h2>' +
+          '<input type="search" class="lmd-psearch" data-psearch placeholder="' + T('Buscar un ajuste') + '" aria-label="' + T('Buscar un ajuste') + '" autocomplete="off" spellcheck="false">' +
+          '<button class="lmd-icon-btn" data-act="close-panel" title="' + T('Cerrar') + '" aria-label="' + T('Cerrar') + '">' + ICON.close + '</button></header>' +
         '<nav class="lmd-ptabs" role="tablist">' +
           PANEL_TABS.filter((t) => !guestTabs || guestTabs.includes(t[0])).map((t) => '<button type="button" role="tab" data-ptab="' + t[0] + '">' + t[2] + '<span>' + (t[3] && LMD.lang() === 'es' ? t[3] : T(t[1])) + '</span></button>').join('') +
           // La guía de uso (src/guide/). El invitado de una sesión en vivo tiene una sola nota: no se le ofrece salir de ella.
@@ -4408,7 +4419,34 @@
       if (tab === 'plug') plugPane(ui.panel.querySelector('[data-tab=plug] .lmd-plug'));
       if (tab === 'auto') { const pane = ui.panel.querySelector('[data-auto-pane]'); ensure('automate').then((ok) => { if (ok && pane.isConnected) LMD.automate.pane(pane, host); }); }
     };
-    ui.panel.querySelectorAll('[data-ptab]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.ptab)));
+    // Buscar un ajuste: muestra, de todas las pestañas que se dibujan acá, solo las filas que dicen lo buscado, sin
+    // importar tildes ni mayúsculas. Las pestañas que se arman al abrirlas (cuenta, nube, IA) se marcan si su nombre
+    // coincide. Al borrar la búsqueda se vuelve a la pestaña en la que se estaba.
+    const fold = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const find = ui.panel.querySelector('[data-psearch]');
+    const ITEMS = '.lmd-row, .lmd-check, .lmd-plg-row, .lmd-themes';
+    const search = () => {
+      const q = fold(find.value.trim()); const card = ui.panel.querySelector('.lmd-panel-card');
+      card.classList.toggle('lmd-searching', !!q);
+      ui.panel.querySelectorAll('.lmd-miss').forEach((n) => n.classList.remove('lmd-miss'));
+      ui.panel.querySelectorAll('[data-ptab]').forEach((b) => b.classList.toggle('lmd-hit', !!q && fold(b.textContent).includes(q)));
+      if (!q) { const none = ui.panel.querySelector('.lmd-pnone'); if (none) none.remove(); showTab(panelTab); return; }
+      let hits = 0;
+      ui.panel.querySelectorAll('.lmd-panel-body > section').forEach((sec) => {
+        const items = Array.from(sec.querySelectorAll(ITEMS)).filter((n) => !n.parentElement.closest(ITEMS));
+        const head = sec.querySelector('h3'); const all = !!head && fold(head.textContent).includes(q);
+        let any = false;
+        items.forEach((n) => { const ok = all || fold(n.textContent + ' ' + (n.title || '') + ' ' + Array.from(n.querySelectorAll('[aria-label],[title]')).map((x) => x.getAttribute('aria-label') || x.title).join(' ')).includes(q); n.classList.toggle('lmd-miss', !ok); if (ok) any = true; });
+        sec.hidden = !any; if (any) hits++;
+      });
+      const strip = ui.panel.querySelector('[data-direct]'); if (strip) strip.hidden = true;
+      let none = ui.panel.querySelector('.lmd-pnone');
+      if (!hits) { if (!none) { none = document.createElement('p'); none.className = 'lmd-hint lmd-pnone'; ui.panel.querySelector('.lmd-panel-body').prepend(none); } none.textContent = ui.panel.querySelector('[data-ptab].lmd-hit') ? T('Ningún ajuste de esta lista coincide. Probá en la pestaña marcada.') : T('Ningún ajuste coincide.'); } else if (none) none.remove();
+      ui.panel.querySelector('.lmd-panel-body').scrollTop = 0;
+    };
+    find.addEventListener('input', search);
+    find.addEventListener('keydown', (e) => { if (e.key === 'Escape' && find.value) { e.preventDefault(); e.stopPropagation(); find.value = ''; search(); } });
+    ui.panel.querySelectorAll('[data-ptab]').forEach((b) => b.addEventListener('click', () => { if (find.value) { find.value = ''; search(); } showTab(b.dataset.ptab); }));
     const strip = ui.panel.querySelector('[data-direct]');
     if (strip) {
       strip.querySelector('[data-direct-go]').addEventListener('click', openInApp);
@@ -4694,7 +4732,22 @@
     }
   }
 
+  // La hora en que la nota se puso al día por última vez: al abrirla, al entrar un cambio de afuera o al guardar.
+  // Con eso se sabe, sin dudar, si lo que se ve es lo último.
+  let freshText = null; let freshSeq = -1; let freshAt = 0;
+  function paintFresh() {
+    const el = ui.main && ui.main.querySelector('.lmd-updated'); if (!el) return;
+    if (diskText !== freshText || docSeq !== freshSeq) { freshText = diskText; freshSeq = docSeq; freshAt = Date.now(); }
+    const off = noDoc || inGuide() || inDir() || isBin();
+    el.hidden = off;
+    if (off) return;
+    const at = new Date(freshAt); const today = at.toDateString() === new Date().toDateString();
+    const hour = at.toLocaleTimeString(LMD.lang() === 'en' ? 'en-US' : 'es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    el.textContent = T('Actualizado {t}', { t: today ? hour : at.toLocaleDateString() + ' ' + hour });
+    el.title = T('Última vez que la nota se puso al día con el archivo');
+  }
   function updateSaveState() {
+    paintFresh();
     if (LMD.sync) LMD.sync.paint();
     if (LMD.live) LMD.live.state();
     const root = document.documentElement;

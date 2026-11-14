@@ -205,6 +205,10 @@ html:not(.lmd-editing) .lmd-docname-edit { cursor: pointer; } /* leyendo, el cli
 }
 .lmd-side-hidden .lmd-foot { left: 0; }
 .lmd-savestate { white-space: nowrap; }
+.lmd-updated { font-size: 12px; color: var(--fg-faint); white-space: nowrap; margin-right: 2px; font-variant-numeric: tabular-nums; }
+.lmd-updated[hidden] { display: none; }
+.lmd-bin .lmd-updated { display: none !important; }
+@media (max-width: 900px) { .lmd-updated { display: none; } }
 .lmd-dirty .lmd-savestate { color: var(--accent); font-weight: 600; }
 .lmd-status { flex: 1; min-width: 0; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* El aviso corto: abajo a la derecha, encima del pie. Desliza al entrar y se desvanece al salir. */
@@ -438,6 +442,11 @@ pre.lmd-mermaid-error { border-color: #dc2626; }
 .lmd-panel-card { width: min(900px, 100%); height: min(680px, 100%); background: var(--bg); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: grid; grid-template-columns: 210px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); box-shadow: var(--shadow); font-size: 14px; line-height: 1.45; }
 .lmd-panel-card header { grid-column: 1 / -1; }
 .lmd-panel-card header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.lmd-psearch { flex: 0 1 260px; min-width: 0; margin: 0 10px 0 auto; padding: 6px 10px; font: inherit; font-size: 13px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.lmd-psearch:focus { outline: none; border-color: var(--accent); }
+.lmd-searching .lmd-miss, .lmd-searching .lmd-panel-body .lmd-hint:not(.lmd-pnone), .lmd-searching .lmd-preview, .lmd-searching .lmd-panel-foot { display: none !important; }
+.lmd-ptabs [data-ptab].lmd-hit { box-shadow: inset 3px 0 0 var(--accent); }
+.lmd-pnone { margin: 8px 0; }
 .lmd-panel-card h2 { margin: 0; font-size: 17px; }
 .lmd-panel-body { overflow: auto; padding: 6px 26px 28px; }
 .lmd-panel-body section { padding: 14px 0; border-bottom: 1px solid var(--line); }

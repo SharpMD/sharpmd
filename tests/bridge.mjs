@@ -581,6 +581,16 @@ try {
   const inApp = await lk.evaluate(() => ({ at: location.href.split('?')[0], f: new URLSearchParams(location.search).get('f'), h1: (document.querySelector('.markdown-body h1') || {}).textContent || '', body: (document.querySelector('.markdown-body') || {}).textContent || '', note: /Opened as a copy\. The file on your disk is not changed\./.test(document.body.textContent), dlg: !!document.querySelector('.lmd-dlg-card') }));
   check('con la app ya abierta y la ruta del sistema tal cual, el archivo se muestra dentro de la app web sin preguntar, leído por el puente', inApp.at === WEB && (await lk.locator('.lmd-dlg-card').count()) === 0 && /^fs\/.*\/my%20notes\.md$/.test(inApp.f || '') && inApp.h1.startsWith('Local note') && /SECRET-DISK-TEXT/.test(inApp.body) && !inApp.dlg, inApp);
   check('como copia, y lo dice', inApp.note, inApp);
+  // Lo que cambia afuera en ese archivo (una IA que lo edita) entra solo, y arriba dice a qué hora se puso al día.
+  const said0 = await lk.evaluate(() => (document.querySelector('.lmd-updated') || {}).textContent || '');
+  const was0 = fs.readFileSync(diskFile, 'utf8'); await sleep(1100);
+  fs.writeFileSync(diskFile, was0 + '\nAdded by an AI, OUTSIDE-EDIT.\n');
+  const tookOut = await until(() => lk.evaluate(() => document.querySelector('.markdown-body').textContent.includes('OUTSIDE-EDIT')), 9000);
+  const said1 = await lk.evaluate(() => { const n = document.querySelector('.lmd-updated'); return { text: n ? n.textContent : '', shown: !!n && !n.hidden }; });
+  check('el archivo abierto por su ruta se relee solo cuando cambia afuera', !!tookOut);
+  check('y el encabezado dice a qué hora se actualizó, con otra hora que antes', said1.shown && /^Updated \d/.test(said1.text) && said1.text !== said0, [said0, said1]);
+  fs.writeFileSync(diskFile, was0);
+  await until(() => lk.evaluate(() => !document.querySelector('.markdown-body').textContent.includes('OUTSIDE-EDIT')), 9000);
   check('sin abrir otra pestaña ni llevar ninguna a un file://', ctx.pages().length === tabsWas && !ctx.pages().some((p) => p.url().startsWith('file:')), ctx.pages().map((p) => p.url()));
   const webSide = await web.evaluate(async () => ({ notes: JSON.stringify(await LMD.store.notesAll()), roots: (await LMD.store.rootsAll()).map((r) => r.name) }));
   check('la copia no queda entre las notas del navegador ni en la lista de abiertos', !/SECRET-DISK-TEXT/.test(J(webSide)) && !/my notes/.test(J(webSide)), webSide.roots);

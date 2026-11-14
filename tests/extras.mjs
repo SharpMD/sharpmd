@@ -63,6 +63,15 @@ o.assets = await app.evaluate(async () => { const dir = await (await (await navi
 await app.click('[data-act=settings]'); await app.waitForSelector('.lmd-panel-card');
 await app.click('[data-ptab=read]'); await app.click('input[data-key=focusMode]'); await app.click('input[data-key=typewriter]'); await app.waitForTimeout(500);
 o.foco = await app.evaluate(() => document.documentElement.classList.contains('lmd-focus') && document.documentElement.classList.contains('lmd-typewriter'));
+// Buscar un ajuste: sin importar tildes ni mayúsculas, salen las filas de cualquier pestaña que lo dicen, y nada más.
+await app.fill('[data-psearch]', 'MAQUINA'); await app.waitForTimeout(200);
+o.buscar = await app.evaluate(() => { const vis = (n) => !!n.offsetParent; const rows = [...document.querySelectorAll('.lmd-panel-body .lmd-check, .lmd-panel-body .lmd-row')].filter(vis).map((n) => n.textContent.trim()); return { rows, theme: vis(document.querySelector('[data-seg=theme]')) }; });
+await app.fill('[data-psearch]', 'tema'); await app.waitForTimeout(200);
+o.buscarOtra = await app.evaluate(() => !!document.querySelector('[data-seg=theme]').offsetParent && !document.querySelector('input[data-key=typewriter]').offsetParent);
+await app.fill('[data-psearch]', 'zzzz'); await app.waitForTimeout(200);
+o.buscarNada = await app.evaluate(() => (document.querySelector('.lmd-pnone') || {}).textContent || '');
+await app.focus('[data-psearch]'); await app.keyboard.press('Escape'); await app.waitForTimeout(200);
+o.buscarVuelve = await app.evaluate(() => !document.querySelector('.lmd-panel-card').hidden && !document.querySelector('.lmd-searching') && document.querySelector('[data-psearch]').value === '' && !!document.querySelector('input[data-key=typewriter]').offsetParent);
 await app.click('[data-act=close-panel]');
 // Recargar es para lo que vive en el disco: acá, una carpeta del disco, está a la vista.
 o.recargar = await app.evaluate(() => !!document.querySelector('[data-act=reload]').offsetParent && !document.querySelector('[data-act=copy-md], [data-act=copy-rich], [data-act=print], [data-act=export-html]'));
@@ -231,6 +240,10 @@ const checks = [
   ['reemplazar todo y deshacer', o.reemplazo === 'Una papa y otra papa.' && o.deshecho === 'Una zanahoria y otra Zanahoria.', [o.reemplazo, o.deshecho]],
   ['pegar una imagen la guarda en assets y la inserta', /^Una zanahoria y otra Zanahoria\.!\[\]\(assets\/imagen-\d{8}-\d{6}\.png\)$/.test(o.imagen) && o.assets === 1, o.imagen],
   ['modo foco y máquina de escribir', o.foco],
+  ['buscar un ajuste muestra solo las filas que lo dicen, sin tildes ni mayúsculas', o.buscar.rows.length === 1 && /Máquina de escribir/.test(o.buscar.rows[0]) && !o.buscar.theme],
+  ['y busca en todas las pestañas, no solo en la abierta', o.buscarOtra],
+  ['sin resultados lo dice', o.buscarNada === 'Ningún ajuste coincide.'],
+  ['Escape borra la búsqueda sin cerrar Ajustes y vuelve a la pestaña', o.buscarVuelve],
   ['exportar a HTML', o.html.name === 'README.html' && o.html.h1 && o.html.limpio && o.html.math && o.html.img, o.html],
   ['un CSV se ve como tabla', J(o.csv) === J([['nombre', 'cantidad'], ['Pérez, Ana', '3'], ['Luis', '5']]), o.csv],
   ['un JSON se ve como árbol y se edita como texto', /json/i.test(o.json.lang || '') && o.json.tree > 0 && o.jsonEdit, o.json],
