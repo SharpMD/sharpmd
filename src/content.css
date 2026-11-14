@@ -4043,7 +4043,6 @@ dialog.lmd-xp-full::backdrop { background: var(--bg); }
 /* ---------- La página de una carpeta (folderpage.js) ---------- */
 /* En el lugar de la nota: el camino, el nombre, la descripción (el README de la carpeta) y el índice de lo que tiene.
    De la barra de arriba queda lo que vale para una carpeta; lo de una nota (subirla, exportar el archivo) no. */
-.lmd-dir .lmd-split, .lmd-dir .lmd-zone-outline { display: none; }
 .lmd-dir .lmd-sync, .lmd-dir .lmd-top-right > [data-act=export], .lmd-dir .lmd-modeseg, .lmd-dir .lmd-insert, .lmd-dir .lmd-save { display: none !important; }
 .lmd-root-tog.lmd-active { color: var(--accent); background: var(--accent-soft); }
 /* El triángulo pliega y despliega; el nombre abre la página. El triángulo se toca cómodo: su zona es más grande que el dibujo. */

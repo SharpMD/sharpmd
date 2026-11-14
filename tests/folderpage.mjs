@@ -67,6 +67,7 @@ const st = (page) => page.evaluate(() => {
     done: !!fp && fp.dataset.done === '1', url: fp ? fp.dataset.url : '', text: fp ? fp.innerText : '',
     tpl: !!document.querySelector('.lmd-tplbar') && !!document.querySelector('.lmd-tplbar').offsetParent, pub: document.documentElement.classList.contains('lmd-public'),
     wide: document.documentElement.scrollWidth > window.innerWidth + 1,
+    outline: (() => { const z = document.querySelector('.lmd-zone-outline'); return z && z.offsetParent ? z.querySelector('.lmd-pane-outline').textContent.trim() : null; })(),
   };
 });
 // Espera a que la página de esa carpeta esté dibujada entera.
@@ -97,6 +98,7 @@ try {
   const c1 = await at(p, 'cloud/Proyecto/');
   check('tocar el nombre de una carpeta abre su página, con dirección propia', !!c1 && c1.title === 'Proyecto' && c1.docname === 'Proyecto' && c1.h1 === 'Proyecto', c1 || await st(p));
   check('y además la despliega y queda marcada como abierta en el explorador', !!c1 && c1.open.includes('Proyecto') && J(c1.active) === J(['Proyecto']), c1 && [c1.open, c1.active]);
+  check('el índice no se va al abrir una carpeta: queda y pide abrir un archivo', !!c1 && c1.outline === 'Open a file to see its outline.', c1 && c1.outline);
   check('las migas llevan a las carpetas de arriba', !!c1 && J(c1.crumbs) === J(['Cloud']), c1 && c1.crumbs);
   check('el README de la carpeta se dibuja arriba como descripción, sin repetir el título', !!c1 && /^La descripción del proyecto\. Mirá el plan\./.test(c1.desc || '') && c1.h1s === 1 && await p.evaluate(() => !!document.querySelector('.lmd-fp-md strong') && !!document.querySelector('.lmd-fp-md input.lmd-task')), c1 && [c1.desc, c1.h1s]);
   check('el índice: primero la subcarpeta, después las notas, y el README marcado como descripción', !!c1 && J(c1.rows) === J(['d:sub', 'f:plan', 'f:README:Description']) && c1.sum === '1 folder · 2 notes', c1 && [c1.rows, c1.sum]);

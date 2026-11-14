@@ -277,6 +277,7 @@
       "Copiar Markdown": "Copy Markdown",
       "Copiar con formato (la selección, o todo el documento)": "Copy with formatting (the selection, or the whole document)",
       "Recargar ahora": "Reload now",
+      "Abrí un archivo para ver su índice.": "Open a file to see its outline.",
       "Buscar un ajuste": "Search settings",
       "Ningún ajuste coincide.": "No setting matches.",
       "Ningún ajuste de esta lista coincide. Probá en la pestaña marcada.": "No setting here matches. Try the highlighted tab.",

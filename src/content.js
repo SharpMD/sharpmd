@@ -393,7 +393,7 @@
     if (viewSeq === docSeq) return; // ya está a la vista: el tema y el tamaño de letra le llegan por la hoja de estilos
     viewSeq = docSeq; const seq = docSeq; const at = HERE;
     if (LMD.viewer) LMD.viewer.close();
-    spyHeadings = []; ui.paneOutline.textContent = ''; ui.progress = null; ui.count.textContent = '';
+    spyHeadings = []; ui.paneOutline.textContent = ''; ui.progress = null; ui.count.textContent = ''; dirOutline();
     // De una carpeta a otra, o al volver a listar la misma, lo que hay a la vista queda hasta que llega lo nuevo.
     if (!ui.article.querySelector('.lmd-fp')) { ui.article.textContent = ''; ui.article.appendChild(el('p', { class: 'lmd-notice', role: 'status', text: T('Leyendo carpeta…') })); }
     ensure('folderpage').then((ok) => {
@@ -545,7 +545,10 @@
   async function fsRead(fileUrl) {
     const kept = LMD.bridge.take(fileUrl);
     if (kept != null) return kept;
-    const r = await LMD.bridge.readFile(fileUrl);
+    let r = await LMD.bridge.readFile(fileUrl);
+    // La extensión lee hasta 60 archivos por minuto. Mandar una carpeta grande a la nube pasa ese tope: se espera
+    // a que vuelva a haber lugar, en vez de cortar a la mitad.
+    for (let i = 0; i < 15 && r && r.ok && !r.opened && r.why === 'limit'; i++) { await new Promise((ok) => setTimeout(ok, 5000)); r = await LMD.bridge.readFile(fileUrl); }
     if (r && r.ok && r.opened && typeof r.text === 'string') return r.text;
     throw Object.assign(new Error('fs'), { why: r && r.ok ? r.why || 'failed' : r && r.error === 'refused' ? 'old' : 'none' });
   }
@@ -2537,6 +2540,8 @@
   // debajo, las secciones como árbol plegable con guías por nivel.
   const collapsed = new Set();
 
+  // En una carpeta el índice no se va: queda en su lugar y dice que hace falta abrir un archivo.
+  function dirOutline() { if (!inDir() || !ui.paneOutline) return; ui.paneOutline.textContent = ''; ui.paneOutline.appendChild(el('p', { class: 'lmd-empty', text: T('Abrí un archivo para ver su índice.') })); }
   function buildOutline(headings) {
     // Los títulos numerados de la nota (page.js): el índice muestra el mismo número que el documento.
     if (LMD.page && LMD.page.number) LMD.page.number(headings);
@@ -4739,12 +4744,13 @@
     const el = ui.main && ui.main.querySelector('.lmd-updated'); if (!el) return;
     if (diskText !== freshText || docSeq !== freshSeq) { freshText = diskText; freshSeq = docSeq; freshAt = Date.now(); }
     const off = noDoc || inGuide() || inDir() || isBin();
-    el.hidden = off;
+    // Solo se escribe lo que cambia: reescribir lo mismo en cada vuelta despierta a quien mira la página.
+    if (el.hidden !== off) el.hidden = off;
     if (off) return;
     const at = new Date(freshAt); const today = at.toDateString() === new Date().toDateString();
     const hour = at.toLocaleTimeString(LMD.lang() === 'en' ? 'en-US' : 'es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    el.textContent = T('Actualizado {t}', { t: today ? hour : at.toLocaleDateString() + ' ' + hour });
-    el.title = T('Última vez que la nota se puso al día con el archivo');
+    const text = T('Actualizado {t}', { t: today ? hour : at.toLocaleDateString() + ' ' + hour });
+    if (el.textContent !== text) { el.textContent = text; el.title = T('Última vez que la nota se puso al día con el archivo'); }
   }
   function updateSaveState() {
     paintFresh();
@@ -5959,6 +5965,8 @@
     ui.main.querySelector('.lmd-guide-copy').hidden = !inGuide() || inDir();
     // La página de una carpeta: sin lo que es de una nota (editar, copiar, exportar el archivo, el índice de títulos).
     document.documentElement.classList.toggle('lmd-dir', inDir());
+    // El índice no se va: queda en su lugar, con el mismo alto, y dice que hace falta abrir un archivo.
+    dirOutline();
     paintPub();
     document.documentElement.classList.toggle('lmd-nodoc', noDoc);
     // Un archivo que se ve en el visor o lleva un cartel: la barra no ofrece editarlo, copiarlo ni ver su código.

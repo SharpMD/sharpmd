@@ -44,8 +44,9 @@
     const k = kindOf(url);
     if (k !== 'disk' && k !== 'local') return false;
     if (!isDirUrl(url)) return isNote(leaf(url));
-    // Un archivo suelto o una copia abierta por enlace no traen su carpeta: ahí se manda el archivo.
-    return k === 'local' || !core.APP || (core.rootOf(url) || {}).kind === 'dir';
+    // Un archivo suelto no trae su carpeta: ahí se manda el archivo. Una carpeta abierta por su ruta sí se manda
+    // entera: la extensión la lista y lee cada archivo.
+    return k === 'local' || !core.APP || /^(dir|fs)$/.test((core.rootOf(url) || {}).kind);
   }
   const reach = () => !!core && LMD.cloud.enabled() && LMD.cloud.reach() && !LMD.cloud.guest();
 
