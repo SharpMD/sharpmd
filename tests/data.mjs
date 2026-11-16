@@ -172,8 +172,8 @@ await app.keyboard.press('Escape'); await app.waitForSelector('.lmd-dlg'); await
 o.cancelar = (await src()) === antes;
 // Trabajar en Orca: arma el enlace con el título, la nota y la tarjeta, y avisa si nada se abrió
 await card('Publicar').click(); await app.waitForSelector('.lmd-cd');
-o.orca = await app.evaluate(() => { const b = document.querySelector('.lmd-cd [data-cd=orca]'); if (!b) return null; let url = ''; const keep = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { url = this.href; }; b.click(); HTMLAnchorElement.prototype.click = keep; const u = new URL(url.replace(/^orca:/, 'http:')); return { text: b.textContent, proto: url.split('?')[0], name: u.searchParams.get('name'), prompt: u.searchParams.get('prompt'), repo: u.searchParams.get('repo') }; });
-await app.waitForTimeout(1800); o.orcaAviso = await app.evaluate(() => /orca\.dev/.test(document.body.innerText));
+o.orca = await app.evaluate(async () => { const b = document.querySelector('.lmd-cd [data-cd=orca]'); if (!b) return null; let cmd = ''; const keep = navigator.clipboard.writeText; navigator.clipboard.writeText = async (t) => { cmd = t; }; b.click(); await new Promise((r) => setTimeout(r, 300)); navigator.clipboard.writeText = keep; return { text: b.textContent, cmd }; });
+o.orcaAviso = await app.evaluate(() => /Comando de Orca copiado/.test(document.body.innerText));
 await app.keyboard.press('Escape'); await app.waitForSelector('.lmd-cd', { state: 'detached' });
 // eliminar vive en el detalle, y pregunta
 await card('Publicar').click(); await app.waitForSelector('.lmd-cd'); await app.click('.lmd-cd [data-cd=del]'); await app.waitForSelector('.lmd-dlg');
@@ -549,8 +549,8 @@ const checks = [
   ['al agregar un campo se puede elegir Texto largo, y el tablero lo anota como longtext', J(o.largoNuevo) === J(['TEXTAREA', true]) && /^\{show=needs,ref,Contexto ref=text Contexto=longtext\}$/.test(o.largoGuardado.cfg), [o.largoNuevo, o.largoGuardado.cfg]],
   ['Enter en el título guarda, y la tarjeta queda en un solo renglón del archivo', / ya \{needs="Primera parte segunda parte" ref=REF-\S+ notes="Una nota corta" Contexto="Lo que hay que saber" id=/.test(o.largoGuardado.linea), o.largoGuardado.linea],
   ['en teléfono el detalle ocupa el ancho disponible, sin scroll de costado', o.largoTel.fits && o.largoTel.wide && o.largoTel.area, o.largoTel],
-  ['Trabajar en Orca arma orca://new-workspace con el slug del título y el prompt con la tarjeta y la instrucción de moverla', !!o.orca && o.orca.proto === 'orca://new-workspace' && o.orca.name === 'publicar' && o.orca.prompt.startsWith('Publicar') && o.orca.prompt.split(/\r?\n/)[1] === '' && /SharpMD card: .+ #\S+/.test(o.orca.prompt) && /move_card/.test(o.orca.prompt) && o.orca.repo === null, o.orca],
-  ['si Orca no se abre, avisa cómo instalarlo', o.orcaAviso === true, o.orcaAviso],
+  ['Trabajar en Orca copia una línea de orca worktree create con el slug, el agente y el prompt de la tarjeta, sin nada que la shell interprete', !!o.orca && /^orca worktree create --name publicar --agent claude --prompt "Publicar \| .*SharpMD card: .+ #\S+ \| .*move_card.*" --activate$/.test(o.orca.cmd) && !/[\n$`\\!%]/.test(o.orca.cmd) && (o.orca.cmd.match(/"/g) || []).length === 2, o.orca],
+  ['y avisa que se copió', o.orcaAviso === true, o.orcaAviso],
   ['sin errores de JavaScript', errors.length === 0, errors],
 ];
 console.log('Tareas, tableros y cuentas');

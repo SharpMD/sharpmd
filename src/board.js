@@ -471,12 +471,25 @@
     const repo = String(attrs.repo || '').trim();
     return 'orca://new-workspace?name=' + encodeURIComponent(slug(text)) + '&prompt=' + encodeURIComponent(prompt) + (repo ? '&repo=' + encodeURIComponent(repo) : '');
   }
-  function toOrca(model, card, text, attrs) {
-    const url = orcaUrl(model, card, text, attrs);
-    // Si Orca no está instalado el navegador no hace nada: a los 1,5 s sin que la pestaña pierda el foco, se avisa.
-    let left = false; const off = () => { left = true; }; window.addEventListener('blur', off, { once: true });
-    const a = el('a', { href: url }); a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => { window.removeEventListener('blur', off); if (!left && document.hasFocus()) core.flash(T('¿No se abrió? Instalá Orca desde orca.dev'), 'warn'); }, 1500);
+  // Orca no abre enlaces orca:// para crear workspaces: lo hace su CLI. Se copia una sola línea que anda igual en
+  // bash, zsh y PowerShell: comillas dobles, y fuera lo que esas shells interpretan adentro ($, `, \, ", !, %).
+  const shellSafe = (s) => String(s).replace(/"/g, "'").replace(/[$`\\!%]/g, '').replace(/\s*\n+\s*/g, ' | ').replace(/\s+/g, ' ').trim();
+  function orcaRepo(r) {
+    r = String(r || '').trim(); if (!r) return '';
+    if (/^(id|name|path):/.test(r)) return r;
+    return (/^([a-z]:[\\/]|[\\/~])/i.test(r) ? 'path:' : 'name:') + r;
+  }
+  function orcaCommand(model, card, text, attrs) {
+    const u = new URL(orcaUrl(model, card, text, attrs).replace(/^orca:/, 'http:'));
+    const agent = String((core.settings || {}).orcaAgent || 'claude').replace(/[^a-z0-9-]/gi, '') || 'claude';
+    const repo = orcaRepo(u.searchParams.get('repo'));
+    return 'orca worktree create --name ' + u.searchParams.get('name') + (repo ? ' --repo "' + shellSafe(repo) + '"' : '') +
+      ' --agent ' + agent + ' --prompt "' + shellSafe(u.searchParams.get('prompt')).slice(0, 6000) + '" --activate';
+  }
+  async function toOrca(model, card, text, attrs) {
+    const cmd = orcaCommand(model, card, text, attrs);
+    try { await navigator.clipboard.writeText(cmd); } catch (e) { core.flash(T('No se pudo copiar el comando'), 'warn'); return; }
+    core.flash(T('Comando de Orca copiado: pegalo en una terminal'));
   }
 
   function openCard(board, ci, ki) {
@@ -503,7 +516,7 @@
     const actions = el('div', { class: 'lmd-ask-actions lmd-cd-actions' });
     if (!ro && !fresh) actions.appendChild(el('button', { type: 'button', class: 'lmd-cd-del', 'data-cd': 'del', text: T('Eliminar') }));
     // Orca (orca.dev) abre su compositor de workspace con la tarjeta ya cargada; no crea nada solo. Solo en escritorio.
-    if (!fresh && !ro && (core.settings || {}).orca !== false && !LMD.touch.small() && !LMD.touch.coarse()) actions.appendChild(el('button', { type: 'button', class: 'lmd-link lmd-cd-orca', 'data-cd': 'orca', title: T('Abre Orca con un workspace nuevo listo para crear'), text: T('Trabajar en Orca') }));
+    if (!fresh && !ro && (core.settings || {}).orca !== false && !LMD.touch.small() && !LMD.touch.coarse()) actions.appendChild(el('button', { type: 'button', class: 'lmd-link lmd-cd-orca', 'data-cd': 'orca', title: T('Copia el comando que crea un workspace de Orca con esta tarjeta'), text: T('Trabajar en Orca') }));
     actions.appendChild(el('button', { type: 'button', class: 'lmd-btn', 'data-cd': 'no', 'data-esc': '', text: T(ro ? 'Cerrar' : 'Cancelar') }));
     if (!ro) actions.appendChild(el('button', { type: 'button', class: 'lmd-btn lmd-btn-fill', 'data-cd': 'ok', text: T('Guardar') }));
     dlg.append(title, state, list, undoBar, adder, err, dates, actions); box.appendChild(dlg);
