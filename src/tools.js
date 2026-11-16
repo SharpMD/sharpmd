@@ -207,7 +207,7 @@
   // cursor quieto (las flechas del teclado) no elige nada. Y con el foco dentro del detalle (se está usando uno de sus
   // controles) el cursor no cambia nada: ahí manda el clic. Al salir de la lista, queda lo último que se mostró.
   // Devuelve cómo cancelar la elección que esté en espera. opt: las opciones de los escuchas (su señal de corte).
-  const HOVER_REST = 110;
+  const HOVER_REST = 40;
   function follow(d, rows, pick, opt) {
     let timer = 0; let mx = -1; let my = -1;
     const busy = () => { const a = document.activeElement; return !!a && a !== d.side && d.side.contains(a); };

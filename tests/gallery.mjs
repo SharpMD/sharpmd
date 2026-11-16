@@ -174,6 +174,26 @@ try {
   check('el servidor acepta las mismas claves y rechaza los mismos casos', okPost.status === 200 && badPost.length === 0 && JSON.stringify((await api('GET', '/gallery/mine', undefined, tem.s)).json.map((x) => x.name)) === '["Deep tide"]', [okPost.status, okPost.json, badPost]);
   await api('DELETE', '/gallery/' + okPost.json.id, undefined, tem.s);
 
+  // ---------- CSS en un tema ----------
+  const CSS_OK = '.markdown-body h1 { color: tomato; }\n/* nota */\n.markdown-body a:hover { text-decoration: underline; }\n@media (max-width: 600px) { .markdown-body p { font-size: 15px; } }';
+  const CSS_BAD = [['url()', 'a { background: url(x.png); }'], ['URL() en mayúsculas', 'a { background: URL(x.png); }'], ['@import', '@import "x.css"; a { color: red; }'], ['@font-face', '@font-face { font-family: X; }'], ['@namespace', '@namespace svg "http://x"; a { color: red; }'],
+    ['expression()', 'a { width: expression(alert(1)); }'], ['javascript:', 'a { background: javascript:alert(1); }'], ['behavior:', 'a { behavior: x; }'], ['-moz-binding', 'a { -moz-binding: x; }'], ['</style', 'a { color: red; } </style>'], ['un <', 'a { content: "<"; }'],
+    ['un escape \\', 'a { color: \\72ed; }'], ['image-set()', 'a { background: image-set("x" 1x); }'], ['src()', 'a { background: src("x"); }'], ['url() partido por un comentario', 'a { background: u/**/rl(x); }'],
+    ['llave sin cerrar', 'a { color: red;'], ['llave de más', 'a { color: red; } }'], ['más de 16 KB', 'a { color: red; }' + '\n/* ' + 'x'.repeat(16 * 1024) + ' */'], ['no es texto', 42]];
+  const cssLocal = await pg.evaluate(([ok, bad]) => { const C = LMD.community; return { ok: C.checkData('theme', { css: ok, accent: '#2563eb' }), okOnly: C.checkData('theme', { css: ok }), empty: C.checkData('theme', { css: '  \n ', accent: '#2563eb' }), emptyOnly: C.checkData('theme', { css: ' ' }),
+    crlf: C.checkData('theme', { css: 'a { color: red; }\r\nb { color: blue; }\r' }), bad: bad.filter((w) => C.checkData('theme', { css: w[1] }) !== null || (typeof w[1] === 'string' && C.cleanCSS(w[1]) !== null)).map((w) => w[0]), paid: C.needsPlan({ css: 'a { color: red; }' }),
+    on: C.toSettings({ css: 'a { color: red; }' }).communityCSS, off: C.toSettings({ accent: '#2563eb' }).communityCSS, snap: C.snapshot({ communityCSS: 'a { background: url(x); }' }).communityCSS, snapOk: C.snapshot({ communityCSS: 'a { color: red; }' }).communityCSS,
+    item: C.check({ type: 'theme', id: 3, name: 'Con CSS', about: '', lang: 'es', author: 'Leo R.', data: { css: 'a { background: url(x); }' } }) }; }, [CSS_OK, CSS_BAD]);
+  check('la app acepta el CSS común y rechaza lo prohibido (' + CSS_BAD.length + ' casos), sin CRs y sin CSS vacío', cssLocal.ok && cssLocal.ok.css === CSS_OK && cssLocal.okOnly && cssLocal.okOnly.css === CSS_OK && cssLocal.empty && !('css' in cssLocal.empty) && cssLocal.emptyOnly === null && cssLocal.crlf.css === 'a { color: red; }\nb { color: blue; }' && cssLocal.bad.length === 0 && cssLocal.item === null, cssLocal);
+  check('el CSS de un tema es del plan pago, va a su propio ajuste y se limpia al cambiar de tema', cssLocal.paid && cssLocal.on === 'a { color: red; }' && cssLocal.off === '' && cssLocal.snap === '' && cssLocal.snapOk === 'a { color: red; }', cssLocal);
+  const cssPost = (css) => api('POST', '/gallery', { type: 'theme', name: 'With CSS', about: '', lang: 'en', author: 'Tema T.', data: { accent: '#2563eb', css } }, tem.s);
+  const cssBadPost = []; for (const w of CSS_BAD) { const r = await cssPost(w[1]); if (r.status !== 400 && !(r.status === 413)) cssBadPost.push([w[0], r.status]); else if (r.json && !['bad_data', 'too_large', 'bad_schema'].includes(r.json.error)) cssBadPost.push([w[0], r.json.error]); }
+  const cssOnlyEmpty = await api('POST', '/gallery', { type: 'theme', name: 'Only empty', about: '', lang: 'en', author: 'Tema T.', data: { css: '  ' } }, tem.s);
+  const cssOk = await cssPost(CSS_OK + '\r\n'); const cssAdmin = await api('GET', '/admin/gallery', undefined, undefined, admin);
+  const cssRow = (cssAdmin.json || []).find((x) => x.id === cssOk.json.id);
+  check('el servidor rechaza los mismos casos de CSS, deja afuera el CSS vacío y guarda el común sin CRs', cssBadPost.length === 0 && cssOnlyEmpty.status === 400 && cssOk.status === 200 && cssRow && cssRow.data.css === CSS_OK && cssRow.data.accent === '#2563eb', [cssBadPost, cssOnlyEmpty.status, cssOk.status, cssRow && cssRow.data]);
+  await api('DELETE', '/gallery/' + cssOk.json.id, undefined, tem.s);
+
   // ---------- Temas incluidos ----------
   await pg.click('[data-gtype=theme]'); await pg.waitForFunction(() => document.querySelectorAll('.lmd-gal-card[data-gkind=included]').length === 12 && document.querySelectorAll('.lmd-gal-card[data-gkind=theme]').length === 2 && document.querySelectorAll('.lmd-gal-card').length === 14);
   const inc = await pg.evaluate(() => { const all = [...document.querySelectorAll('.lmd-gal-card')]; const own = all.filter((c) => c.dataset.gkind === 'included');
@@ -295,6 +315,11 @@ try {
   const palForm = await sp.evaluate(() => ({ colors: !document.querySelector('.lmd-gal-colors').hidden, inputs: document.querySelectorAll('.lmd-gal-colors input[type=color]').length, sample: !!document.querySelector('.lmd-gal-share .lmd-gal-pal'), author: document.querySelector('[data-gs=author]').value }));
   await sp.check('.lmd-gal-share input[value=theme]');
   const themeForm = await sp.evaluate(() => document.querySelector('.lmd-gal-share [data-gs=prev]').innerText);
+  const cssUi = (css0) => sp.evaluate(async (css) => { await LMD.patch({ customCSS: css }); document.querySelector('.lmd-gal-share').dispatchEvent(new Event('change', { bubbles: true })); const o = document.querySelector('.lmd-gal-cssopt'); const cb = o.querySelector('input'); const pre = o.querySelector('pre'); const why = o.querySelector('[data-gs=csswhy]');
+    return { shown: !o.hidden, checked: cb.checked, disabled: cb.disabled, pre: pre.hidden ? '' : pre.textContent, why: why.hidden ? '' : why.textContent, sample: document.querySelector('.lmd-gal-share [data-gs=prev]').innerText }; }, css0);
+  const cssNone = await cssUi(''); const cssGood = await cssUi('a { color: red; }'); const cssBadUi = await cssUi('a { background: url(x.png); }'); await cssUi('');
+  check('con "Mi tema actual" y CSS propio, el diálogo ofrece incluirlo y muestra el CSS; sin CSS no ofrece nada', !cssNone.shown && cssGood.shown && cssGood.checked && !cssGood.disabled && cssGood.pre === 'a { color: red; }' && /CSS/.test(cssGood.sample), [cssNone, cssGood]);
+  check('si el CSS propio no pasa la regla, la casilla queda apagada con el motivo y no se manda', cssBadUi.shown && !cssBadUi.checked && cssBadUi.disabled && cssBadUi.pre === '' && /no se puede compartir|cannot be shared/.test(cssBadUi.why), cssBadUi);
   await sp.check('.lmd-gal-share input[value=palette]'); await sp.fill('[data-gs=name]', 'Blue house'); await sp.click('[data-gs=send]'); await sp.waitForSelector('.lmd-gal-share .lmd-fb-ok');
   const palBody = JSON.parse(posted[1] || '{}');
   check('una paleta se arma con sus seis colores y se envía', palForm.colors && palForm.inputs === 6 && palForm.sample && palForm.author === 'Leo R.' && palBody.type === 'palette' && Object.keys(palBody.data.colors).length === 6 && /^#[0-9a-f]{6}$/.test(palBody.data.colors.fill), [palForm, palBody]);

@@ -1574,13 +1574,13 @@
     if (!document.querySelector('meta[name=viewport]')) {
       document.head.appendChild(el('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }));
     }
-    ui.customStyle = el('style', { id: 'lmd-custom-css' });
+    ui.customStyle = el('style', { id: 'lmd-custom-css' }); ui.communityStyle = el('style', { id: 'lmd-community-css' }); // el de la comunidad va antes: el CSS propio gana
     // Ícono de la pestaña: el de SharpMD, para que no quede el genérico ni el de otra extensión.
     document.querySelectorAll('link[rel~="icon"]').forEach((n) => n.remove());
     // El logo en su grilla de 16 px (la de icons/icon16.png, ver tools/build-icons.mjs): en la pestaña cada trazo cae en píxeles enteros.
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3.75" fill="#14161a"/><path fill="#f3f5f8" d="M3 4h2v8H3zM7 4h2v8H7zM2 5h8v2H2zM2 9h8v2H2z"/><rect x="11" y="3" width="3" height="10" rx=".5" fill="#c5f467"/></svg>';
     document.head.appendChild(el('link', { rel: 'icon', type: 'image/svg+xml', href: 'data:image/svg+xml,' + encodeURIComponent(svg) }));
-    document.head.appendChild(ui.customStyle);
+    document.head.appendChild(ui.communityStyle); document.head.appendChild(ui.customStyle);
 
     ui.sidebar = el('aside', { class: 'lmd-sidebar' });
     ui.sidebar.innerHTML =
@@ -2351,7 +2351,7 @@
     root.classList.toggle('lmd-dgm-round', settings.diagramShape !== 'square');
     if (/^#[0-9a-f]{6}$/i.test(settings.codeColor || '')) root.style.setProperty('--code-tint', settings.codeColor); else root.style.removeProperty('--code-tint');
     // Editar el CSS propio es del plan pago. El que ya estaba guardado se sigue aplicando, con o sin plan.
-    ui.customStyle.textContent = settings.customCSS || '';
+    ui.customStyle.textContent = settings.customCSS || ''; ui.communityStyle.textContent = settings.supporter && typeof settings.communityCSS === 'string' ? (LMD.community && LMD.community.cleanCSS ? LMD.community.cleanCSS(settings.communityCSS) || '' : settings.communityCSS) : ''; // el CSS de un tema de la comunidad es del plan pago, igual que su fondo
 
     ui.searchInput.placeholder = T('Buscar en la nota y en los archivos');
     // "Solo Markdown": prendido, el explorador muestra las notas y nada más.
@@ -4281,8 +4281,26 @@
     const EXTRA = ' <em class="lmd-tag">' + T('Plan pago') + '</em>';
     // Los plugins van en bloques con subtítulo (PLUGIN_GROUPS), en una columna. Cada fila: el botón que lo elige para ver
     // su ejemplo en el detalle (plugPane) y su interruptor. Uno que no esté en ningún bloque va al final del último.
-    const plugRow = (k) => '<div class="lmd-plg-row" role="listitem" data-plug="' + k + '"><button type="button" class="lmd-plg-pick" data-plug-pick="' + k + '" aria-controls="lmd-tl-side" aria-current="false"><span>' + esc(T(LMD.PLUGIN_LABELS[k])) + '</span>' + ICON.chevron + '</button>' +
-      '<label class="lmd-switch"><input type="checkbox" data-plugin="' + k + '" aria-label="' + esc(T(LMD.PLUGIN_LABELS[k])) + '"' + (s.plugins[k] ? ' checked' : '') + '><i></i></label></div>';
+    // El ícono de cada plugin: los de la app y unos pocos propios, en el mismo trazo.
+    const SV = (d) => '<svg viewBox="0 0 24 24">' + d + '</svg>';
+    const PLUG_ICON = {
+      highlight: ICON.code, emoji: SV('<circle cx="12" cy="12" r="8.5"/><path d="M9 14.500c.9 1.200 1.900 1.800 3 1.800s2.100-.6 3-1.800M9.200 9.800v.4M14.800 9.800v.4"/>'),
+      sub: SV('<path d="M4 6l7 8M11 6l-7 8M15 17.500c0-1.100.9-1.800 2-1.800s2 .7 2 1.700c0 1.600-4 2.200-4 4.100h4"/>'), sup: SV('<path d="M4 9l7 9M11 9l-7 9M15 5.500c0-1.100.9-1.800 2-1.800s2 .7 2 1.700c0 1.600-4 2.200-4 4.100h4"/>'),
+      ins: SV('<path d="M7 5v7a5 5 0 0 0 10 0V5M5 20h14"/>'), mark: SV('<path d="m14 4.500 5.500 5.500-8 8H6v-5.500zM4 21h16"/>'),
+      abbr: SV('<path d="M4 17 8.500 6 13 17M5.800 13h5.400M16 9h4.500M18.250 9v8"/>'), deflist: ICON.outline, footnote: SV('<path d="M5 6h9M5 11h9M5 16h6"/><path d="M18 5v5M16 7h4"/><path d="M4 21h16"/>'),
+      tasklists: ICON.b_task, alerts: ICON.b_alert, toc: ICON.outline, katex: ICON.b_math, mermaid: ICON.b_diagram,
+      graphviz: SV('<circle cx="12" cy="5.500" r="2.200"/><circle cx="6" cy="18" r="2.200"/><circle cx="18" cy="18" r="2.200"/><path d="m11 7.600-4 8.200M13 7.600l4 8.200"/>'),
+      tables: ICON.b_table, containers: ICON.b_details, frontmatter: ICON.doc, wikilinks: ICON.link, copyCode: ICON.copy, imageViewer: ICON.b_image,
+      html: SV('<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.500 5l-3 14"/>'), linkify: ICON.b_link, typographer: ICON.b_quote,
+      breaks: SV('<path d="M19 5v7a2 2 0 0 1-2 2H6M9.500 10.500 6 14l3.500 3.500"/>')
+    };
+    // "Subíndice (H~2~O)": el nombre arriba y, chico y apagado, lo que se escribe (o la aclaración).
+    const plugRow = (k) => {
+      const m = /^(.*?)\s*\((.*)\)$/.exec(T(LMD.PLUGIN_LABELS[k])); const name = m ? m[1] : T(LMD.PLUGIN_LABELS[k]);
+      return '<div class="lmd-plg-row" role="listitem" data-plug="' + k + '"><span class="lmd-tl-ico" aria-hidden="true">' + (PLUG_ICON[k] || ICON.b_code) + '</span>' +
+        '<button type="button" class="lmd-plg-pick" data-plug-pick="' + k + '" aria-controls="lmd-tl-side" aria-current="false"><b>' + esc(name) + '</b>' + (m ? '<small>' + esc(m[2]) + '</small>' : '') + '</button>' +
+        '<label class="lmd-switch"><input type="checkbox" data-plugin="' + k + '" aria-label="' + esc(T(LMD.PLUGIN_LABELS[k])) + '"' + (s.plugins[k] ? ' checked' : '') + '><i></i></label></div>';
+    };
     const plugKeys = Object.keys(LMD.PLUGIN_LABELS);
     const plugGroups = LMD.PLUGIN_GROUPS.map((g) => [g[0], g[1].filter((k) => plugKeys.includes(k))]);
     plugGroups[plugGroups.length - 1][1].push(...plugKeys.filter((k) => !plugGroups.some((g) => g[1].includes(k))));

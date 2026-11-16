@@ -5,9 +5,9 @@
   'use strict';
   const HEX = /^#[0-9a-f]{6}$/i;
   const TYPES = ['template', 'theme', 'palette'];
-  const THEME = ['mode', 'accent', 'paperLight', 'paperDark', 'font', 'codeColor', 'diagramShape', 'surface', 'text', 'muted', 'border', 'link'];
+  const THEME = ['mode', 'accent', 'paperLight', 'paperDark', 'font', 'codeColor', 'diagramShape', 'surface', 'text', 'muted', 'border', 'link', 'css'];
   const INK = Object.keys(LMD.theme.CUSTOM); // surface, text, muted, border, link: colores de un modo solo, que tienen que dejar leer
-  const PAID = ['paperLight', 'paperDark'].concat(INK); // lo que viene con el plan pago: el fondo y los colores del texto. El acento y la tipografía son de todos
+  const PAID = ['paperLight', 'paperDark', 'css'].concat(INK); // lo que viene con el plan pago: el fondo, los colores del texto y el CSS. El acento y la tipografía son de todos
   const COLORS = ['fill', 'text', 'border', 'line', 'second', 'third'];
   const MAX_TEMPLATE = 20 * 1024; const MAX_KEPT = 100;
   // Las tipografías viajan por nombre y se traducen acá a las que la app ya trae. Ninguna otra vale.
@@ -21,6 +21,22 @@
   const lum = (hex) => { const n = parseInt(hex.slice(1), 16); const ch = [n >> 16 & 255, n >> 8 & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]; };
   const paperOk = (hex, dark) => HEX.test(hex || '') && (dark ? lum(hex) <= 0.08 : lum(hex) >= 0.7);
 
+  // El CSS de un tema: texto plano, hasta 16 KB, sin nada que cargue algo de afuera ni se pueda escribir con escapes.
+  // Misma regla, mismas constantes, que GALLERY_CSS_* en server/server.mjs. Devuelve el CSS limpio, '' si no hay nada, o null si no vale.
+  const MAX_CSS = 16 * 1024;
+  const CSS_FORBIDDEN = ['url(', '@import', '@font-face', '@namespace', 'expression(', 'javascript:', 'behavior:', '-moz-binding', '</style', '<', '\\', 'image-set(', 'src('];
+  function cleanCSS(v) {
+    if (typeof v !== 'string') return null;
+    const css = v.replace(/\r\n?/g, '\n');
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(css)) return null;
+    if (!css.trim()) return '';
+    if (bytes(css) > MAX_CSS) return null;
+    const low = css.toLowerCase(); const bare = low.replace(/\/\*[\s\S]*?(\*\/|$)/g, ''); // también sin comentarios: nada se esconde partiendo una palabra
+    if (CSS_FORBIDDEN.some((w) => low.includes(w) || bare.includes(w))) return null;
+    let depth = 0; for (const ch of css) { if (ch === '{') depth++; else if (ch === '}' && --depth < 0) return null; }
+    return depth === 0 ? css.trimEnd() : null;
+  }
+
   function checkData(type, d) {
     const hex = (v) => (typeof v === 'string' && HEX.test(v) ? v.toLowerCase() : null);
     if (type === 'template') {
@@ -33,6 +49,7 @@
       const out = {};
       for (const k of Object.keys(d)) {
         let v = null;
+        if (k === 'css') { v = cleanCSS(d[k]); if (v === null) return null; if (v) out.css = v; continue; }
         if (k === 'mode') v = ['auto', 'light', 'dark'].includes(d[k]) ? d[k] : null;
         else if (k === 'diagramShape') v = ['round', 'square'].includes(d[k]) ? d[k] : null;
         else if (k === 'font') v = typeof d[k] === 'string' && fontValue(d[k]) !== null ? d[k] : null;
@@ -50,7 +67,7 @@
         if (out.border && ratio(out.border, paper) > ratio(text, paper)) return null;
         if (out.link && ratio(out.link, paper) < 4.5) return null;
       }
-      return out;
+      return Object.keys(out).length ? out : null;
     }
     if (!only(d, ['colors']) || !only(d.colors, COLORS) || Object.keys(d.colors).length !== COLORS.length) return null;
     const colors = {};
@@ -79,6 +96,7 @@
     if ('font' in data) s.fontFamily = fontValue(data.font) || '';
     if ('codeColor' in data) s.codeColor = data.codeColor;
     if ('diagramShape' in data) s.diagramShape = data.diagramShape;
+    s.communityCSS = 'css' in data ? data.css : ''; // el CSS del tema va aparte del propio, y se va con el tema
     return s;
   }
   // El tema que hay puesto, con lo que se aparta de fábrica. Sin plan pago no entran el fondo ni los colores del texto.
@@ -101,9 +119,9 @@
   }
   const needsPlan = (data) => PAID.some((k) => k in data);
   // Lo que había puesto antes de aplicar un tema, para volver: las claves de ajustes que un tema puede tocar.
-  const KEPT = ['theme', 'accent', 'paperLight', 'paperDark', 'fontFamily', 'codeColor', 'diagramShape', 'preset'].concat(Object.values(LMD.theme.CUSTOM));
+  const KEPT = ['theme', 'accent', 'paperLight', 'paperDark', 'fontFamily', 'codeColor', 'diagramShape', 'preset', 'communityCSS'].concat(Object.values(LMD.theme.CUSTOM));
   // Cada valor se guarda solo si tiene la forma que le toca: un color es un #rrggbb, y una tipografía, una lista de nombres.
-  const snapshot = (s) => Object.assign({ preset: LMD.theme.byId(s.preset) ? s.preset : '' }, ...Object.values(LMD.theme.CUSTOM).map((k) => ({ [k]: HEX.test(s[k] || '') ? s[k] : '' })), {
+  const snapshot = (s) => Object.assign({ communityCSS: cleanCSS(s.communityCSS) || '', preset: LMD.theme.byId(s.preset) ? s.preset : '' }, ...Object.values(LMD.theme.CUSTOM).map((k) => ({ [k]: HEX.test(s[k] || '') ? s[k] : '' })), {
     theme: ['light', 'dark'].includes(s.theme) ? s.theme : 'auto', diagramShape: s.diagramShape === 'square' ? 'square' : 'round',
     accent: HEX.test(s.accent || '') ? s.accent : '', codeColor: HEX.test(s.codeColor || '') ? s.codeColor : '', paperLight: HEX.test(s.paperLight || '') ? s.paperLight : '', paperDark: HEX.test(s.paperDark || '') ? s.paperDark : '',
     fontFamily: typeof s.fontFamily === 'string' && /^[\w\s",.-]{0,200}$/.test(s.fontFamily) ? s.fontFamily : '',
@@ -153,8 +171,8 @@
   async function setAuthor(name) { await ready(); state.author = line(name).slice(0, 40); await save(); }
 
   LMD.community = {
-    check, checkData, toSettings, fromSettings, needsPlan, snapshot, paperOk, fontValue, ready, add, remove, has, setTheme, setAuthor, included,
-    TYPES, COLORS, MAX_TEMPLATE, bytes,
+    check, checkData, cleanCSS, toSettings, fromSettings, needsPlan, snapshot, paperOk, fontValue, ready, add, remove, has, setTheme, setAuthor, included,
+    TYPES, COLORS, MAX_TEMPLATE, MAX_CSS, CSS_FORBIDDEN, bytes,
     templates: () => state.templates.map((t) => ({ id: t.id, name: t.name, about: t.about, author: t.author, file: fileOf(t.name), text: t.data.text })),
     palettes: () => state.palettes.map((p) => ({ id: p.id, name: p.name, author: p.author, colors: p.data.colors })),
     added: () => state.templates.concat(state.palettes),

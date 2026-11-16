@@ -205,7 +205,7 @@
   function patchFor(id) {
     const p = byId(id); if (!p) return null;
     if (!p.dark && forcing()) keepLight(); // un tema claro elegido a mano: se insiste en claro
-    const out = { preset: p.id === BASE.light || p.id === BASE.dark ? '' : p.id, theme: p.dark ? 'dark' : 'light', accent: '', paperLight: '', paperDark: '', codeColor: '' };
+    const out = { preset: p.id === BASE.light || p.id === BASE.dark ? '' : p.id, theme: p.dark ? 'dark' : 'light', accent: '', paperLight: '', paperDark: '', codeColor: '', communityCSS: '' };
     Object.values(CUSTOM).forEach((k) => { out[k] = ''; });
     out[FAMILY(p.dark)] = out.preset;
     return out;

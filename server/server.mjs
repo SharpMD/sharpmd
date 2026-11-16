@@ -3355,7 +3355,8 @@ async function playNotify(req) {
 // dirección, ni nada que la app pueda cargar o ejecutar: lo que no calza con el esquema se rechaza entero.
 //   { type, name, about, lang, author, data }
 //   template  data: { text }                      hasta 20 KB
-//   theme     data: { mode, accent, paperLight, paperDark, font, codeColor, diagramShape, surface, text, muted, border, link }   todas opcionales, al menos una
+//   theme     data: { mode, accent, paperLight, paperDark, font, codeColor, diagramShape, surface, text, muted, border, link, css }   todas opcionales, al menos una
+//             css es texto con una lista de cosas prohibidas (galleryCSS): se muestra escapado y la app lo aplica en su propia hoja
 //   palette   data: { colors: { fill, text, border, line, second, third } }
 // author es el nombre que eligió quien aporta. El correo de la cuenta no sale nunca por las rutas públicas.
 // Cada aporte nuevo manda un correo a FEEDBACK_TO con dos enlaces firmados (HMAC con ADMIN_KEY sobre el aporte, la
@@ -3363,7 +3364,22 @@ async function playNotify(req) {
 // que manda un POST. Decidido el aporte, los dos enlaces dejan de servir.
 const GALLERY_TYPES = ['template', 'theme', 'palette'];
 const GALLERY_FONTS = ['Inter', 'System', 'Arial', 'Calibri', 'Verdana', 'Trebuchet MS', 'Georgia', 'Cambria', 'Palatino', 'Times New Roman', 'Consolas', 'Courier New'];
-const GALLERY_THEME = ['mode', 'accent', 'paperLight', 'paperDark', 'font', 'codeColor', 'diagramShape', 'surface', 'text', 'muted', 'border', 'link'];
+const GALLERY_THEME = ['mode', 'accent', 'paperLight', 'paperDark', 'font', 'codeColor', 'diagramShape', 'surface', 'text', 'muted', 'border', 'link', 'css'];
+// El CSS de un tema: texto plano, hasta 16 KB, sin nada que cargue algo de afuera ni se pueda escribir con escapes.
+// Misma regla, mismas constantes, que cleanCSS en src/community.js. '' = no hay CSS; null = no vale.
+const GALLERY_CSS_MAX = 16 * 1024;
+const GALLERY_CSS_FORBIDDEN = ['url(', '@import', '@font-face', '@namespace', 'expression(', 'javascript:', 'behavior:', '-moz-binding', '</style', '<', '\\', 'image-set(', 'src('];
+function galleryCSS(v) {
+  if (typeof v !== 'string') return null;
+  const css = v.replace(/\r\n?/g, '\n');
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(css)) return null;
+  if (!css.trim()) return '';
+  if (Buffer.byteLength(css) > GALLERY_CSS_MAX) return null;
+  const low = css.toLowerCase(); const bare = low.replace(/\/\*[\s\S]*?(\*\/|$)/g, ''); // también sin comentarios: nada se esconde partiendo una palabra
+  if (GALLERY_CSS_FORBIDDEN.some((w) => low.includes(w) || bare.includes(w))) return null;
+  let depth = 0; for (const ch of css) { if (ch === '{') depth++; else if (ch === '}' && --depth < 0) return null; }
+  return depth === 0 ? css.trimEnd() : null;
+}
 const GALLERY_INK = ['surface', 'text', 'muted', 'border', 'link']; // colores sueltos: van con un modo fijo, y se mira que dejen leer
 const GALLERY_COLORS = ['fill', 'text', 'border', 'line', 'second', 'third'];
 const GALLERY_HEX = /^#[0-9a-f]{6}$/i;
@@ -3395,6 +3411,7 @@ function galleryData(type, d) {
     if ('paperDark' in d) { out.paperDark = hex(d.paperDark); if (galLum(out.paperDark) > 0.08) throw bad(); }
     if ('font' in d) { if (!GALLERY_FONTS.includes(d.font)) throw bad(); out.font = d.font; }
     if ('diagramShape' in d) { if (!['round', 'square'].includes(d.diagramShape)) throw bad(); out.diagramShape = d.diagramShape; }
+    if ('css' in d) { const css = galleryCSS(d.css); if (css === null) throw bad(); if (css) out.css = css; }
     // Los colores de texto, paneles, bordes y enlaces son de un modo solo (claro u oscuro). Es la misma cuenta que hace
     // la app (src/community.js): texto, secundario y enlace a 4.5 o más sobre el fondo, y el panel sin tapar el texto.
     if (GALLERY_INK.some((k) => k in d)) {
@@ -3408,6 +3425,7 @@ function galleryData(type, d) {
       if (out.border && ratio(out.border, paper) > ratio(text, paper)) throw bad();
       if (out.link && ratio(out.link, paper) < 4.5) throw bad();
     }
+    if (!Object.keys(out).length) throw bad();
     return out;
   }
   if (!galOnly(d, ['colors']) || !galOnly(d.colors, GALLERY_COLORS) || Object.keys(d.colors).length !== GALLERY_COLORS.length) throw bad();
@@ -3484,7 +3502,8 @@ function galleryReviewPage(t) {
   return galleryPage((t.act === 'approve' ? 'Approve' : 'Reject') + ' · ' + it.name,
     '<dl><dt>Type</dt><dd>' + hEsc(it.type) + '</dd><dt>Name</dt><dd>' + hEsc(it.name) + '</dd><dt>About</dt><dd>' + hEsc(it.about || '-') + '</dd><dt>Language</dt><dd>' + hEsc(it.lang) + '</dd>' +
     '<dt>Shown author</dt><dd>' + hEsc(it.author) + '</dd><dt>Account</dt><dd>' + hEsc(owner ? owner.email : '-') + '</dd></dl>' +
-    '<div>' + gallerySwatches(it) + '</div><pre>' + hEsc(galleryText(it)) + '</pre>' +
+    '<div>' + gallerySwatches(it) + (it.type === 'theme' && it.data.css ? '<span class="sw"><b>CSS</b></span>' : '') + '</div>' +
+    (it.type === 'theme' && it.data.css ? '<details><summary>View the CSS</summary><pre>' + hEsc(it.data.css) + '</pre></details>' : '') + '<pre>' + hEsc(galleryText(it)) + '</pre>' +
     '<form method="post" action="/gallery/review"><input type="hidden" name="id" value="' + it.id + '"><input type="hidden" name="act" value="' + t.act + '"><input type="hidden" name="exp" value="' + t.exp + '"><input type="hidden" name="sig" value="' + hEsc(t.sig) + '">' +
     (t.act === 'reject' ? '<label>Reason (optional, the sender sees it)<textarea name="reason" maxlength="300"></textarea></label><button class="no" type="submit">Reject</button>'
       : '<p class="muted">Once approved it is public for everyone, under the shown author.</p><button type="submit">Approve and publish</button>') + '</form>');

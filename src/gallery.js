@@ -11,7 +11,13 @@
   const STATUS = { pending: 'En revisión', approved: 'Publicado', rejected: 'No publicado', removed: 'Retirado' };
   const COLOR_NAMES = { fill: 'Relleno', text: 'Texto', border: 'Borde', line: 'Línea', second: 'Segundo relleno', third: 'Tercer relleno' };
   const THEME_NAMES = { mode: 'Tema', accent: 'Color de acento', paperLight: 'Fondo claro', paperDark: 'Fondo oscuro', font: 'Tipografía', codeColor: 'Color de los bloques de código', diagramShape: 'Forma de los diagramas',
-    surface: 'Fondo de paneles', text: 'Texto', muted: 'Texto secundario', border: 'Bordes', link: 'Enlaces' };
+    surface: 'Fondo de paneles', text: 'Texto', muted: 'Texto secundario', border: 'Bordes', link: 'Enlaces', css: 'CSS' };
+  // El CSS de un aporte se muestra siempre como texto, nunca como hoja de estilo.
+  function cssView(css, open) {
+    const pre = el('pre', { class: 'lmd-gal-css', text: css });
+    if (open) return pre;
+    const d = el('details', { class: 'lmd-gal-cssbox' }); d.appendChild(el('summary', { text: T('Ver el CSS') })); d.appendChild(pre); return d;
+  }
   const THEME_VALUES = { auto: 'Automático', light: 'Claro', dark: 'Oscuro', round: 'Redondeados', square: 'Rectos' };
 
   let core = null; let box = null;
@@ -57,11 +63,13 @@
     const list = el('ul', { class: 'lmd-gal-vals' });
     Object.keys(data).forEach((k) => {
       const li = el('li'); const v = data[k];
+      if (k === 'css') { li.appendChild(document.createTextNode(T('CSS') + ': ' + T('Incluido'))); list.appendChild(li); return; }
       if (/^#/.test(v)) { const sw = el('i'); sw.style.background = v; li.appendChild(sw); }
       li.appendChild(document.createTextNode(T(THEME_NAMES[k]) + ': ' + (THEME_VALUES[v] ? T(THEME_VALUES[v]) : v)));
       list.appendChild(li);
     });
     wrap.appendChild(list);
+    if (data.css) wrap.appendChild(cssView(data.css));
     return wrap;
   }
   function paletteSample(colors) {
@@ -161,7 +169,7 @@
     const prev = el('div', { class: 'lmd-gal-prev' }); prev.appendChild(sampleOf(full)); card.appendChild(prev);
     const locked = planNeeded(full);
     if (locked) {
-      const extra = el('div', { class: 'lmd-extra' }); extra.appendChild(el('p', { text: T('El fondo y los colores del texto de este tema vienen con el plan pago.') }));
+      const extra = el('div', { class: 'lmd-extra' }); extra.appendChild(el('p', { text: T(full.data.css ? (Object.keys(full.data).some((k) => k !== 'css' && C.needsPlan({ [k]: 1 })) ? 'El fondo, los colores del texto y el CSS de este tema vienen con el plan pago.' : 'El CSS de este tema viene con el plan pago.') : 'El fondo y los colores del texto de este tema vienen con el plan pago.') }));
       const pay = el('div', { class: 'lmd-extra-actions', 'data-pay': '' }); pay.appendChild(el('button', { type: 'button', class: 'lmd-btn lmd-btn-fill', 'data-gv': 'plans', text: T('Ver planes') }));
       extra.appendChild(pay); card.appendChild(extra);
     }
@@ -198,6 +206,8 @@
         '<label class="lmd-dlg-field"><span>' + esc(T('Idioma')) + '</span><select data-gs="lang"><option value="en">English</option><option value="es">Español</option></select></label></div>' +
       '<div class="lmd-gal-colors" hidden>' + C.COLORS.map((k) => '<label><input type="color" data-gc="' + k + '"><span>' + esc(T(COLOR_NAMES[k])) + '</span></label>').join('') + '</div>' +
       '<p class="lmd-gal-sub">' + esc(T('Así se va a publicar')) + '</p><div class="lmd-gal-prev" data-gs="prev"></div>' +
+      '<div class="lmd-gal-cssopt" hidden><label class="lmd-check"><input type="checkbox" data-gs="css" checked><span>' + esc(T('Incluir mi CSS propio')) + '</span></label>' +
+        '<p class="lmd-hint" data-gs="csswhy" hidden>' + esc(T('Ese CSS usa algo que no se puede compartir (url, @import o similares).')) + '</p><pre class="lmd-gal-css" data-gs="csspre" tabindex="0"></pre></div>' +
       '<p class="lmd-hint">' + esc(T('Va a revisión. Si se aprueba, queda público con el nombre que elegiste.')) + '</p>' +
       '<p class="lmd-img-err" role="alert" hidden></p>' +
       '<div class="lmd-ask-actions"><button type="button" class="lmd-btn" data-gs="no" data-esc>' + esc(T('Cancelar')) + '</button><button type="button" class="lmd-btn lmd-btn-fill" data-gs="send">' + esc(T('Enviar a revisión')) + '</button></div>';
@@ -210,17 +220,26 @@
     const first = (LMD.diagram && LMD.diagram.PALETTES[0]) || ['', '#dbeafe', '#1e3a8a', '#3b82f6', '#437ad3', '#e0e7ff', '#cffafe'];
     C.COLORS.forEach((k, i) => { colors.querySelector('[data-gc=' + k + ']').value = first[i + 1]; });
     const kind = () => (radios.find((r) => r.checked) || radios[1]).value;
+    // El CSS propio solo se ofrece con "Mi tema actual" y si hay; si no pasa la regla, se explica y no se manda.
+    const ownCSS = () => (typeof settings().customCSS === 'string' ? settings().customCSS : '');
+    const cssFits = () => !!ownCSS().trim() && C.cleanCSS(ownCSS()) !== null;
+    const cssOn = () => kind() === 'theme' && cssFits() && q('css').checked;
     // Lo que sale es exactamente esto: el tipo, los cuatro datos escritos acá y el contenido. Nada más de la app.
     const item = () => {
       const type = kind(); let data;
       if (type === 'template') data = { text: core.raw };
-      else if (type === 'theme') data = C.fromSettings(settings());
+      else if (type === 'theme') { data = C.fromSettings(settings()); if (cssOn()) data.css = String(settings().customCSS); }
       else { const c = {}; C.COLORS.forEach((k) => { c[k] = colors.querySelector('[data-gc=' + k + ']').value; }); data = { colors: c }; }
       return { type, name: q('name').value.trim(), about: q('about').value.trim(), lang: q('lang').value, author: q('author').value.trim(), data };
     };
     const show = () => {
       const it = item(); const prev = q('prev'); prev.textContent = '';
       colors.hidden = it.type !== 'palette'; err.hidden = true;
+      const opt = card.querySelector('.lmd-gal-cssopt'); opt.hidden = it.type !== 'theme' || !ownCSS().trim();
+      if (!opt.hidden) {
+        const fits = cssFits(); const cb = q('css'); if (!fits) cb.checked = false; cb.disabled = !fits; q('csswhy').hidden = fits;
+        q('csspre').hidden = !fits || !cb.checked; q('csspre').textContent = fits && cb.checked ? ownCSS() : '';
+      }
       const h = el('p', { class: 'lmd-gal-prev-head' }); h.appendChild(el('b', { text: it.name || T('Nombre') })); h.appendChild(el('em', { class: 'lmd-tag', text: T(TYPE[it.type]) })); prev.appendChild(h);
       if (it.about) prev.appendChild(el('p', { class: 'lmd-gal-about', text: it.about }));
       prev.appendChild(el('p', { class: 'lmd-hint lmd-gal-by', text: T('por {a}', { a: it.author || T('Tu nombre público') }) }));
@@ -264,6 +283,7 @@
     if (it.about) c.appendChild(el('p', { class: 'lmd-gal-about', text: it.about }));
     c.appendChild(el('p', { class: 'lmd-gal-by', text: byLine(it) + (it.adds ? ' · ' + T('Agregado {n} veces', { n: it.adds }) : '') }));
     if (it.type === 'palette' && it.data) c.appendChild(paletteSample(it.data.colors));
+    if (it.type === 'theme' && it.data && it.data.css) { h.appendChild(el('em', { class: 'lmd-tag lmd-gal-csstag', title: T('Incluye CSS'), text: 'CSS' })); c.appendChild(cssView(it.data.css)); }
     const acts = el('div', { class: 'lmd-gal-acts' });
     acts.appendChild(el('button', { type: 'button', class: 'lmd-btn', 'data-gal': 'view', text: T('Vista previa') }));
     const added = isAdded(it);

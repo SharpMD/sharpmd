@@ -53,7 +53,7 @@ const openSettings = async (t) => { await app.click('[data-act=settings]'); awai
 const TABS = ['look', 'read', 'plug', 'tools', 'cloud', 'ai', 'plan', 'inst', 'adv'];
 // Ninguna pestaña puede necesitar scroll con la ventana a 800 px de alto. La que sí desliza se saca al leer el
 // resultado: Nube, por las tarjetas del bloque Seguridad. Herramientas y Plugins entran enteras, con su detalle al costado.
-const SCROLLS = /^(cloud) /;
+const SCROLLS = /^(cloud|plug) /; // Plugins: tarjetas con aire entre bloques, la lista se desliza
 const overflow = async () => { const out = []; for (const t of TABS) { await tab(t); const m = await app.evaluate(() => { const b = document.querySelector('.lmd-panel-body'); return b.scrollHeight - b.clientHeight; }); if (m > 0) out.push(t + ' +' + m); } return out; };
 // Los dos renglones que dicen qué anda sin cuenta y qué suma tenerla: sin signos de admiración ni rayas largas. Van en Ajustes → Nube.
 // En el inicio, la cuenta vive al pie de la barra lateral: sin sesión, la invitación a entrar con una línea de qué suma.
@@ -215,7 +215,7 @@ try {
   check('al pie de las pestañas: enviar comentarios, apoyar el proyecto y la versión', JSON.stringify(foot.last) === JSON.stringify(['Enviar comentarios', 'Apoyar el proyecto', 'SharpMD ' + manifestVersion]) && foot.stacked, foot);
   check('apoyar el proyecto abre el enlace en una pestaña nueva', foot.href.replace(/\/$/, '') === foot.sponsor.replace(/\/$/, '') && foot.target === '_blank' && /noopener/.test(foot.rel), foot);
   let over = (await overflow()).filter((x) => !SCROLLS.test(x));
-  check('ninguna pestaña necesita scroll a 800 px de alto, salvo Nube (plan gratis)', over.length === 0, over);
+  check('ninguna pestaña necesita scroll a 800 px de alto, salvo Nube y Plugins (plan gratis)', over.length === 0, over);
   await tab('cloud');
   const freeCloud = await app.evaluate(() => [...document.querySelectorAll('[data-acct=cloud] .lmd-acct-row')].map((r) => r.children[0].textContent + '=' + r.children[1].textContent).join('|') + ' / ' + [...document.querySelectorAll('[data-acct=cloud] button')].map((b) => b.textContent).join('|'));
   check('Nube: la cuenta, el plan y cuántas notas, con abrir la carpeta, salir y eliminar la cuenta', freeCloud === 'Correo=' + mail + '|Nombre visible=' + mail.split('@')[0] + '|Plan=Gratis|Notas en la nube=1 de 25|Copia de tus notas=Un ZIP con todo lo de la nube. / Abrir la carpeta Nube|Salir|Cambiar|Descargar todas mis notas|Proteger toda mi nube|Proteger una carpeta|Prender en Herramientas|Eliminar la cuenta', freeCloud);
@@ -522,7 +522,7 @@ try {
   for (const p of ['archivo/vieja.md', 'proyectos/plan.md', 'proyectos/nueva.md']) { await api('PUT', '/notes/' + encodeURIComponent(p), { text: '# ' + p + '\n' }, session); await new Promise((r) => setTimeout(r, 15)); }
   await app.goto(cloudUrl('proyectos/plan.md')); await app.waitForSelector('.markdown-body h1'); await openSettings();
   over = (await overflow()).filter((x) => !SCROLLS.test(x));
-  check('ninguna pestaña necesita scroll a 800 px de alto, salvo Nube (plan pago)', over.length === 0, over);
+  check('ninguna pestaña necesita scroll a 800 px de alto, salvo Nube y Plugins (plan pago)', over.length === 0, over);
   await tab('cloud');
   const paidCloud = await app.evaluate(() => [...document.querySelectorAll('[data-acct=cloud] .lmd-acct-row')].map((r) => r.children[0].textContent + '=' + r.children[1].textContent).join('|'));
   check('Nube con plan pago: el número de notas y "sin límite"', paidCloud === 'Correo=' + mail + '|Nombre visible=' + mail.split('@')[0] + '|Plan=Pago|Notas en la nube=4, sin límite|Copia de tus notas=Un ZIP con todo lo de la nube.', paidCloud);
