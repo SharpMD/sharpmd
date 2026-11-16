@@ -11,7 +11,7 @@
     });
   }
   // En la app de escritorio los archivos son del sistema, no del navegador: lo guardado vuelve sin sus métodos y la app los repone.
-  const desk = (r) => (window.__smdDesktop ? window.__smdDesktop.revive(r) : r);
+  const desk = (r) => (typeof window !== 'undefined' && window.__smdDesktop ? window.__smdDesktop.revive(r) : r); // en el service worker de la extensión no hay window
   async function handlesAll() {
     try {
       const db = await handlesDb();

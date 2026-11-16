@@ -212,7 +212,7 @@ try {
   await web.click('[data-act=close-panel]');
   await extPage.goto(OWN); await extPage.waitForSelector('.lmd-home'); await openInst(extPage);
   const ep = await paneOf(extPage);
-  check('en la extensión: la opción elegida, "Esta extensión" y la app se instala desde la web', J(ep.radios) === J(['web', 'ext*']) && ep.opts[1] === 'This extension' && /It installs from the web app\./.test(ep.text) && ep.links.some((l) => l === 'Open the web app ' + WEB) && ep.tall <= 0, ep);
+  check('en la extensión: la opción elegida, "Esta extensión" y la app se instala desde la web', J(ep.radios) === J(['web', 'ext*']) && ep.opts[1] === 'This extension' && /It installs from the web app\./.test(ep.text) && ep.links.some((l) => l === 'Open the web app ' + WEB) && ep.wide <= 0, ep); // con la grilla de dónde usarlo, en la extensión la pestaña scrollea: alcanza con que no se corra de costado
   // El segundo paso depende de si este navegador ya le dio a la extensión el acceso a archivos.
   const fileAccess = await bg(() => chrome.extension.isAllowedFileSchemeAccess());
   const second = fileAccess ? /File access is already on\./.test(ep.text) && /Installed, version [\d.]+ · File access: yes/.test(ep.text) && !ep.buttons.includes('Open the extension settings') : /Allow access to file URLs/.test(ep.text) && /· File access: no/.test(ep.text) && ep.buttons.includes('Open the extension settings');
