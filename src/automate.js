@@ -124,6 +124,8 @@
       pop.style.left = Math.round(r.left) + 'px'; pop.style.width = Math.round(r.width) + 'px';
       pop.style.top = Math.round(up ? r.top - 4 - pop.offsetHeight : r.bottom + 4) + 'px';
     };
+    // El scroll de la propia lista no la reacomoda: place() la mide sin tope de alto y eso la devolvía arriba de todo.
+    const moved = (e) => { if (pop && !pop.contains(e.target)) place(); };
     // La lista se acomoda al final: lo que cambia afuera (el resumen que aparece) puede mover el campo.
     const changed = (closed) => { sync(); paint(); opt.onChange(value(), !!closed); place(); };
     const toggle = (o) => {
@@ -178,7 +180,7 @@
       pop.addEventListener('click', (e) => { const o = e.target.closest('[role=option]'); if (o) { setActive(o, false); toggle(o); } else if (e.target.closest('[data-ms-done]')) close(true); });
       if (q) q.addEventListener('input', filter);
       document.addEventListener('mousedown', outside, true);
-      window.addEventListener('resize', place); layer.addEventListener('scroll', place, true);
+      window.addEventListener('resize', place); layer.addEventListener('scroll', moved, true);
       if (window.visualViewport) { window.visualViewport.addEventListener('resize', place); window.visualViewport.addEventListener('scroll', place); }
       sync(); place();
       setActive(pop.querySelector('[data-v][aria-selected=true]') || shown()[0], true);
@@ -187,7 +189,7 @@
     function close(refocus) {
       if (!pop) return;
       document.removeEventListener('mousedown', outside, true);
-      window.removeEventListener('resize', place); layer.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place); layer.removeEventListener('scroll', moved, true);
       if (window.visualViewport) { window.visualViewport.removeEventListener('resize', place); window.visualViewport.removeEventListener('scroll', place); }
       pop.remove(); pop = list = q = null; active = '';
       const back = held; held = []; setTimeout(() => back.forEach((n) => n.setAttribute('data-esc', '')), 0);

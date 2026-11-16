@@ -503,7 +503,7 @@
     const actions = el('div', { class: 'lmd-ask-actions lmd-cd-actions' });
     if (!ro && !fresh) actions.appendChild(el('button', { type: 'button', class: 'lmd-cd-del', 'data-cd': 'del', text: T('Eliminar') }));
     // Orca (orca.dev) abre su compositor de workspace con la tarjeta ya cargada; no crea nada solo. Solo en escritorio.
-    if (!fresh && !LMD.touch.small() && !LMD.touch.coarse()) actions.appendChild(el('button', { type: 'button', class: 'lmd-link lmd-cd-orca', 'data-cd': 'orca', title: T('Abre Orca con un workspace nuevo listo para crear'), text: T('Trabajar en Orca') }));
+    if (!fresh && !ro && (core.settings || {}).orca !== false && !LMD.touch.small() && !LMD.touch.coarse()) actions.appendChild(el('button', { type: 'button', class: 'lmd-link lmd-cd-orca', 'data-cd': 'orca', title: T('Abre Orca con un workspace nuevo listo para crear'), text: T('Trabajar en Orca') }));
     actions.appendChild(el('button', { type: 'button', class: 'lmd-btn', 'data-cd': 'no', 'data-esc': '', text: T(ro ? 'Cerrar' : 'Cancelar') }));
     if (!ro) actions.appendChild(el('button', { type: 'button', class: 'lmd-btn lmd-btn-fill', 'data-cd': 'ok', text: T('Guardar') }));
     dlg.append(title, state, list, undoBar, adder, err, dates, actions); box.appendChild(dlg);
