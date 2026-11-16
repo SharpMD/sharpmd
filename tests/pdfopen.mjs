@@ -107,7 +107,7 @@ try {
   // ---------- El manifest: ni permisos ni scripts nuevos ----------
   console.log('Manifest');
   const man = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
-  check('los mismos permisos de siempre, sin tabs, webNavigation ni declarativeNetRequest', J(man.permissions) === J(['storage', 'scripting']) && J(man.host_permissions) === J(['file:///*', '*://*/*']), [man.permissions, man.host_permissions]);
+  check('los mismos permisos de siempre, sin tabs, webNavigation ni declarativeNetRequest', J(man.permissions) === J(['storage', 'scripting', 'sidePanel', 'contextMenus']) && J(man.host_permissions) === J(['file:///*', '*://*/*']), [man.permissions, man.host_permissions]);
   check('ningún script del manifest corre sobre un PDF, y la app sigue abierta solo a sharpmd.app', !man.content_scripts.some((c) => c.matches.some((m) => /pdf|epub|\*\.\*|<all_urls>/i.test(m)) || c.js.includes('src/pdfopen.js')) && man.web_accessible_resources.every((w) => !w.matches.some((m) => /^file:/.test(m))));
   check('el script que lleva un PDF al visor existe y no lee ni toca el documento', fs.existsSync(path.join(root, 'src', 'pdfopen.js')) && !/querySelector|innerHTML|fetch\(|document\.body/.test(fs.readFileSync(path.join(root, 'src', 'pdfopen.js'), 'utf8')));
 

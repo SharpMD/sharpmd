@@ -75,7 +75,7 @@ try {
   console.log('Manifiesto');
   const cs = real.content_scripts.find((c) => c.js.includes('src/bridge-cs.js'));
   check('el puente solo corre en la app web de sharpmd.app', !!cs && J(cs.matches) === J(['https://sharpmd.app/src/app.html*']) && J(cs.js) === J(['src/bridge-cs.js']), cs);
-  check('sin permisos nuevos ni externally_connectable', J(real.permissions) === J(['storage', 'scripting']) && J(real.host_permissions) === J(['file:///*', '*://*/*']) && !real.externally_connectable, [real.permissions, real.host_permissions]);
+  check('sin permisos nuevos ni externally_connectable', J(real.permissions) === J(['storage', 'scripting', 'sidePanel', 'contextMenus']) && J(real.host_permissions) === J(['file:///*', '*://*/*']) && !real.externally_connectable, [real.permissions, real.host_permissions]);
   check('el botón no tiene popup y el popup ya no está', !real.action.default_popup && !fs.existsSync(path.join(root, 'src', 'popup.html')) && !fs.existsSync(path.join(root, 'src', 'popup.js')));
   const hostSrc = ['bridge-sw.js', 'bridge-cs.js', 'bridge.js', 'background.js'].map((f) => fs.readFileSync(path.join(root, 'src', f), 'utf8')).join('\n');
   check('el código del puente no nombra localhost ni 127.0.0.1', !/localhost|127\.0\.0\.1/.test(hostSrc));

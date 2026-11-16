@@ -46,7 +46,7 @@ const skipped = (what) => console.log('  omitida ' + what);
 console.log('Paquete');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
 const html = fs.readFileSync(path.join(root, 'src', 'welcome.html'), 'utf8');
-check('sin permisos nuevos: los de la última versión aprobada', J(manifest.permissions) === J(['storage', 'scripting']) && J(manifest.host_permissions) === J(['file:///*', '*://*/*']) && !manifest.optional_permissions, [manifest.permissions, manifest.host_permissions]);
+check('sin permisos nuevos: los de la última versión aprobada', J(manifest.permissions) === J(['storage', 'scripting', 'sidePanel', 'contextMenus']) && J(manifest.host_permissions) === J(['file:///*', '*://*/*']) && !manifest.optional_permissions, [manifest.permissions, manifest.host_permissions]);
 check('la bienvenida no se expone a ningún sitio', !J(manifest.web_accessible_resources).includes('welcome'));
 const ignored = fs.readFileSync(path.join(root, '.gitattributes'), 'utf8');
 check('la página y lo que carga van en el paquete de la extensión', ['welcome.html', 'welcome.js', 'welcome.css', 'boot.js', 'defaults.js', 'theme.js', 'content.css'].every((f) => fs.existsSync(path.join(root, 'src', f))) && !/^\/src\/|^\/icons\//m.test(ignored));
