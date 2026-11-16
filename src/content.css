@@ -2903,6 +2903,10 @@ button.lmd-cd-pill-name { cursor: pointer; border-radius: 4px; }
 .lmd-cd-actions { align-items: center; }
 .lmd-cd .lmd-cd-actions .lmd-cd-del { margin-right: auto; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--fg-muted); font: inherit; font-size: 13.5px; cursor: pointer; }
 .lmd-cd .lmd-cd-actions .lmd-cd-del:hover { color: #dc2626; background: var(--bg-soft); }
+/* Trabajar en Orca: a la izquierda, junto a Eliminar (o sola si la tarjeta no se puede editar). */
+.lmd-cd .lmd-cd-actions .lmd-cd-del:has(+ .lmd-cd-orca) { margin-right: 0; }
+.lmd-cd .lmd-cd-actions .lmd-cd-orca { margin-right: auto; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--fg-muted); font: inherit; font-size: 13.5px; cursor: pointer; }
+.lmd-cd .lmd-cd-actions .lmd-cd-orca:hover { color: var(--fg); background: var(--bg-soft); }
 @media (max-width: 720px), (max-height: 500px) and (pointer: coarse) {
   .lmd-col-menu { opacity: 1; width: 32px; height: 32px; }
   .lmd-cd-card { width: 100%; padding: 16px 14px; max-height: calc(100dvh - 24px - var(--lmd-kb, 0px)); }

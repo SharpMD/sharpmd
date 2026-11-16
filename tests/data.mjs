@@ -170,6 +170,11 @@ await app.keyboard.press('Escape'); await app.waitForSelector('.lmd-dlg', { stat
 o.sigue = await app.evaluate(() => !!document.querySelector('.lmd-cd') && document.querySelector('.lmd-cd [data-cd=title]').value === 'Otra cosa');
 await app.keyboard.press('Escape'); await app.waitForSelector('.lmd-dlg'); await app.click('.lmd-dlg [data-dlg=ok]'); await app.waitForSelector('.lmd-cd', { state: 'detached' });
 o.cancelar = (await src()) === antes;
+// Trabajar en Orca: arma el enlace con el título, la nota y la tarjeta, y avisa si nada se abrió
+await card('Publicar').click(); await app.waitForSelector('.lmd-cd');
+o.orca = await app.evaluate(() => { const b = document.querySelector('.lmd-cd [data-cd=orca]'); if (!b) return null; let url = ''; const keep = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { url = this.href; }; b.click(); HTMLAnchorElement.prototype.click = keep; const u = new URL(url.replace(/^orca:/, 'http:')); return { text: b.textContent, proto: url.split('?')[0], name: u.searchParams.get('name'), prompt: u.searchParams.get('prompt'), repo: u.searchParams.get('repo') }; });
+await app.waitForTimeout(1800); o.orcaAviso = await app.evaluate(() => /orca\.dev/.test(document.body.innerText));
+await app.keyboard.press('Escape'); await app.waitForSelector('.lmd-cd', { state: 'detached' });
 // eliminar vive en el detalle, y pregunta
 await card('Publicar').click(); await app.waitForSelector('.lmd-cd'); await app.click('.lmd-cd [data-cd=del]'); await app.waitForSelector('.lmd-dlg');
 o.eliminarPregunta = await app.evaluate(() => document.querySelector('.lmd-dlg h3').textContent);
@@ -453,7 +458,7 @@ const checks = [
   ['un tablero viejo con un campo llamado tags sigue siendo un campo', o.modelo.viejo === '{show=a tags=x|y}\n## A', o.modelo.viejo],
   ['una tarjeta sin llaves es una tarjeta sin campos, y unas llaves que no son campos quedan como texto', o.modelo.old.id === '' && o.modelo.old.done === true && J(o.modelo.old.attrs) === '{}' && o.modelo.curly === 'Use {curly} braces|0' && o.modelo.quote === 'a "b" c', o.modelo],
   ['leer y volver a escribir deja el mismo texto', o.modelo.round === true, o.modelo],
-  ['un clic abre el detalle: título grande, estado, campos, fechas al pie y botones', o.detalle.title === 'Diseñar' && o.detalle.col === 'Por hacer' && o.detalle.cols === 3 && /^Creada el .+ · Editada el /.test(o.detalle.fechas) && o.detalle.grande && J(o.detalle.order) === J(['lmd-cd-title', 'lmd-cd-state', 'lmd-cd-attrs', 'lmd-cd-undo', 'lmd-cd-add', 'lmd-dlg-err', 'lmd-cd-dates', 'lmd-cd-actions']) && J(o.detalle.botones) === J(['del', 'no', 'ok']), o.detalle],
+  ['un clic abre el detalle: título grande, estado, campos, fechas al pie y botones', o.detalle.title === 'Diseñar' && o.detalle.col === 'Por hacer' && o.detalle.cols === 3 && /^Creada el .+ · Editada el /.test(o.detalle.fechas) && o.detalle.grande && J(o.detalle.order) === J(['lmd-cd-title', 'lmd-cd-state', 'lmd-cd-attrs', 'lmd-cd-undo', 'lmd-cd-add', 'lmd-dlg-err', 'lmd-cd-dates', 'lmd-cd-actions']) && J(o.detalle.botones) === J(['del', 'orca', 'no', 'ok']), o.detalle],
   ['el detalle no tiene casilla de hecha ni fila de pastillas: un solo renglón para agregar', o.detalle.casilla === false && o.detalle.pastillas === false && o.detalle.agregar === '+ Agregar campo', o.detalle],
   ['agregar un campo empieza por elegir el tipo', J(o.tipos.nuevos) === J(['Fecha límite', 'Responsable', 'Prioridad', 'Etiquetas', 'Enlace', 'Número', 'Texto', 'Texto largo', 'Lista de opciones']) && o.tipos.usar === 0 && o.tipos.foco === 'due', o.tipos],
   ['Escape cierra primero el agregar, no el detalle', o.escCierraElAgregar === true, o.escCierraElAgregar],
@@ -544,6 +549,8 @@ const checks = [
   ['al agregar un campo se puede elegir Texto largo, y el tablero lo anota como longtext', J(o.largoNuevo) === J(['TEXTAREA', true]) && /^\{show=needs,ref,Contexto ref=text Contexto=longtext\}$/.test(o.largoGuardado.cfg), [o.largoNuevo, o.largoGuardado.cfg]],
   ['Enter en el título guarda, y la tarjeta queda en un solo renglón del archivo', / ya \{needs="Primera parte segunda parte" ref=REF-\S+ notes="Una nota corta" Contexto="Lo que hay que saber" id=/.test(o.largoGuardado.linea), o.largoGuardado.linea],
   ['en teléfono el detalle ocupa el ancho disponible, sin scroll de costado', o.largoTel.fits && o.largoTel.wide && o.largoTel.area, o.largoTel],
+  ['Trabajar en Orca arma orca://new-workspace con el slug del título y el prompt con la tarjeta y la instrucción de moverla', !!o.orca && o.orca.proto === 'orca://new-workspace' && o.orca.name === 'publicar' && o.orca.prompt.startsWith('Publicar') && o.orca.prompt.split(/\r?\n/)[1] === '' && /SharpMD card: .+ #\S+/.test(o.orca.prompt) && /move_card/.test(o.orca.prompt) && o.orca.repo === null, o.orca],
+  ['si Orca no se abre, avisa cómo instalarlo', o.orcaAviso === true, o.orcaAviso],
   ['sin errores de JavaScript', errors.length === 0, errors],
 ];
 console.log('Tareas, tableros y cuentas');

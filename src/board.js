@@ -457,6 +457,28 @@
   }
 
   // ki < 0: una tarjeta nueva en esa columna, que recién existe al guardarla.
+  // ---------- Trabajar en Orca ----------
+  // orca://new-workspace?name=&prompt=&repo= (lo recibe Orca, que registra el protocolo). El prompt lleva la tarjeta y
+  // dónde está, para que el agente la mueva a la columna de hechas con el MCP de SharpMD al terminar.
+  const slug = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120).replace(/-+$/, '') || 'sharpmd';
+  function orcaUrl(model, card, text, attrs) {
+    const where = (core.diskPath && core.diskPath(core.HERE)) || (core.appRoot && core.appRoot.kind === 'cloud' ? core.cloudPath : '') || decodeURIComponent(String(core.HERE || '').split('#')[0].split('/').pop() || '');
+    const d = doneIndex(model); const done = d >= 0 ? model.columns[d].title : 'Done';
+    const lines = Object.keys(attrs).filter((k) => String(attrs[k]).trim()).map((k) => k + ': ' + attrs[k]);
+    const es = LMD.lang() === 'es';
+    const prompt = [text, '', ...lines, lines.length ? '' : null, 'SharpMD card: ' + where + ' #' + card.id,
+      es ? 'Cuando termines, mové la tarjeta a "' + done + '" con el MCP de SharpMD (move_card).' : 'When you finish, move the card to "' + done + '" with the SharpMD MCP (move_card).'].filter((l) => l != null).join('\n').slice(0, 12000);
+    const repo = String(attrs.repo || '').trim();
+    return 'orca://new-workspace?name=' + encodeURIComponent(slug(text)) + '&prompt=' + encodeURIComponent(prompt) + (repo ? '&repo=' + encodeURIComponent(repo) : '');
+  }
+  function toOrca(model, card, text, attrs) {
+    const url = orcaUrl(model, card, text, attrs);
+    // Si Orca no está instalado el navegador no hace nada: a los 1,5 s sin que la pestaña pierda el foco, se avisa.
+    let left = false; const off = () => { left = true; }; window.addEventListener('blur', off, { once: true });
+    const a = el('a', { href: url }); a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => { window.removeEventListener('blur', off); if (!left && document.hasFocus()) core.flash(T('¿No se abrió? Instalá Orca desde orca.dev'), 'warn'); }, 1500);
+  }
+
   function openCard(board, ci, ki) {
     const model = board._model; const fresh = ki < 0; const ro = !!core.readOnly;
     if (fresh && ro) return;
@@ -480,6 +502,8 @@
     const dates = el('p', { class: 'lmd-cd-dates' });
     const actions = el('div', { class: 'lmd-ask-actions lmd-cd-actions' });
     if (!ro && !fresh) actions.appendChild(el('button', { type: 'button', class: 'lmd-cd-del', 'data-cd': 'del', text: T('Eliminar') }));
+    // Orca (orca.dev) abre su compositor de workspace con la tarjeta ya cargada; no crea nada solo. Solo en escritorio.
+    if (!fresh && !LMD.touch.small() && !LMD.touch.coarse()) actions.appendChild(el('button', { type: 'button', class: 'lmd-link lmd-cd-orca', 'data-cd': 'orca', title: T('Abre Orca con un workspace nuevo listo para crear'), text: T('Trabajar en Orca') }));
     actions.appendChild(el('button', { type: 'button', class: 'lmd-btn', 'data-cd': 'no', 'data-esc': '', text: T(ro ? 'Cerrar' : 'Cancelar') }));
     if (!ro) actions.appendChild(el('button', { type: 'button', class: 'lmd-btn lmd-btn-fill', 'data-cd': 'ok', text: T('Guardar') }));
     dlg.append(title, state, list, undoBar, adder, err, dates, actions); box.appendChild(dlg);
@@ -639,6 +663,7 @@
       else if (d === 'add-cancel') { fail(''); step = null; drawAdd(true); }
       else if (d === 'add') commitAdd();
       else if (d === 'undo') restore();
+      else if (d === 'orca') toOrca(model, card, title.value.trim() || card.text, draft.attrs);
       else if (d === 'del') {
         const name = card.text.length > 60 ? card.text.slice(0, 59) + '…' : card.text;
         LMD.dialog.confirm({ title: T('¿Eliminar la tarjeta "{a}"?', { a: name }), ok: T('Eliminar'), danger: true }).then((yes) => {

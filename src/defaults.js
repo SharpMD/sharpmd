@@ -276,7 +276,7 @@
       "Ver código fuente": "View source",
       "Copiar Markdown": "Copy Markdown",
       "Copiar con formato (la selección, o todo el documento)": "Copy with formatting (the selection, or the whole document)",
-      "Recargar ahora": "Reload now",
+      "Recargar ahora": "Reload now", "Trabajar en Orca": "Work in Orca", "Abre Orca con un workspace nuevo listo para crear": "Opens Orca with a new workspace ready to create", "¿No se abrió? Instalá Orca desde orca.dev": "Nothing opened? Install Orca from orca.dev",
       "Abrí un archivo para ver su índice.": "Open a file to see its outline.",
       "Buscar un ajuste": "Search settings",
       "Ningún ajuste coincide.": "No setting matches.",
