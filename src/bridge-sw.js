@@ -632,8 +632,11 @@
   const setupSet = async (patch) => chrome.storage.local.set({ [SETUP]: Object.assign({}, await setupGet(), patch) });
   const missing = async () => (await fileAccess()) === false && !(await setupGet()).never;
   // La marca del botón, y su texto al pasar el mouse. Devuelve si el permiso falta y todavía se recuerda.
+  // Si el botón de la barra lleva a la bienvenida en vez de al panel. Lo pone mark(); el clic lo necesita en el acto.
+  let due = false;
   async function mark() {
     const on = await missing();
+    try { due = on && !(Date.now() - ((await setupGet()).later || 0) < LATER); } catch (e) { due = false; }
     try {
       await chrome.action.setBadgeText({ text: on ? '1' : '' });
       if (on) { await chrome.action.setBadgeBackgroundColor({ color: '#c5f467' }); if (chrome.action.setBadgeTextColor) await chrome.action.setBadgeTextColor({ color: '#14161a' }); }
@@ -654,11 +657,47 @@
     if (welcome) return show(WELCOME);
     return openSharp();
   }
-  chrome.action.onClicked.addListener(() => { onAction().catch(() => chrome.tabs.create({ url: OWN })); });
+  // El botón de la barra abre SharpMD en el panel lateral, para tomar notas al lado de la página. Mientras falte el
+  // permiso de archivos (y no se haya pospuesto) lleva a la bienvenida, como antes. sidePanel.open tiene que salir en
+  // el mismo instante del clic: nada asincrónico antes.
+  const PANEL = !!(chrome.sidePanel && chrome.sidePanel.open);
+  const toPanel = (tab) => chrome.sidePanel.open(tab && tab.id != null ? { tabId: tab.id, windowId: tab.windowId } : { windowId: tab.windowId });
+  chrome.action.onClicked.addListener((tab) => {
+    if (PANEL && !due && tab && tab.windowId != null) { toPanel(tab).catch(() => onAction().catch(() => chrome.tabs.create({ url: OWN }))); return; }
+    onAction().catch(() => chrome.tabs.create({ url: OWN }));
+  });
+  if (PANEL) chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+
+  // ---------- El clic derecho ----------
+  // En el botón de la barra: abrir SharpMD en una pestaña, como hacía el botón antes del panel.
+  // En una página: agregarla (o lo elegido) a la nota del panel. Queda en chrome.storage.local.panelClip y el panel
+  // la toma al abrirse o al instante si ya estaba abierto (panel.js).
+  async function menus() {
+    if (!chrome.contextMenus) return;
+    LMD.setLang((await LMD.load()).language);
+    await chrome.contextMenus.removeAll();
+    chrome.contextMenus.create({ id: 'sharp-tab', title: LMD.t('Abrir SharpMD en una pestaña'), contexts: ['action'] });
+    if (PANEL) {
+      chrome.contextMenus.create({ id: 'sharp-clip', title: LMD.t('Agregar esta página a SharpMD'), contexts: ['page', 'link', 'image', 'video', 'audio'] });
+      chrome.contextMenus.create({ id: 'sharp-clip-sel', title: LMD.t('Agregar a SharpMD: "%s"'), contexts: ['selection'] });
+    }
+  }
+  if (chrome.contextMenus) {
+    chrome.contextMenus.onClicked.addListener((info, tab) => {
+      if (info.menuItemId === 'sharp-tab') { openSharp().catch(() => chrome.tabs.create({ url: OWN })); return; }
+      if (!/^sharp-clip/.test(String(info.menuItemId)) || !tab) return;
+      if (PANEL) toPanel(tab).catch(() => {});
+      const link = info.linkUrl && info.linkUrl !== tab.url;
+      chrome.storage.local.set({ panelClip: { title: link ? (info.linkText || info.linkUrl) : tab.title, url: link ? info.linkUrl : (tab.url || info.pageUrl), text: info.selectionText || '', at: Date.now() } }).catch(() => {});
+    });
+  }
   // Solo al instalar, no en cada actualización.
   // Instalada desde la tienda, la bienvenida se abre adelante. Cargada sin empaquetar (quien desarrolla, y las pruebas)
   // se abre por detrás: adelante le sacaba el foco a la pestaña en la que se estaba trabajando.
   const unpacked = () => new Promise((done) => { try { chrome.management.getSelf((me) => done(!!me && me.installType === 'development')); } catch (e) { done(false); } });
+  chrome.runtime.onInstalled.addListener(() => { menus().catch(() => {}); });
+  // Con otro idioma, los textos del clic derecho cambian con él.
+  chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.settings && (ch.settings.oldValue || {}).language !== (ch.settings.newValue || {}).language) menus().catch(() => {}); });
   chrome.runtime.onInstalled.addListener(async (d) => { if (d && d.reason === 'install') chrome.tabs.create({ url: WELCOME, active: !(await unpacked()) }).catch(() => {}); });
   // Cada vez que el service worker arranca: la marca al día y, si el permiso se acaba de prender, la bienvenida en "Listo".
   (async () => {

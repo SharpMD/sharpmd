@@ -6129,7 +6129,9 @@
     setInterval(() => pollTree(), TREE_POLL);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pollTree(); });
     const openAt = takeOpen(); const signAt = takeSignin();
-    if (APP) appBoot().finally(unsplash).then(() => { if (openAt) LMD.install.openLink(openAt, homeCtx()); else if (signAt) LMD.home.signinLink(homeCtx(), signAt); }, () => {});
+    if (APP) appBoot().finally(unsplash).then(() => { if (openAt) LMD.install.openLink(openAt, homeCtx()); else if (signAt) LMD.home.signinLink(homeCtx(), signAt); }, () => {})
+      // En el panel lateral del navegador: su cabecera, y lo que llegue del clic derecho (panel.js).
+      .then(() => { if (LMD.panel && LMD.panel.on) LMD.panel.init(core); });
     else {
       afterOpen({ hash: FILE_FRAG.test(location.hash) ? '' : location.hash });
       // El árbol arranca donde lo dejó la persona, o en la raíz del repositorio si el archivo está dentro de uno.

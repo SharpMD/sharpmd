@@ -276,7 +276,7 @@
       "Ver código fuente": "View source",
       "Copiar Markdown": "Copy Markdown",
       "Copiar con formato (la selección, o todo el documento)": "Copy with formatting (the selection, or the whole document)",
-      "Recargar ahora": "Reload now", "Trabajar en Orca": "Work in Orca", "Abre Orca con un workspace nuevo listo para crear": "Opens Orca with a new workspace ready to create", "¿No se abrió? Instalá Orca desde orca.dev": "Nothing opened? Install Orca from orca.dev",
+      "Recargar ahora": "Reload now", "Agregar esta página": "Add this page", "Abrir en una pestaña": "Open in a tab", "No hay una página para agregar": "There is no page to add", "Página agregada a la nota": "Page added to the note", "Página agregada a una nota nueva": "Page added to a new note", "Abrir SharpMD en una pestaña": "Open SharpMD in a tab", "Agregar esta página a SharpMD": "Add this page to SharpMD", "Agregar a SharpMD: \"%s\"": "Add to SharpMD: \"%s\"", "Trabajar en Orca": "Work in Orca", "Abre Orca con un workspace nuevo listo para crear": "Opens Orca with a new workspace ready to create", "¿No se abrió? Instalá Orca desde orca.dev": "Nothing opened? Install Orca from orca.dev",
       "Abrí un archivo para ver su índice.": "Open a file to see its outline.",
       "Buscar un ajuste": "Search settings",
       "Ningún ajuste coincide.": "No setting matches.",

@@ -12,12 +12,17 @@
   "action": {
     "default_title": "SharpMD"
   },
+  "side_panel": {
+    "default_path": "src/app.html?panel=1"
+  },
   "background": {
     "service_worker": "src/background.js"
   },
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "sidePanel",
+    "contextMenus"
   ],
   "host_permissions": [
     "file:///*",

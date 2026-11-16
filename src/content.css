@@ -720,7 +720,8 @@ pre.lmd-mermaid-error { border-color: #dc2626; }
 .lmd-add:hover { border-color: var(--accent-fill); color: var(--accent); }
 .lmd-menu { position: fixed; z-index: 60; width: 300px; padding: 8px; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 11px; box-shadow: var(--shadow); font: 13.5px/1.3 var(--lmd-font); color: var(--fg); }
 .lmd-menu-label { margin: 6px 6px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
-.lmd-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.lmd-menu-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px; }
+.lmd-menu-grid > button { min-width: 0; overflow-wrap: anywhere; }
 .lmd-menu button { padding: 7px 9px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .lmd-menu button:hover { background: var(--accent-soft); color: var(--accent); }
 .lmd-menu button.lmd-menu-danger:hover { background: color-mix(in srgb, #dc2626 16%, transparent); color: #dc2626; }
@@ -1391,7 +1392,7 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
   .lmd-home-coffee { min-height: 40px; }
 
   /* Menús: un renglón cómodo cada acción, y nunca más grandes que la pantalla. */
-  .lmd-menu { max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; font-size: 14.5px; }
+  .lmd-menu { max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; font-size: 14.5px; }
   .lmd-menu button { min-height: 42px; }
   .lmd-menu-narrow { width: 256px; }
   .lmd-menu.lmd-menu-read { width: 280px; }
@@ -4124,3 +4125,13 @@ dialog.lmd-xp-full::backdrop { background: var(--bg); }
 .lmd-tour-actions { display: flex; justify-content: space-between; gap: 8px; }
 .lmd-tour-actions button { min-height: 44px; padding: 0 16px; border-radius: 9px; font: inherit; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
 .lmd-tour-actions .lmd-tour-next { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
+
+/* ---------- Panel lateral del navegador (panel.js) ---------- */
+/* Una cabecera fija arriba de todo: el menú de archivos, nota nueva, agregar la página y abrirla en una pestaña. */
+.lmd-panelbar { position: sticky; top: 0; z-index: 11; display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px; border-bottom: 1px solid var(--line); background: var(--bg-soft); }
+.lmd-panelbar .lmd-icon-btn { width: 36px; height: 36px; }
+.lmd-panel-name { margin-left: 4px; font-size: 13.5px; font-weight: 700; color: var(--fg); letter-spacing: 0.01em; }
+.lmd-panel-gap { flex: 1; }
+.lmd-sidepanel .lmd-topbar { top: 44px; }
+/* El menú de archivos ya está en la cabecera. */
+.lmd-sidepanel .lmd-topbar [data-act=sidebar] { display: none; }
