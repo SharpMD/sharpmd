@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SharpMD</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 12px; font: 13px/1.4 system-ui, sans-serif;
+    background: var(--orca-background, Canvas); color: var(--orca-foreground, CanvasText); }
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  h1 { font-size: 14px; margin: 0; flex: 1; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 6px;
+    color: var(--orca-muted-foreground, GrayText); }
+  button, select, input { font: inherit; color: var(--orca-foreground, CanvasText);
+    background: var(--orca-input, transparent); border: 1px solid var(--orca-border, #8884);
+    border-radius: var(--orca-radius, 6px); padding: 5px 9px; }
+  input { width: 100%; }
+  button { cursor: pointer; background: var(--orca-secondary, transparent); color: var(--orca-secondary-foreground, inherit); }
+  button:hover:not(:disabled) { background: var(--orca-accent, #8882); color: var(--orca-accent-foreground, inherit); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--orca-primary, #36f); color: var(--orca-primary-foreground, #fff); border-color: transparent; }
+  button.link { border: 0; background: none; text-decoration: underline; padding: 0 2px; color: var(--orca-muted-foreground, GrayText); }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .row > select { flex: 1; min-width: 0; }
+  .card { background: var(--orca-card, transparent); color: var(--orca-card-foreground, inherit);
+    border: 1px solid var(--orca-border, #8884); border-radius: var(--orca-radius, 6px);
+    padding: 8px 10px; margin-bottom: 6px; }
+  .card.done { opacity: .6; }
+  .title { font-weight: 600; word-break: break-word; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0; }
+  .chip { font-size: 11px; padding: 1px 6px; border-radius: 99px; background: var(--orca-muted, #8882);
+    color: var(--orca-muted-foreground, inherit); word-break: break-word; }
+  .muted { color: var(--orca-muted-foreground, GrayText); }
+  .err { color: var(--orca-destructive, #d33); margin: 8px 0; }
+  .ok { margin-top: 5px; color: var(--orca-muted-foreground, GrayText); font-size: 12px; }
+  label { display: block; margin: 8px 0 4px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SharpMD</h1>
+  <button id="open" class="link" type="button">Open SharpMD</button>
+  <button id="reload" class="link hidden" type="button">Reload</button>
+  <button id="token-change" class="link hidden" type="button">Token</button>
+</header>
+
+<section id="token-form" class="hidden">
+  <p class="muted">Paste a SharpMD token (SharpMD, Settings, AI connection). It is kept in Orca's encrypted secrets and never shown again.</p>
+  <label for="token">Token</label>
+  <input id="token" type="password" autocomplete="off" spellcheck="false">
+  <div class="row" style="margin-top:8px">
+    <button id="token-save" class="primary" type="button">Save token</button>
+    <button id="token-clear" type="button" class="hidden">Remove token</button>
+  </div>
+</section>
+
+<section id="main" class="hidden">
+  <div class="row"><select id="board" aria-label="Board"></select></div>
+  <div class="row" style="margin-top:6px">
+    <select id="project" aria-label="Repository"></select>
+  </div>
+  <div class="muted" style="margin-top:2px">Repository for cards without a repo field.</div>
+  <div id="cols"></div>
+</section>
+
+<div id="msg" class="err hidden" role="alert"></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var APP_URL = 'https://sharpmd.app/';
+  var notes = [];       // [{ path, url, boards: [...] }]
+  var entries = [];     // flat list of { note, board }
+  var tokenSet = false;
+
+  function show(el, on) { el.classList.toggle('hidden', !on); }
+  function error(text) { $('msg').textContent = text || ''; show($('msg'), !!text); }
+  function req(name, input) { return orca.plugin.request(name, input || {}, { timeoutMs: 60000 }); }
+  function fail(e) { error((e && e.message) || 'Something went wrong.'); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  // ---- Open SharpMD ----
+  $('open').onclick = function () {
+    var url = APP_URL;
+    var e = entries[$('board').selectedIndex];
+    if (e && e.note.url && /^https:\/\//.test(e.note.url)) url = e.note.url;
+    if (orca.shell && orca.shell.openExternal) {
+      orca.shell.openExternal(url).catch(fail);
+    } else {
+      error('Opening links works in the Orca desktop app.');
+    }
+  };
+
+  // ---- token ----
+  function showToken(on) { show($('token-form'), on); show($('main'), !on && tokenSet); show($('token-clear'), tokenSet); }
+  $('token-change').onclick = function () { $('token').value = ''; showToken(true); };
+  $('token-save').onclick = function () {
+    var v = $('token').value;
+    error('');
+    req('token.save', { token: v }).then(function () {
+      $('token').value = ''; tokenSet = true; showToken(false); load();
+    }).catch(fail);
+  };
+  $('token-clear').onclick = function () {
+    req('token.clear').then(function () {
+      tokenSet = false; notes = []; entries = []; showToken(true); show($('reload'), false); show($('token-change'), false);
+    }).catch(fail);
+  };
+  $('reload').onclick = function () { load(); };
+
+  // ---- boards ----
+  function load() {
+    error('');
+    show($('reload'), true); show($('token-change'), true);
+    $('cols').replaceChildren(el('p', 'muted', 'Loading boards...'));
+    Promise.all([req('boards.load'), req('projects.list')]).then(function (r) {
+      notes = r[0].notes;
+      entries = [];
+      notes.forEach(function (n) {
+        n.boards.forEach(function (b) { entries.push({ note: n, board: b }); });
+      });
+      var sel = $('board'); sel.replaceChildren();
+      entries.forEach(function (e, i) {
+        var o = el('option', '', e.note.path + (e.note.boards.length > 1 ? ' (board ' + e.board.board + ')' : ''));
+        o.value = String(i); sel.appendChild(o);
+      });
+      var ps = $('project'); ps.replaceChildren();
+      var first = el('option', '', 'Choose a repository'); first.value = ''; ps.appendChild(first);
+      r[1].projects.forEach(function (p) { var o = el('option', '', p.name); o.value = p.id; ps.appendChild(o); });
+      if (r[1].projects.length === 1) ps.value = r[1].projects[0].id;
+      if (!entries.length) {
+        $('cols').replaceChildren(el('p', 'muted',
+          'No boards found. Set the board note paths in the plugin settings, or create a board in SharpMD.'));
+      } else { render(); }
+      if (r[0].skipped) error(r[0].skipped + ' note(s) could not be read.');
+    }).catch(function (e) {
+      $('cols').replaceChildren();
+      fail(e);
+      if (e && e.code === 'not_permitted') { tokenSet = false; showToken(true); }
+    });
+  }
+  $('board').onchange = render;
+
+  function progressColumn(b) {
+    var re = /progress|doing|curso|progreso|proceso|working/i;
+    var c = b.columns.filter(function (x) { return re.test(x.column); })[0];
+    return c ? c.column : '';
+  }
+
+  function render() {
+    var e = entries[$('board').selectedIndex];
+    var box = $('cols'); box.replaceChildren();
+    if (!e) return;
+    var b = e.board;
+    b.columns.forEach(function (col) {
+      box.appendChild(el('h2', '', col.column + ' (' + col.cards.length + ')'));
+      col.cards.forEach(function (card) {
+        var isDone = col.column === b.done_column || card.done;
+        var c = el('div', 'card' + (isDone ? ' done' : ''));
+        c.appendChild(el('div', 'title', card.title));
+        var f = card.fields || {};
+        var keys = Object.keys(f);
+        if (keys.length) {
+          var chips = el('div', 'chips');
+          keys.forEach(function (k) { chips.appendChild(el('span', 'chip', k + ': ' + f[k])); });
+          c.appendChild(chips);
+        }
+        if (!isDone) {
+          var btn = el('button', 'primary', 'Start in Orca');
+          btn.type = 'button';
+          var out = el('div', 'ok');
+          btn.onclick = function () { start(e, col, card, btn, out); };
+          c.appendChild(btn); c.appendChild(out);
+        }
+        box.appendChild(c);
+      });
+    });
+  }
+
+  function start(e, col, card, btn, out) {
+    error(''); btn.disabled = true; out.textContent = 'Starting...';
+    req('card.start', {
+      path: e.note.path, id: card.id, title: card.title, column: col.column,
+      doneColumn: e.board.done_column || '', progressColumn: progressColumn(e.board),
+      fields: card.fields || {}, projectId: $('project').value
+    }).then(function (r) {
+      out.textContent = 'Started in ' + r.project + (r.moved ? ' and moved to in progress.' : '.') +
+        (r.moveError ? ' The card could not be moved: ' + r.moveError : '');
+      btn.textContent = 'Start again'; btn.disabled = false;
+    }).catch(function (err) {
+      out.textContent = ''; btn.disabled = false; fail(err);
+    });
+  }
+
+  // ---- boot ----
+  req('state').then(function (s) {
+    tokenSet = s.tokenSet;
+    showToken(!tokenSet);
+    if (tokenSet) load();
+  }).catch(fail);
+})();
+</script>
+</body>
+</html>

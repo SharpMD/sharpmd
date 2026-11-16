@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stablyai/orca/main/docs/schemas/plugins/orca-plugin.v2.schema.json",
+  "manifestVersion": 2,
+  "execution": "trusted-worker",
+  "id": "sharpmd",
+  "name": "SharpMD",
+  "version": "0.1.0",
+  "description": "Browse your SharpMD boards and start an agent on a card in a new Orca workspace.",
+  "license": "MIT",
+  "homepage": "https://sharpmd.app",
+  "engines": {
+    "orca": ">=1.4.259"
+  },
+  "pluginApi": 1,
+  "main": "worker/main.mjs",
+  "contributes": {
+    "panels": [
+      {
+        "id": "boards",
+        "title": "SharpMD",
+        "icon": "file-text",
+        "entry": "panel/panel.html"
+      }
+    ],
+    "settings": [
+      {
+        "key": "serverUrl",
+        "title": "SharpMD MCP URL",
+        "description": "Only change this if you run your own SharpMD server.",
+        "type": "string",
+        "default": "https://sharpmd.app/mcp"
+      },
+      {
+        "key": "agent",
+        "title": "Agent",
+        "description": "The agent that starts on a card.",
+        "type": "string",
+        "enum": ["claude", "codex", "gemini", "opencode", "cursor", "copilot"],
+        "default": "claude"
+      },
+      {
+        "key": "boardPaths",
+        "title": "Board notes",
+        "description": "One note path per line, for example project/board.md. Empty: notes whose path contains board, tablero or kanban.",
+        "type": "string",
+        "multiline": true,
+        "default": ""
+      }
+    ]
+  },
+  "capabilities": [
+    { "kind": "secrets:own" },
+    { "kind": "settings:own" },
+    { "kind": "workspace:read" },
+    { "kind": "workspace:create" },
+    { "kind": "agent:launch" },
+    { "kind": "notifications:show" }
+  ]
+}
