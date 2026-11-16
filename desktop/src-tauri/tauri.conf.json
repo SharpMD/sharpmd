@@ -25,6 +25,6 @@
       "webviewInstallMode": { "type": "downloadBootstrapper" },
       "nsis": { "installMode": "currentUser" }
     },
-    "macOS": { "minimumSystemVersion": "10.15" }
+    "macOS": { "minimumSystemVersion": "10.15", "signingIdentity": "-" }
   }
 }

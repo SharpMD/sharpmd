@@ -55,7 +55,7 @@ jobs:
           projectPath: desktop
           tagName: desktop-v__VERSION__
           releaseName: SharpMD __VERSION__ for Windows, macOS and Linux
-          releaseBody: Unsigned builds. Windows may show SmartScreen (More info, Run anyway); on macOS right click the app and choose Open the first time.
+          releaseBody: "Not signed by Apple or Microsoft. Windows: if SmartScreen appears, More info, Run anyway. macOS: open the app once, then System Settings, Privacy & Security, Open Anyway."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
