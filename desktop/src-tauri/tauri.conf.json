@@ -3,10 +3,14 @@
   "productName": "SharpMD",
   "version": "2.92.0",
   "identifier": "app.sharpmd.desktop",
-  "build": { "frontendDist": "../shell" },
+  "build": {
+    "frontendDist": "../shell"
+  },
   "app": {
     "windows": [],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
@@ -17,14 +21,51 @@
     "shortDescription": "Markdown editor",
     "longDescription": "SharpMD, the Markdown editor: the same app as sharpmd.app, with your folders and files saved straight to disk.",
     "homepage": "https://sharpmd.app",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "fileAssociations": [
-      { "ext": ["md", "markdown", "mdx", "mkd", "mdown"], "name": "Markdown", "description": "Markdown document", "role": "Editor", "mimeType": "text/markdown" }
+      {
+        "ext": [
+          "md",
+          "markdown",
+          "mdx",
+          "mkd",
+          "mdown"
+        ],
+        "name": "Markdown",
+        "description": "Markdown document",
+        "role": "Editor",
+        "mimeType": "text/markdown"
+      }
     ],
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper" },
-      "nsis": { "installMode": "currentUser" }
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
     },
-    "macOS": { "minimumSystemVersion": "10.15", "signingIdentity": "-" }
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDOUJGMUNERjIyNzIyMkIKUldRcklpZnl6ZkdiekxYMjYzYWE3N0ppL0dHRnBtSW8ya0RtbXlEa2h0aWo0Nk80MG1MMjZuSFYK",
+      "endpoints": [
+        "https://github.com/SharpMD/sharpmd/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

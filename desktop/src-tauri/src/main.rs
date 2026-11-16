@@ -310,12 +310,49 @@ fn ours(url: &Url) -> bool {
     }
 }
 
+// On launch, looks for a newer installer in the latest GitHub release (latest.json, signed with the updater key) and
+// asks before installing it. The web app updates on its own; this only renews the shell. Not in the Microsoft Store
+// build, which the Store updates, nor in a .deb or .rpm, which the updater cannot replace.
+fn check_update(app: AppHandle) {
+    if cfg!(debug_assertions) || std::env::current_exe().map(|p| p.to_string_lossy().contains("\\WindowsApps\\")).unwrap_or(false) {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_dialog::MessageDialogButtons;
+        use tauri_plugin_updater::UpdaterExt;
+        let Ok(updater) = app.updater() else { return };
+        let Ok(Some(update)) = updater.check().await else { return };
+        let es = sys_locale::get_locale().map(|l| l.starts_with("es")).unwrap_or(false);
+        let (text, yes, no) = if es {
+            (format!("Hay una versión nueva de SharpMD ({}). ¿La instalo ahora? La app se reinicia.", update.version), "Actualizar", "Más tarde")
+        } else {
+            (format!("A new version of SharpMD is out ({}). Install it now? The app restarts.", update.version), "Update", "Later")
+        };
+        let handle = app.clone();
+        app.dialog()
+            .message(text)
+            .title("SharpMD")
+            .buttons(MessageDialogButtons::OkCancelCustom(yes.into(), no.into()))
+            .show(move |ok| {
+                if !ok {
+                    return;
+                }
+                tauri::async_runtime::spawn(async move {
+                    if update.download_and_install(|_, _| {}, || {}).await.is_ok() {
+                        handle.restart();
+                    }
+                });
+            });
+    });
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| open_paths(app, args_paths(&args))))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             fs_stat, fs_read, fs_write, fs_list, fs_mkdir, fs_touch, fs_remove, fs_rename, pick_dir, pick_files, pick_save, take_pending
         ])
@@ -344,6 +381,7 @@ fn main() {
             if !first.is_empty() {
                 open_paths(&handle, first);
             }
+            check_update(handle);
             Ok(())
         })
         .build(tauri::generate_context!())
