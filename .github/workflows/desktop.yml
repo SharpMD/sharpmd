@@ -63,6 +63,32 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
+  # The three builds each write latest.json and can overwrite each other. This rebuilds it from every signed asset.
+  updater-json:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Rebuild latest.json
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.sig' -p latest.json -D rel
+          cd rel
+          node -e '
+            const fs = require("fs"), j = JSON.parse(fs.readFileSync("latest.json"));
+            const base = "https://github.com/" + process.env.GITHUB_REPOSITORY + "/releases/download/" + process.env.TAG + "/";
+            const add = (keys, f) => { if (!fs.existsSync(f + ".sig")) return; for (const k of keys) j.platforms[k] = { signature: fs.readFileSync(f + ".sig", "utf8").trim(), url: base + f }; };
+            for (const f of fs.readdirSync(".").filter(f => f.endsWith(".sig")).map(f => f.slice(0, -4))) {
+              if (f.endsWith(".AppImage")) add(["linux-x86_64", "linux-x86_64-appimage"], f);
+              else if (f.endsWith(".deb")) add(["linux-x86_64-deb"], f);
+              else if (f.endsWith(".rpm")) add(["linux-x86_64-rpm"], f);
+            }
+            fs.writeFileSync("latest.json", JSON.stringify(j, null, 2));
+            console.log(Object.keys(j.platforms).join(" "));
+          '
+          gh release upload "$TAG" latest.json --clobber -R "$GITHUB_REPOSITORY"
+
   # Unsigned MSIX for the Microsoft Store (the Store signs it). Runs once the repository variables
   # MSSTORE_IDENTITY_NAME, MSSTORE_PUBLISHER and MSSTORE_PUBLISHER_NAME hold the values from
   # Partner Center, Product identity. Upload the artifact in Partner Center.
