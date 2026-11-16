@@ -152,7 +152,7 @@ try {
   await app.click('.lmd-xroot[data-root=local] .lmd-root-tog .lmd-node-chev');
   await app.goto(home); await app.waitForSelector('.lmd-home [data-home=new]'); await app.waitForSelector('.lmd-xroot[data-root=local] .lmd-node');
   const noDoc = await app.evaluate(() => ({ outline: document.querySelector('.lmd-zone-outline').getBoundingClientRect().height, files: document.querySelector('.lmd-pane-files').getBoundingClientRect().height, local: [...document.querySelectorAll('.lmd-xroot[data-root=local] .lmd-node')].map((n) => n.textContent.trim()), disk: document.querySelector('.lmd-xroot[data-root=disk] .lmd-tree-path').textContent }));
-  check('sin nota abierta el índice no ocupa lugar y el explorador ya lista las notas del navegador', noDoc.outline === 0 && noDoc.files > 300 && noDoc.local.includes('uno.md') && noDoc.local.includes('dos.md') && noDoc.disk === 'pantalla', noDoc);
+  check('sin nota abierta el índice queda arriba plegado en su renglón y el explorador ya lista las notas del navegador', noDoc.outline > 0 && noDoc.outline <= 40 && noDoc.files > 300 && noDoc.local.includes('uno.md') && noDoc.local.includes('dos.md') && noDoc.disk === 'pantalla', noDoc);
 
   console.log('Crear y abrir desde el explorador');
   await app.evaluate(() => { window.__mark = 'misma página'; });

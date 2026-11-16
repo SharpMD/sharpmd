@@ -1212,7 +1212,10 @@ html:not(.lmd-root) > body > pre:first-child { visibility: hidden; animation: lm
 .lmd-zone-word svg { flex: none; }
 .lmd-split { flex: none; height: 7px; margin: -3px 0 -4px; position: relative; z-index: 3; cursor: row-resize; }
 .lmd-split:hover, .lmd-splitting .lmd-split { background: var(--accent-soft); }
-.lmd-zones.lmd-one .lmd-split, .lmd-nodoc .lmd-split, .lmd-nodoc .lmd-zone-outline { display: none; }
+.lmd-zones.lmd-one .lmd-split, .lmd-o-none + .lmd-split { display: none; }
+/* Sin títulos (el inicio, una carpeta, una nota sin títulos) el índice queda arriba plegado en su renglón; tocado, muestra por qué. */
+html:not(.lmd-guest) .lmd-zone-outline.lmd-o-none { flex: 0 0 auto !important; }
+.lmd-zone-outline.lmd-o-none:not(.lmd-o-peek) > .lmd-pane { display: none; }
 .lmd-splitting { cursor: row-resize; user-select: none; }
 .lmd-zone .lmd-pane { padding-top: 0; }
 .lmd-zone-files .lmd-pane { padding-top: 2px; }

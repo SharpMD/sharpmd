@@ -2359,7 +2359,7 @@
     if (only) { const on = !!settings.filesOnlyMarkdown; only.setAttribute('aria-pressed', String(on)); only.classList.toggle('lmd-on', on); const say = T(on ? 'Solo Markdown: prendido. Clic para ver todos los archivos que SharpMD abre' : 'Solo Markdown: apagado. Clic para ver solo las notas'); only.title = say; only.setAttribute('aria-label', T('Solo Markdown')); }
     const sortBtn = ui.sidebar.querySelector('.lmd-tree-sort');
     if (sortBtn) { const on = settings.filesSort === 'recent'; sortBtn.setAttribute('aria-pressed', String(on)); sortBtn.classList.toggle('lmd-on', on); sortBtn.title = T(on ? 'Orden: lo último que abriste, arriba. Clic para ordenar por nombre' : 'Orden: por nombre. Clic para ver arriba lo último que abriste'); sortBtn.setAttribute('aria-label', T('Ordenar')); }
-    applySide();
+    applySide(); watchOutline();
 
     ui.status.textContent = idleStatus();
     if (flipSaid) { const said = flipSaid; flipSaid = ''; flash(said); }
@@ -3286,7 +3286,19 @@
     o.classList.toggle('lmd-shut', !!side.outlineShut); f.classList.toggle('lmd-shut', !!side.filesShut);
     o.style.flexGrow = side.outlineShut ? '' : String(side.split); f.style.flexGrow = side.filesShut ? '' : String(100 - side.split);
     ui.zones.classList.toggle('lmd-one', !!side.outlineShut || !!side.filesShut);
-    ui.sidebar.querySelectorAll('[data-zone-tog]').forEach((b) => b.setAttribute('aria-expanded', String(!side[b.dataset.zoneTog + 'Shut'])));
+    ui.sidebar.querySelectorAll('[data-zone-tog]').forEach((b) => b.setAttribute('aria-expanded', String(!side[b.dataset.zoneTog + 'Shut'] && !(b.dataset.zoneTog === 'outline' && o.classList.contains('lmd-o-none') && !o.classList.contains('lmd-o-peek')))));
+  }
+  // Sin títulos que mostrar (el inicio, una carpeta, una nota sin títulos) el índice no se va: queda arriba, plegado
+  // en su renglón, y el explorador ocupa el resto. Tocarlo muestra por qué está vacío.
+  function watchOutline() {
+    const o = ui.sidebar.querySelector('.lmd-zone-outline'); if (!o || !ui.paneOutline || o._watched) return; o._watched = true;
+    const paint = () => {
+      const kids = [...ui.paneOutline.children];
+      const none = !kids.length || kids.every((k) => k.classList.contains('lmd-empty'));
+      if (none !== o.classList.contains('lmd-o-none')) { o.classList.toggle('lmd-o-none', none); o.classList.remove('lmd-o-peek'); applySide(); }
+    };
+    new MutationObserver(paint).observe(ui.paneOutline, { childList: true });
+    paint();
   }
   // Dónde está guardado cada archivo: el ícono chico al lado del nombre.
   const WHERE = { disk: ['disk', 'En el disco'], local: ['browser', 'En este navegador'], cloud: ['cloud', 'En la nube'], team: ['people', 'En el equipo'] };
@@ -3690,7 +3702,11 @@
   // Clics en la barra que no abren nada: plegar una zona o una raíz, subir, quitar un reciente, entrar.
   function sideClick(e) {
     const zone = e.target.closest('[data-zone-tog]');
-    if (zone) { const k = zone.dataset.zoneTog + 'Shut'; side[k] = !side[k]; applySide(); saveSide(); return true; }
+    if (zone) {
+      const o = zone.closest('.lmd-zone-outline');
+      if (o && o.classList.contains('lmd-o-none') && !side.outlineShut) { o.classList.toggle('lmd-o-peek'); applySide(); return true; }
+      const k = zone.dataset.zoneTog + 'Shut'; side[k] = !side[k]; applySide(); saveSide(); return true;
+    }
     // La cruz de un elemento de "Abiertos": lo cierra. Va antes que todo: está dentro de su renglón.
     const shutBtn = e.target.closest('[data-close]');
     if (shutBtn) { e.preventDefault(); closeOpen(shutBtn.dataset.close); return true; }
@@ -5969,6 +5985,7 @@
     dirOutline();
     paintPub();
     document.documentElement.classList.toggle('lmd-nodoc', noDoc);
+    if (noDoc && ui.paneOutline) { ui.paneOutline.textContent = ''; ui.paneOutline.appendChild(el('p', { class: 'lmd-empty', text: T('Abrí un archivo para ver su índice.') })); }
     // Un archivo que se ve en el visor o lleva un cartel: la barra no ofrece editarlo, copiarlo ni ver su código.
     document.documentElement.classList.toggle('lmd-bin', isBin());
     document.documentElement.classList.toggle('lmd-noreload', !diskDoc());
