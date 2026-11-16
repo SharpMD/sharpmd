@@ -55,7 +55,11 @@ try {
   const id = new URL(first.url()).host; const OWN = 'chrome-extension://' + id + '/src/app.html';
   // El service worker de la extensión se duerme y vuelve: siempre se toma el que esté vivo.
   const SW = async () => ctx.serviceWorkers().find((w) => w.url().startsWith('chrome-extension://' + id)) || ctx.waitForEvent('serviceworker', { timeout: 15000 });
-  const bg = async (fn, arg) => (await SW()).evaluate(fn, arg);
+  const bg = async (fn, arg) => {
+    for (let i = 0; ; i++) {
+      try { return await (await SW()).evaluate(fn, arg); } catch (e) { if (i >= 3 || !/Service worker restarted|Target .*closed|Execution context was destroyed/.test(String(e && e.message))) throw e; await new Promise((r) => setTimeout(r, 300)); }
+    }
+  };
   await ctx.route((url) => /(^|\.)sharpmd\.app$/.test(url.hostname), (r) => r.abort());
   // La nube de verdad no se toca: apagada de los dos lados.
   await bg(() => chrome.storage.local.set({ settings: { cloudUrl: 'off' } }));

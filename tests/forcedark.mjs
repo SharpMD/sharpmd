@@ -67,6 +67,9 @@ try {
     await page.waitForSelector('.lmd-panel:not([hidden])');
     await page.evaluate((t) => document.querySelector('.lmd-ptabs [data-ptab=' + t + ']').click(), tab); await sleep(300);
   };
+  // Un punto donde se ve el fondo de Ajustes, no una tarjeta: el diseño de la pestaña puede cambiar.
+  const panelSpot = (page) => page.evaluate(() => { const body = document.querySelector('.lmd-panel:not([hidden]) .lmd-panel-body') || document.querySelector('.lmd-panel:not([hidden])'); const b = body.getBoundingClientRect();
+    for (let y = b.top + 4; y < b.bottom; y += 6) for (const x of [b.left + 4, b.right - 6]) if (document.elementFromPoint(x, y) === body) return [x, y]; return [b.left + 4, b.top + 4]; });
   const switchSpot = (page) => page.evaluate(() => { const b = [...document.querySelectorAll('.lmd-switch input:checked + i')].find((n) => n.offsetParent).getBoundingClientRect(); return [b.left + 6, b.top + b.height / 2]; });
 
   // ---------- Por declaración: el navegador respeta "only light" ----------
@@ -90,7 +93,7 @@ try {
     check(id + ': el acento pintado es el del tema', near(px[1], c.fill), [px[1], c.fill]);
     check(id + ': el nodo del diagrama sale con su relleno y el texto se lee (4.5:1 o más)', near(px[2], nodeFill) && TH.contrast(hex(at.label), px[2]) >= 4.5, [px[2], nodeFill, hex(at.label)]);
     await openSettings(page, 'plug');
-    const sw = await pixels(await shot(page, 'forzado-' + id + '-ajustes'), [await switchSpot(page), [200, 400]]);
+    const sw = await pixels(await shot(page, 'forzado-' + id + '-ajustes'), [await switchSpot(page), await panelSpot(page)]);
     check(id + ': el interruptor prendido lleva el acento y Ajustes el fondo del tema', near(sw[0], c.fill) && near(sw[1], c.bg), [sw, c.fill, c.bg]);
     if (id === 'lima') {
       // La prueba mide de verdad: sin la declaración, el mismo navegador reescribe el fondo.

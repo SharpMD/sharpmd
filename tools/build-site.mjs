@@ -21,6 +21,14 @@ const CARD_ALT = { en: 'SharpMD: Markdown notes your AI writes and your team rea
 // The look every page shares lives in site/site.css. The pages written by hand link it. The ones generated here carry it
 // inside their <style>, so they need no extra request: the landing page takes the first part (fonts, colors, name,
 // buttons) and the search pages take the layout of a page of text too. The comments go, and the fonts get their path.
+// Estrellas de GitHub para el enlace del header: se leen al construir, así la portada no llama a GitHub ni guarda nada en el navegador.
+// Debajo de 10 no se muestra el número. Si no hay red, queda el que ya estaba publicado.
+const STARS = await (async () => {
+  try { const r = await fetch('https://api.github.com/repos/SharpMD/sharpmd', { signal: AbortSignal.timeout(8000) }); if (r.ok) return (await r.json()).stargazers_count; } catch (e) { /* sin red */ }
+  try { const m = /<span class="n">([0-9.]+k?)<\/span>/.exec(fs.readFileSync(path.join(root, 'index.html'), 'utf8')); if (m) return m[1]; } catch (e) { /* primera vez */ }
+  return 0;
+})();
+const starsText = typeof STARS === 'string' ? STARS : STARS >= 10 ? (STARS > 999 ? (Math.round(STARS / 100) / 10 + 'k') : String(STARS)) : '';
 const SHEET = fs.readFileSync(path.join(root, 'site', 'site.css'), 'utf8').replace(/\r\n/g, '\n');
 const PARTS = SHEET.split(/\/\* ==== [a-z ]+ ==== \*\/\n/);
 if (PARTS.length !== 3) throw new Error('site/site.css has to keep its three parts, and has ' + PARTS.length);
@@ -70,6 +78,7 @@ function build(lang) {
   const spans = new RegExp('<span lang="(en|es)">([\\s\\S]*?)</span>', 'g');
   html = html.replace(spans, (all, l, inner) => { if (inner.includes('<span')) throw new Error('span anidado en: ' + inner.slice(0, 80)); return l === lang ? inner : ''; });
   if (/lang="(en|es)"/.test(html.replace(/<html[^>]*>/, ''))) throw new Error('quedó una marca de idioma sin resolver');
+  html = html.replace('<!--GH-STARS-->', starsText ? '<span class="n">' + starsText + '</span>' : '');
   html = html.replace('/*SITE-CSS-CORE*/', () => CSS.core.trimStart());
   // preguntas frecuentes, también como datos estructurados
   const faq = [...html.matchAll(/<details class="faq"><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p><\/details>/g)].map((x) => ({ '@type': 'Question', name: plain(x[1]), acceptedAnswer: { '@type': 'Answer', text: plain(x[2]) } }));

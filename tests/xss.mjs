@@ -141,7 +141,7 @@ await app.evaluate(([tpl, img, colors, P]) => {
   const base = { about: '', lang: 'es', author: 'Ana' };
   const items = [
     Object.assign({ type: 'template', adds: '<img>' }, tpl, { data: undefined }),
-    Object.assign({ id: 11, type: 'theme', name: 'Tema con CSS', data: { accent: '#112233', css: '* { display: none }' } }, base),
+    Object.assign({ id: 11, type: 'theme', name: 'Tema con CSS que carga afuera', data: { accent: '#112233', css: 'body { background: url(https://xss.invalid/a.png) }' } }, base),
     Object.assign({ id: 12, type: 'theme', name: 'Tema con url', data: { accent: 'url(https://xss.invalid/t.png)' } }, base),
     Object.assign({ id: 13, type: 'theme', name: '<svg onload=' + P + '>', data: { accent: '#112233', font: 'Georgia' } }, base, { author: img }),
     Object.assign({ id: 14, type: 'palette', name: 'Paleta mala', data: { colors: Object.assign({}, colors, { text: 'expression(alert(1))' }) } }, base),
