@@ -59,3 +59,31 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Unsigned MSIX for the Microsoft Store (the Store signs it). Runs once the repository variables
+  # MSSTORE_IDENTITY_NAME, MSSTORE_PUBLISHER and MSSTORE_PUBLISHER_NAME hold the values from
+  # Partner Center, Product identity. Upload the artifact in Partner Center.
+  store:
+    if: vars.MSSTORE_IDENTITY_NAME != ''
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+      - name: Build the exe
+        working-directory: desktop
+        run: |
+          npm ci
+          npx tauri build --no-bundle
+      - name: Pack the MSIX
+        shell: pwsh
+        run: desktop/msix/pack.ps1 -IdentityName '${{ vars.MSSTORE_IDENTITY_NAME }}' -Publisher '${{ vars.MSSTORE_PUBLISHER }}' -PublisherName '${{ vars.MSSTORE_PUBLISHER_NAME }}' -Out SharpMD.msix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SharpMD-msix
+          path: SharpMD.msix
