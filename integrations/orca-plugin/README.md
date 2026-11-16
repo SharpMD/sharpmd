@@ -32,7 +32,16 @@ notes whose path contains `board`, `tablero` or `kanban`.
 This plugin needs Orca 1.4.259 or newer and runs a worker, so Orca asks you to approve it
 (secrets, settings, workspace read/create, agent launch, notifications).
 
-From a local folder:
+It is not in Orca's plugin catalog: the catalog only lists plugins at the root of their own
+repository, and this one lives inside the SharpMD repository. Get the folder first:
+
+```
+git clone --depth 1 https://github.com/SharpMD/sharpmd.git
+```
+
+or download the ZIP from GitHub and unzip it. The plugin is in `integrations/orca-plugin`.
+
+From that folder:
 
 1. Settings, Plugins, **Turn on plugins**.
 2. **Development folders...**, add this folder (the one with `orca-plugin.json`).

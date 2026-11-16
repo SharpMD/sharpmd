@@ -1,4 +1,4 @@
-// Ajustes en diez pestañas, la cuenta en el inicio, la vuelta del pago, el cambio de idioma y los comentarios.
+// Ajustes en once pestañas, la cuenta en el inicio, la vuelta del pago, el cambio de idioma y los comentarios.
 // Todo contra un servidor local. sharpmd.app (la página de pago) se sirve desde esta carpeta y Paddle es un doble:
 // nada sale a la red, y si algo intentara llegar al servidor de producción la prueba lo cuenta como falla.
 import { chromium } from 'playwright-core';
@@ -50,10 +50,10 @@ const tab = async (t) => { await app.click('[data-ptab=' + t + ']'); await app.w
 // Nube vuelta a dibujar, con la explicación de Seguridad desplegada (con sesión va plegada debajo del estado).
 const tabCloud = async () => { await tab('plan'); await tab('cloud'); await app.waitForSelector('[data-acct=cloud] .lmd-sec-more'); await app.evaluate(() => { document.querySelector('[data-acct=cloud] .lmd-sec-more').open = true; }); };
 const openSettings = async (t) => { await app.click('[data-act=settings]'); await app.waitForSelector('.lmd-panel-card'); if (t) await tab(t); };
-const TABS = ['look', 'read', 'plug', 'tools', 'cloud', 'ai', 'plan', 'inst', 'adv'];
+const TABS = ['look', 'read', 'plug', 'tools', 'cloud', 'ai', 'auto', 'integ', 'plan', 'inst', 'adv'];
 // Ninguna pestaña puede necesitar scroll con la ventana a 800 px de alto. La que sí desliza se saca al leer el
 // resultado: Nube, por las tarjetas del bloque Seguridad. Herramientas y Plugins entran enteras, con su detalle al costado.
-const SCROLLS = /^(cloud|plug) /; // Plugins: tarjetas con aire entre bloques, la lista se desliza
+const SCROLLS = /^(cloud|plug|inst) /; // Plugins: tarjetas con aire entre bloques; Instalar: las tarjetas de dónde usarlo y los ajustes de archivos. La lista se desliza
 const overflow = async () => { const out = []; for (const t of TABS) { await tab(t); const m = await app.evaluate(() => { const b = document.querySelector('.lmd-panel-body'); return b.scrollHeight - b.clientHeight; }); if (m > 0) out.push(t + ' +' + m); } return out; };
 // Los dos renglones que dicen qué anda sin cuenta y qué suma tenerla: sin signos de admiración ni rayas largas. Van en Ajustes → Nube.
 // En el inicio, la cuenta vive al pie de la barra lateral: sin sesión, la invitación a entrar con una línea de qué suma.
@@ -170,14 +170,14 @@ try {
   await app.waitForSelector('.lmd-panel-card'); await app.waitForSelector('html.lmd-editing'); await app.waitForTimeout(900);
   const en = await app.evaluate(() => ({ title: document.querySelector('.lmd-panel-card h2').textContent, menus: document.querySelectorAll('.lmd-menu').length, tab: document.querySelector('[data-ptab].lmd-on').dataset.ptab, tabs: [...document.querySelectorAll('[data-ptab]')].map((b) => b.textContent.trim()).join('|'), foot: document.querySelector('[data-act=feedback]').textContent.trim() }));
   check('al cambiar de idioma en una nota vacía, Ajustes vuelve solo, sin menú encima', en.title === 'Settings' && en.menus === 0 && en.tab === 'look', en);
-  check('las pestañas y el pie están traducidos', en.tabs === 'Appearance|Reading and editing|Plugins|Tools|Cloud|AI (MCP)|API and automations|Plan|Install|Advanced' && en.foot === 'Send feedback', en);
+  check('las pestañas y el pie están traducidos', en.tabs === 'Appearance|Reading and editing|Plugins|Tools|Cloud|AI (MCP)|API and automations|Integrations|Plan|Install|Advanced' && en.foot === 'Send feedback', en);
   const menuAir = () => app.evaluate(() => { const nav = document.querySelector('.lmd-ptabs'); const items = [...nav.querySelectorAll('button, a')]; const tabs = items.filter((b) => b.dataset.ptab); const box = (n) => n.getBoundingClientRect();
     const gaps = tabs.slice(1).map((b, i) => Math.round((box(b).top - box(tabs[i]).bottom) * 10) / 10);
     const tight = items.filter((b) => { const s = b.querySelector('span'); const cs = getComputedStyle(b); return box(s).top - box(b).top < 8 || box(b).bottom - box(s).bottom < 8 || b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1 || parseFloat(cs.paddingTop) < 8; }).map((b) => b.textContent.trim());
     const two = items.filter((b) => box(b.querySelector('span')).height > 24).map((b) => b.textContent.trim());
     return { n: tabs.length, gaps: [...new Set(gaps)], low: Math.min(...items.map((b) => box(b).height)), tight, two, over: items.slice(1).filter((b, i) => box(b).top < box(items[i]).bottom).length, wide: nav.scrollWidth > nav.clientWidth + 1, w: Math.round(box(nav).width) }; });
   const airEn = await menuAir();
-  check('el menú en inglés: diez ítems de un renglón, sin pisarse y con la misma separación', airEn.n === 10 && airEn.two.length === 0 && airEn.tight.length === 0 && airEn.over === 0 && JSON.stringify(airEn.gaps) === '[3]' && airEn.low >= 34 && !airEn.wide, airEn);
+  check('el menú en inglés: once ítems de un renglón, sin pisarse y con la misma separación', airEn.n === 11 && airEn.two.length === 0 && airEn.tight.length === 0 && airEn.over === 0 && JSON.stringify(airEn.gaps) === '[3]' && airEn.low >= 34 && !airEn.wide, airEn);
   await Promise.all([app.waitForNavigation(), app.click('.lmd-seg[data-seg=language] button[data-val=es]')]);
   await app.waitForSelector('.lmd-panel-card'); await app.waitForSelector('html.lmd-editing'); await app.waitForTimeout(600);
   await app.click('[data-act=close-panel]'); await app.click('.lmd-add');
@@ -195,10 +195,56 @@ try {
   check('Plugins: los interruptores van en cinco bloques con subtítulo, cada uno una sola vez', plug.groups === 'Texto:7:list:true|Bloques:6:list:true|Código y matemática:5:list:true|Enlaces y medios:3:list:true|Comportamiento:4:list:true' && plug.all === plug.known && plug.uniq === plug.all && !plug.anchors, plug);
   check('en dos columnas, con renglones de 28 px o más (el detalle con el ejemplo va al costado: plugins.mjs)', plug.low >= 28 && plug.cols === 2 && plug.heads === 'uppercase 12px', plug);
   await tab('look');
-  check('diez pestañas en orden', (await app.evaluate(() => [...document.querySelectorAll('[data-ptab]')].map((b) => b.dataset.ptab + ':' + b.textContent.trim()).join('|'))) === 'look:Apariencia|read:Lectura y edición|plug:Plugins|tools:Herramientas|cloud:Nube|ai:IA (MCP)|auto:Automatizaciones|plan:Plan|inst:Instalar|adv:Avanzado');
+  check('once pestañas en orden', (await app.evaluate(() => [...document.querySelectorAll('[data-ptab]')].map((b) => b.dataset.ptab + ':' + b.textContent.trim()).join('|'))) === 'look:Apariencia|read:Lectura y edición|plug:Plugins|tools:Herramientas|cloud:Nube|ai:IA (MCP)|auto:Automatizaciones|integ:Integraciones|plan:Plan|inst:Instalar|adv:Avanzado');
+  // Integraciones: va después de API y automatizaciones, con Orca (los tres pasos), los agentes de código y las apps de afuera.
+  await tab('integ');
+  const integ = await app.evaluate(() => { const q = (s) => document.querySelector(s); return { cards: [...document.querySelectorAll('[data-tab=integ] [data-integ]')].map((c) => c.dataset.integ).join('|'), steps: [...document.querySelectorAll('.lmd-in-steps li')].map((l) => l.textContent.trim()),
+    link: (q('.lmd-in-steps a') || {}).href, target: (q('.lmd-in-steps a') || {}).target, rel: (q('.lmd-in-steps a') || {}).rel, agents: q('[data-integ=agents]').textContent, flows: q('[data-integ=flows]').textContent, on: q('[data-integ-orca]').checked }; });
+  check('Integraciones: Orca, agentes de código y Slack, Zapier, Make y n8n', integ.cards === 'orca|agents|flows' && /Claude Code, Cursor, VS Code, Windsurf, Codex/.test(integ.agents) && /Se conectan por MCP a tus notas\./.test(integ.agents) && /Slack, Zapier, Make y n8n/.test(integ.flows), integ);
+  check('Orca en tres pasos: instalar, conectar el agente una vez y usar el botón; el enlace va a orca.dev/download', integ.steps.length === 3 && /^Instalá Orca\s*orca\.dev$/.test(integ.steps[0]) && /^Conectá tu agente una vez\s*Copiar instrucciones para tu IA$/.test(integ.steps[1]) && /^«Trabajar en Orca» copia el comando para la terminal/.test(integ.steps[2]) && integ.link === 'https://orca.dev/download' && integ.target === '_blank' && /noopener/.test(integ.rel), integ);
+  const orcaNow = () => app.evaluate(async () => (await LMD.load()).orca);
+  check('el botón de Orca viene prendido', integ.on === true && (await orcaNow()) !== false);
+  await app.click('[data-integ=orca] .lmd-switch'); await app.waitForTimeout(250);
+  check('el interruptor de Orca apaga el ajuste orca', (await orcaNow()) === false);
+  await app.click('[data-integ=orca] .lmd-switch'); await app.waitForTimeout(250);
+  check('y lo vuelve a prender', (await orcaNow()) === true);
+  const curTab = () => app.evaluate(() => document.querySelector('[data-ptab].lmd-on').dataset.ptab);
+  const ag0 = await app.evaluate(async () => [document.querySelector('[data-integ-agent]').value, [...document.querySelectorAll('[data-integ-agent] option')].map((o) => o.value + ':' + o.textContent).join('|'), (await LMD.load()).orcaAgent]);
+  check('el agente de Orca viene en Claude Code y ofrece los cinco', ag0[0] === 'claude' && ag0[1] === 'claude:Claude Code|codex:Codex|gemini:Gemini CLI|opencode:OpenCode|cursor:Cursor' && ag0[2] === 'claude', ag0);
+  await app.selectOption('[data-integ-agent]', 'codex'); await app.waitForTimeout(250);
+  check('elegir otro agente guarda orcaAgent', (await app.evaluate(async () => (await LMD.load()).orcaAgent)) === 'codex');
+  await app.selectOption('[data-integ-agent]', 'claude'); await app.waitForTimeout(250);
+  await app.click('[data-integ-go=ai]'); await app.waitForTimeout(400);
+  check('"Conectar" lleva a IA (MCP)', (await curTab()) === 'ai');
+  await tab('integ'); await app.click('[data-integ-go=auto]'); await app.waitForTimeout(400);
+  check('"Configurar" lleva a API y automatizaciones', (await curTab()) === 'auto');
+  // Copiar las instrucciones: sin un token a la vista no hay mensaje listo y el botón manda a IA (MCP); con uno, copia el mismo mensaje de esa pestaña.
+  await tab('integ'); await app.click('[data-integ-brief]'); await app.waitForTimeout(400);
+  check('sin token a la vista, "Copiar instrucciones" manda a IA (MCP) y no copia nada', (await curTab()) === 'ai');
+  await tab('integ');
+  await app.evaluate(() => { window.__copied = []; LMD.sync.copyText = async (t) => { window.__copied.push(t); }; LMD.sync.liveBrief = () => 'MENSAJE-DE-PRUEBA sin token real'; });
+  await app.click('[data-integ-brief]'); await app.waitForTimeout(250);
+  const msg1 = await app.evaluate(() => [window.__copied.slice(), document.querySelector('[data-integ-msg]').textContent]);
+  check('con el mensaje listo, lo copia y avisa', msg1[0].length === 1 && msg1[0][0] === 'MENSAJE-DE-PRUEBA sin token real' && msg1[1] === 'Instrucciones copiadas. Pegalas en tu IA.', msg1);
+  await app.click('[data-integ-url]'); await app.waitForTimeout(250);
+  check('"SharpMD también abre en el navegador de Orca": copia el enlace de la app web', JSON.stringify(await app.evaluate(() => window.__copied.slice(1))) === JSON.stringify(['https://sharpmd.app/src/app.html']) && /también abre en el navegador de Orca/.test(await app.evaluate(() => document.querySelector('.lmd-in-orca').textContent)));
+  await app.evaluate(() => { delete LMD.sync.copyText; delete LMD.sync.liveBrief; });
+  // Instalar: seis tarjetas de dónde usarlo, con "Estás acá" en la del lugar donde se está.
+  await tab('inst');
+  const wh = () => app.evaluate(() => { const cs = [...document.querySelectorAll('[data-inst-where] [data-where]')]; return { ids: cs.map((c) => c.dataset.where).join('|'), hrefs: cs.map((c) => c.getAttribute('href')), blank: cs.every((c) => c.target === '_blank' && /noopener/.test(c.rel)), here: cs.filter((c) => c.classList.contains('lmd-wh-here')).map((c) => c.dataset.where + ':' + c.querySelector('.lmd-wh-chip').textContent).join('|'),
+    plays: [...document.querySelectorAll('[data-tab=inst] a')].filter((a) => /play\.google/.test(a.href)).length, why: cs.map((c) => c.textContent.trim().replace(/\s+/g, ' ')) }; });
+  const w1 = await wh(); const REL = 'https://github.com/SharpMD/sharpmd/releases/latest';
+  check('Instalar: seis tarjetas (app web, extensión, Android, Windows, macOS, Linux) con sus enlaces', w1.ids === 'web|ext|android|windows|mac|linux' && w1.blank && w1.hrefs[0] === 'https://sharpmd.app/src/app.html' && /^https:\/\/chromewebstore\.google\.com\//.test(w1.hrefs[1]) && /^https:\/\/play\.google\.com\//.test(w1.hrefs[2]) && w1.hrefs.slice(3).every((h) => h === REL), w1);
+  check('Instalar: cada tarjeta con una línea corta (Linux: Ubuntu, .deb y AppImage) y un solo enlace a Android', /Ubuntu: \.deb y AppImage/.test(w1.why[5]) && /Gratis, sin instalar nada/.test(w1.why[0]) && w1.plays === 1, w1.why);
+  check('en la extensión, "Estás acá" va solo en la extensión', w1.here === 'ext:Estás acá', w1.here);
+  await app.evaluate(() => { document.documentElement.classList.add('lmd-desktop'); window.__smdDesktop = { platform: 'linux' }; });
+  await tab('look'); await tab('inst');
+  check('en la app de escritorio, "Estás acá" va en su sistema', (await wh()).here === 'linux:Estás acá');
+  await app.evaluate(() => { document.documentElement.classList.remove('lmd-desktop'); delete window.__smdDesktop; });
+  await tab('look');
   // El menú en español: el rótulo largo va corto en el menú y entero en el título de su sección; nada parte en dos.
   const airEs = await menuAir();
-  check('el menú en español: diez ítems de un renglón, sin pisarse y con la misma separación, al ancho de siempre', airEs.n === 10 && airEs.two.length === 0 && airEs.tight.length === 0 && airEs.over === 0 && JSON.stringify(airEs.gaps) === '[3]' && airEs.low >= 34 && !airEs.wide && airEs.w === airEn.w && airEs.w <= 211, airEs);
+  check('el menú en español: once ítems de un renglón, sin pisarse y con la misma separación, al ancho de siempre', airEs.n === 11 && airEs.two.length === 0 && airEs.tight.length === 0 && airEs.over === 0 && JSON.stringify(airEs.gaps) === '[3]' && airEs.low >= 34 && !airEs.wide && airEs.w === airEn.w && airEs.w <= 211, airEs);
   check('y el título de esa sección sigue diciendo API y automatizaciones', await app.evaluate(() => document.querySelector('section[data-tab=auto] h3').textContent === 'API y automatizaciones'));
   // Un rótulo que no entra (otro idioma, una letra más grande): parte en dos y el ítem crece, sin quedar apretado.
   await app.evaluate(() => { const s = document.querySelector('[data-ptab=auto] span'); s.dataset.was = s.textContent; s.textContent = 'API y automatizaciones avanzadas'; });

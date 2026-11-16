@@ -200,7 +200,7 @@ try {
   await web.goto(WEB); await web.waitForSelector('.lmd-home'); await web.evaluate(() => LMD.bridge.sync());
   await openInst(web);
   const wp = await paneOf(web);
-  check('en la web con la extensión: dónde abrir, la extensión instalada, la app y el doble clic', J(wp.heads) === J(['Open SharpMD in', 'Chrome extension', 'Install as an app', 'Open .md files with a double click']) && wp.text.includes('Installed, version ' + real.version), wp.heads);
+  check('en la web con la extensión: dónde abrir, la extensión instalada, la app y el doble clic', J(wp.heads) === J(['Where to use SharpMD', 'Open SharpMD in', 'Chrome extension', 'Install as an app', 'Open .md files with a double click']) && wp.text.includes('Installed, version ' + real.version), wp.heads);
   check('las dos opciones, con la web elegida y su texto', J(wp.radios) === J(['web*', 'ext']) && wp.opts[0] === 'Web app (recommended). Offline it opens in the extension, with the same notes.' && wp.opts[1] === 'The extension', wp.opts);
   check('la app de Android figura como un enlace, sin sumar una sección, sin signos de admiración ni rayas', /Android/.test(wp.text) && !/[!¡—–]/.test(wp.text) && wp.wide <= 0 && wp.tall <= 0, [wp.wide, wp.tall]);
   await web.click('input[name=lmd-open-in][value=ext]');
@@ -1013,7 +1013,7 @@ try {
   const reopenInst = async () => { await sp.click('[data-act=close-panel]'); await sp.waitForTimeout(200); await openInst(sp); return paneOf(sp); };
   await sp.goto(R.home); await sp.waitForSelector('.lmd-home'); await brand(['Chromium', 'Not A Brand']); await openInst(sp);
   const np = await paneOf(sp);
-  check('sin la extensión: no hay dónde elegir, y un botón lleva a conseguirla', J(np.heads) === J(['Chrome extension', 'Install as an app', 'Open .md files with a double click']) && np.radios.length === 0 && /Not in this browser\./.test(np.text) && np.links.some((l) => l === 'Get the extension https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek'), np);
+  check('sin la extensión: no hay dónde elegir, y un botón lleva a conseguirla', J(np.heads) === J(['Where to use SharpMD', 'Chrome extension', 'Install as an app', 'Open .md files with a double click']) && np.radios.length === 0 && /Not in this browser\./.test(np.text) && np.links.some((l) => l === 'Get the extension https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek'), np);
   const NO_OFFER = 'This browser does not offer to install apps. It works in Chrome and Edge.'; const MENU = 'From the browser menu: Install SharpMD.'; const WAY_OUT = 'If the menu has no such option, this browser does not install apps; use Chrome or Edge.';
   check('recién abierta, mientras el aviso del navegador todavía puede llegar, solo dice lo que da', /Its own window and "Open with" for \.md files on Windows\./.test(np.text) && !np.text.includes(MENU) && !np.text.includes(NO_OFFER) && !np.buttons.includes('Install'), np.text);
   await sp.waitForFunction((t) => document.querySelector('[data-inst-pane]').textContent.includes(t), NO_OFFER, { timeout: 9000 }).catch(() => {});

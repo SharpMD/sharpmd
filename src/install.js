@@ -436,6 +436,31 @@
   const line = (text, extra) => '<div class="lmd-inst-row"><p>' + text + '</p>' + (extra || '') + '</div>';
   const out = (href, text, cls) => '<a class="' + (cls || 'lmd-btn') + '" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(T(text)) + '</a>';
 
+  // ---------- Dónde usar SharpMD ----------
+  // Una tarjeta por lugar donde corre. La de donde estás lleva "Estás acá": en la app de escritorio, su sistema
+  // (window.__smdDesktop); si no, la extensión o la web.
+  const RELEASES_URL = 'https://github.com/SharpMD/sharpmd/releases/latest';
+  const WHERE_ICO = {"web":"<svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5S9.6 5.8 12 3.5z\"/></svg>","ext":"<svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><circle cx=\"12\" cy=\"12\" r=\"3.4\"/><path d=\"M12 8.6h7.1M9.05 13.7 5.5 7.55M14.95 13.7l-3.55 6.15\"/></svg>","android":"<svg viewBox=\"0 0 24 24\"><path d=\"M5.6 3.9v16.2a.8.8 0 0 0 1.2.7l13.4-8.1a.8.8 0 0 0 0-1.4L6.8 3.2a.8.8 0 0 0-1.2.7zM5.9 4.2l8.2 7.8-8.2 7.8M14.1 12l2.4-2.4M14.1 12l2.4 2.4\"/></svg>","windows":"<svg viewBox=\"0 0 24 24\"><path class=\"fl\" d=\"M3.5 5.6 10.7 4.6v6.6H3.5zM12 4.4l8.5-1.2v8H12zM3.5 12.8h7.2v6.6l-7.2-1zM12 12.8h8.5v8L12 19.6z\"/></svg>","mac":"<svg viewBox=\"0 0 24 24\"><path class=\"fl\" transform=\"translate(2.4 1.6) scale(.8)\" d=\"M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701\"/></svg>","linux":"<svg viewBox=\"0 0 24 24\"><path d=\"M12 3.2c-2 0-3.2 1.7-3.2 4.2 0 1.6-.5 2.6-1.4 4.1-1.1 1.8-1.9 3.6-1.9 5.2 0 1.6 1.1 2.5 2.6 2.5.9 0 1.5-.3 1.9-.8.5.4 1.2.7 2 .7s1.5-.3 2-.7c.4.5 1 .8 1.9.8 1.5 0 2.6-.9 2.6-2.5 0-1.6-.8-3.4-1.9-5.2-.9-1.5-1.4-2.5-1.4-4.1 0-2.5-1.2-4.2-3.2-4.2z\"/><circle cx=\"10.4\" cy=\"7.2\" r=\".6\"/><circle cx=\"13.6\" cy=\"7.2\" r=\".6\"/><path d=\"M10.6 9.2h2.8\"/></svg>"};
+  function hereNow() {
+    if (document.documentElement.classList.contains('lmd-desktop')) { const p = (window.__smdDesktop || {}).platform; return p === 'windows' || p === 'mac' || p === 'linux' ? p : ''; }
+    return EXT ? 'ext' : 'web';
+  }
+  function whereCards() {
+    const here = hereNow();
+    const list = [
+      ['web', 'App web', 'Gratis, sin instalar nada', LMD.WEB_APP_URL],
+      ['ext', 'Extensión de Chrome', 'Chrome, Edge, Brave', EXTENSION_URL],
+      ['android', 'Android', 'Celular y tablet', ANDROID_URL],
+      ['windows', 'Windows', 'Windows 10 y 11', RELEASES_URL],
+      ['mac', 'macOS', 'App de escritorio para Mac', RELEASES_URL],
+      ['linux', 'Linux', 'Ubuntu: .deb y AppImage', RELEASES_URL],
+    ];
+    return head('Dónde usar SharpMD') + '<div class="lmd-wh-grid" data-inst-where>' + list.map(([id, name, why, href]) =>
+      '<a class="lmd-wh-card' + (here === id ? ' lmd-wh-here' : '') + '" data-where="' + id + '" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="lmd-wh-ico" aria-hidden="true">' + WHERE_ICO[id] + '</span>' +
+        '<span class="lmd-wh-main"><b>' + esc(T(name)) + (here === id ? ' <em class="lmd-wh-chip">' + esc(T('Estás acá')) + '</em>' : '') + '</b><span>' + esc(T(why)) + '</span></span></a>').join('') + '</div>';
+  }
+
   async function pane(box) {
     repaint = () => { if (box.isConnected) pane(box); };
     // Dentro de la app de Android no hay nada que instalar: solo cómo seguir en la computadora.
@@ -454,7 +479,7 @@
     // En un teléfono no hay extensiones ni doble clic.
     const desktop = !IOS && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const web = s.openIn !== 'ext';
-    let html = '';
+    let html = whereCards();
     if (ext) {
       html += head('Abrir SharpMD en') + '<div class="lmd-inst-open" role="radiogroup" aria-label="' + esc(T('Abrir SharpMD en')) + '">' +
         '<label class="lmd-inst-opt"><input type="radio" name="lmd-open-in" value="web"' + (web ? ' checked' : '') + '><span>' + esc(T('App web (recomendada). Sin conexión se abre en la extensión, con las mismas notas.')) + '</span></label>' +
@@ -492,7 +517,7 @@
       html += head('Abrir los .md con doble clic') +
         '<ol class="lmd-inst-steps"><li>' + esc(T(MAC ? 'En Finder: clic derecho en un .md, Obtener información, Abrir con, Chrome, Cambiar todo.' : 'Clic derecho en un .md, Abrir con, Elegir otra aplicación, Chrome, Siempre.')) + '</li>' +
         '<li>' + esc(T(fileAccess === true ? 'El acceso a archivos ya está activado.' : 'En los detalles de la extensión, activá "Permitir acceso a URL de archivo".')) + '</li></ol>' +
-        '<div class="lmd-inst-links">' + out(HELP_URL, 'Ayuda', 'lmd-link') + (ANDROID_URL ? out(ANDROID_URL, 'App de Android', 'lmd-link') : '') + '</div>';
+        '<div class="lmd-inst-links">' + out(HELP_URL, 'Ayuda', 'lmd-link') + '</div>';
     }
     // Un PDF abierto desde el disco, en el visor de SharpMD en vez del visor del navegador. Viene apagado, y solo
     // existe donde corre la extensión: prenderlo registra pdfopen.js sobre file:///*.pdf (bridge-sw.js, syncPdf).
@@ -501,7 +526,6 @@
     // Qué puede leer la app web por la extensión al abrir un enlace a un archivo del disco. Se maneja solo desde la
     // extensión: la web no puede prenderlo ni sumar carpetas.
     if (EXT && desktop) html += head('Carpetas de las que la app web puede abrir archivos') + '<div data-inst-files></div>';
-    if (ANDROID_URL && !desktop && LMD.storeApp !== true) html += head('App de Android') + line(esc(T('La misma app en el teléfono, con tus notas de la nube.')), out(ANDROID_URL, 'Conseguir la app'));
     box.innerHTML = html;
 
     box.querySelectorAll('input[name=lmd-open-in]').forEach((input) => input.addEventListener('change', () => { if (input.checked) LMD.patch({ openIn: input.value }); }));

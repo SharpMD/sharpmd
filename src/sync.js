@@ -628,6 +628,8 @@
   }
 
   let aiRedraw = null;
+  // El último token creado en esta sesión, con su dirección: el servidor no lo vuelve a dar. Lo usa Integraciones para copiar el mensaje listo.
+  let lastLive = null;
   async function aiPane(box, host) {
     await LMD.cloud.ready();
     const INTRO = T('Una IA que hable MCP, como Claude, lee y escribe tus notas de la nube.');
@@ -651,7 +653,7 @@
     const KEPT_BRIEF = '"Instrucciones" copia el mensaje sin el token.';
     let folders = [];
     const draw = async (fresh) => {
-      if (fresh) shown = fresh;
+      if (fresh) { shown = fresh; lastLive = { url: a && a.mcp_url, token: fresh.token, scope: fresh.scope, share: fresh.share }; }
       const made = shown; let list = []; folders = [];
       try { list = await LMD.cloud.tokens(); } catch (e) { /* sin la lista, igual se puede crear uno */ }
       try { folders = foldersOf(await LMD.cloud.list(true)); } catch (e) { /* sin carpetas, el token alcanza todo */ }
@@ -1267,6 +1269,6 @@
   // Vuelve a leer la cuenta después de un cambio en el equipo.
   const reload = async () => { account = await LMD.cloud.account(); asked = true; adopt(account, true); paint(); return account; };
 
-  LMD.sync = { init, paint, click, panes, reload, dialog, feedback, report, reportRef, awaitPaid, openCloud, quota, room: roomNotice, full: fullWhy, PAY, login, me, foldersOf, signOut, dropSession, aiBrief, askName: () => { wantName = true; }, account: () => account, why: (text) => { planWhy = text || ''; },
+  LMD.sync = { init, paint, click, panes, reload, dialog, feedback, report, reportRef, awaitPaid, openCloud, quota, room: roomNotice, full: fullWhy, PAY, login, me, foldersOf, signOut, dropSession, aiBrief, copyText, liveBrief: () => (lastLive && lastLive.url && lastLive.token ? aiBrief(lastLive) : ''), askName: () => { wantName = true; }, account: () => account, why: (text) => { planWhy = text || ''; },
     repaintAi: () => { if (aiRedraw) aiRedraw(); if (secRedraw) secRedraw(); }, security, canPublish, publish, siteState, canLink, publicLink, linkWhy, canLinkFolder, shareFolder, tplHost };
 })();

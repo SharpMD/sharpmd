@@ -40,6 +40,8 @@
     filesChosen: false, // la persona tocó ese ajuste: antes venía prendido, y un "true" guardado sin esto es el de fábrica de entonces
     filesShowHidden: false,
     filesSort: 'name', // el orden del explorador: 'name', por nombre, o 'recent', lo último que se abrió arriba
+    orcaAgent: 'claude', // con qué agente se abre el workspace de Orca: claude, codex, gemini, opencode, cursor
+    orca: true, // el botón "Trabajar en Orca" en las tarjetas de un tablero (board.js)
     diskPdf: false, // solo en la extensión: un PDF abierto desde el disco (file://) pasa al visor de SharpMD en vez del visor del navegador
     customCSS: '',
     communityCSS: '', // el CSS de un tema de la comunidad que está puesto: su propia hoja, antes de customCSS (el CSS propio gana). Lo escribe la galería, no la persona
@@ -277,7 +279,7 @@
       "Ver código fuente": "View source",
       "Copiar Markdown": "Copy Markdown",
       "Copiar con formato (la selección, o todo el documento)": "Copy with formatting (the selection, or the whole document)",
-      "Recargar ahora": "Reload now", "Agregar esta página": "Add this page", "Abrir en una pestaña": "Open in a tab", "No hay una página para agregar": "There is no page to add", "Página agregada a la nota": "Page added to the note", "Página agregada a una nota nueva": "Page added to a new note", "Abrir SharpMD en una pestaña": "Open SharpMD in a tab", "Agregar esta página a SharpMD": "Add this page to SharpMD", "Agregar a SharpMD: \"%s\"": "Add to SharpMD: \"%s\"", "Trabajar en Orca": "Work in Orca", "Abre Orca con un workspace nuevo listo para crear": "Opens Orca with a new workspace ready to create", "¿No se abrió? Instalá Orca desde orca.dev": "Nothing opened? Install Orca from orca.dev",
+      "Recargar ahora": "Reload now", "Agregar esta página": "Add this page", "Abrir en una pestaña": "Open in a tab", "No hay una página para agregar": "There is no page to add", "Página agregada a la nota": "Page added to the note", "Página agregada a una nota nueva": "Page added to a new note", "Abrir SharpMD en una pestaña": "Open SharpMD in a tab", "Agregar esta página a SharpMD": "Add this page to SharpMD", "Agregar a SharpMD: \"%s\"": "Add to SharpMD: \"%s\"", "Trabajar en Orca": "Work in Orca", "Copia el comando que crea un workspace de Orca con esta tarjeta": "Copies the command that creates an Orca workspace with this card", "Comando de Orca copiado: pegalo en una terminal": "Orca command copied: paste it in a terminal", "No se pudo copiar el comando": "Could not copy the command",
       "Abrí un archivo para ver su índice.": "Open a file to see its outline.",
       "Buscar un ajuste": "Search settings",
       "Ningún ajuste coincide.": "No setting matches.",
@@ -930,6 +932,12 @@
       "No se encontró el archivo": "File not found", "Puede que se haya movido o que tenga otro nombre.": "It may have been moved or renamed.",
       "Este enlace no se puede abrir": "This link cannot be opened", "Solo se abren archivos Markdown del disco.": "Only Markdown files from your disk can be opened.",
       "Copiar enlace de SharpMD": "Copy SharpMD link", "Copiar como dirección file://": "Copy as file:// address", "Dirección copiada": "Address copied",
+      // Ajustes > Instalar (dónde usar SharpMD) e Integraciones
+      "Dónde usar SharpMD": "Where to use SharpMD", "Estás acá": "You are here", "App web": "Web app", "Gratis, sin instalar nada": "Free, nothing to install", "Celular y tablet": "Phone and tablet", "Windows 10 y 11": "Windows 10 and 11", "App de escritorio para Mac": "Desktop app for Mac", "Ubuntu: .deb y AppImage": "Ubuntu: .deb and AppImage",
+      "Integraciones": "Integrations", "Abrí una tarjeta en un workspace de Orca.": "Open a card in an Orca workspace.", "Botón «Trabajar en Orca» en las tarjetas": "\"Work in Orca\" button on cards",
+      "Instalá Orca": "Install Orca", "Conectá tu agente una vez": "Connect your agent once", "Copiar instrucciones para tu IA": "Copy instructions for your AI", "«Trabajar en Orca» copia el comando para la terminal": "«Work in Orca» copies the command for the terminal", "Agente": "Agent", "Plugin para Orca: tus tableros adentro de Orca": "Orca plugin: your boards inside Orca", "Cómo instalarlo": "How to install it", "Usá «Trabajar en Orca» en cualquier tarjeta": "Use \"Work in Orca\" on any card",
+      "SharpMD también abre en el navegador de Orca": "SharpMD also opens in Orca's browser", "Copiar enlace": "Copy link", "Enlace copiado.": "Link copied.",
+      "Agentes de código": "Coding agents", "Se conectan por MCP a tus notas.": "They connect to your notes through MCP.", "Conectar": "Connect", "Configurar": "Set up", "Avisos y flujos hacia otras apps.": "Alerts and flows to other apps.",
       "App de Android": "Android app", "La misma app en el teléfono, con tus notas de la nube.": "The same app on your phone, with your cloud notes.", "Conseguir la app": "Get the app",
       "En la computadora": "On a computer",
       "Abrí sharpmd.app en Chrome. Con tu cuenta, las notas de la nube son las mismas.": "Open sharpmd.app in Chrome. With your account, the cloud notes are the same.",

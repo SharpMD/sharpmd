@@ -803,6 +803,8 @@
     gallery: { js: ['src/gallery.js'] },
     // Ajustes > API y automatizaciones y el alta guiada: se piden al abrir esa pestaña o al elegir "Automatizar…".
     automate: { js: ['src/automate.js'] },
+    // Ajustes > Integraciones: se pide al abrir esa pestaña.
+    integrations: { js: ['src/integrations.js'] },
     publish: { js: ['src/publish.js'] },
     // "Usar esta plantilla": se pide al abrirla desde una carpeta compartida como plantilla.
     fork: { js: ['src/fork.js'] },
@@ -822,7 +824,7 @@
     tour: { js: ['src/tour.js'] },
   };
   const LAZY_HAVE = { hljs: () => !!window.hljs, emoji: () => !!window.markdownitEmoji, tools: () => !!(LMD.diagram && LMD.formula && LMD.templates && LMD.community) };
-  LAZY_HAVE.gallery = () => !!LMD.gallery; LAZY_HAVE.automate = () => !!LMD.automate; LAZY_HAVE.publish = () => !!LMD.publish;
+  LAZY_HAVE.gallery = () => !!LMD.gallery; LAZY_HAVE.automate = () => !!LMD.automate; LAZY_HAVE.integrations = () => !!LMD.integrations; LAZY_HAVE.publish = () => !!LMD.publish;
   LAZY_HAVE.speak = () => !!LMD.speak; LAZY_HAVE.dictate = () => !!(LMD.voice && LMD.dictate);
   LAZY_HAVE.docx = () => !!(LMD.docx && LMD.omml);
   ['present', 'daily', 'epub', 'linkmap', 'explore', 'jsonyaml', 'import', 'agents', 'localtools'].forEach((k) => { LAZY_HAVE[k] = () => !!LMD[k]; });
@@ -1743,6 +1745,8 @@
     LMD.live.init(core);
     LMD.team.init(core);
     LMD.install.init(core, homeCtx);
+    // La app de escritorio abre acá lo que llega del sistema: doble clic en un .md, "Abrir con" o una carpeta.
+    LMD.openDisk = (h) => LMD.home.take(homeCtx(), h);
     LMD.tools.init(core);
     forcedSay();
     document.documentElement.dataset.lmdFs = String(!!window.showOpenFilePicker && window.isSecureContext);
@@ -4241,6 +4245,8 @@
   // API y automatizaciones (automate.js) va después de IA: los tokens de la API, los webhooks y las direcciones de entrada.
   // El cuarto dato es su rótulo corto para el menú en español: el nombre entero no entra en un renglón de esa columna.
   PANEL_TABS.splice(PANEL_TABS.findIndex((t) => t[0] === 'ai') + 1, 0, ['auto', 'API y automatizaciones', '<svg viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg>', 'Automatizaciones']);
+  // Integraciones (integrations.js) va después de API y automatizaciones: Orca, los agentes de código y las apps de afuera.
+  PANEL_TABS.splice(PANEL_TABS.findIndex((t) => t[0] === 'auto') + 1, 0, ['integ', 'Integraciones', '<svg viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v3"/></svg>']);
   // Al cerrar Ajustes el foco vuelve a donde estaba al abrirlos.
   let panelBack = null;
   // La grilla de temas de Apariencia: cuál está puesto, cuál se eligió para mirar y qué botón le toca.
@@ -4394,6 +4400,7 @@
           '<section data-tab="cloud"><h3>' + T('Nube') + '</h3><div class="lmd-acct" data-acct="cloud"></div></section>' +
           '<section data-tab="ai"><h3>' + T('IA (MCP)') + '</h3><div class="lmd-acct" data-acct="ai"></div></section>' +
           '<section data-tab="auto"><h3>' + T('API y automatizaciones') + '</h3><div class="lmd-acct lmd-au-pane" data-auto-pane></div></section>' +
+          '<section data-tab="integ"><h3>' + T('Integraciones') + '</h3><div class="lmd-acct lmd-integ" data-integ-pane></div></section>' +
           '<section data-tab="plan"><h3>' + T('Plan') + '</h3><div class="lmd-acct" data-acct="plan"></div></section>' +
           '<section data-tab="inst"><h3>' + T('Instalar') + '</h3><div class="lmd-acct lmd-inst" data-inst-pane></div></section>' +
           '<section data-tab="adv"><h3>' + T('CSS propio') + (s.supporter ? '' : EXTRA) + '</h3>' +
@@ -4456,6 +4463,7 @@
       if (tab === 'inst') LMD.install.pane(ui.panel.querySelector('[data-inst-pane]'));
       if (tab === 'tools') LMD.tools.pane(ui.panel.querySelector('[data-tools-pane]'));
       if (tab === 'plug') plugPane(ui.panel.querySelector('[data-tab=plug] .lmd-plug'));
+      if (tab === 'integ') { const pane = ui.panel.querySelector('[data-integ-pane]'); ensure('integrations').then((ok) => { if (ok && pane.isConnected) LMD.integrations.pane(pane, host); }); }
       if (tab === 'auto') { const pane = ui.panel.querySelector('[data-auto-pane]'); ensure('automate').then((ok) => { if (ok && pane.isConnected) LMD.automate.pane(pane, host); }); }
     };
     // Buscar un ajuste: muestra, de todas las pestañas que se dibujan acá, solo las filas que dicen lo buscado, sin

@@ -107,6 +107,7 @@
         "src/dictate.js",
         "src/gallery.js",
         "src/automate.js",
+        "src/integrations.js",
         "src/publish.js",
         "src/fork.js",
         "src/exportall.js",
