@@ -380,6 +380,88 @@
     .opts > li, .opts > li.on, .band .opts > li.on { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; padding: 20px 18px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
   }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pk *, .cd, .msg, .opts > li.on { animation: none !important; } .cd.from { display: none; } .pk .src { width: auto !important; } .pk .out, .pk .box, .pk .new { opacity: 1 !important; max-height: none !important; } .pk .b { display: none; } .more li, .more li b, .more li b::after, .opts > li, .faq summary, .get a, nav a.link, footer a, .peek { transition: none; } }
+  /* Nav: GitHub link with the star count. */
+  nav a.gh { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; transition: color .15s, border-color .15s; }
+  nav a.gh:hover { color: var(--fg); border-color: var(--rule); }
+  nav a.gh svg { flex: none; }
+  nav a.gh .n { font-variant-numeric: tabular-nums; color: var(--faint); }
+  nav a.gh .n:empty { display: none; }
+  @media (max-width: 860px) { nav a.gh .t { display: none; } }
+  @media (max-width: 520px) { nav a.gh .n { display: none; } nav a.gh { padding: 7px; } nav .wrap { gap: 12px; } }
+
+  /* Use cases: a card each, with a small looping mockup. The default look is the final frame, so reduced motion shows that. */
+  .uc { padding: 0 0 112px; }
+  .uc h2 { margin-bottom: 36px; }
+  .ucs { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .ucs > li { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); overflow: hidden; }
+  .ucs .viz { position: relative; height: 168px; background: var(--soft); border-bottom: 1px solid var(--line); overflow: hidden; font: 12.5px/1.3 var(--sans); color: var(--muted); }
+  .ucs .tx { padding: 18px 20px 20px; }
+  .ucs .tx h3 { margin-bottom: 4px; }
+  .ucs .tx p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .ucs .viz > * { position: absolute; }
+  .ucs .mono { font-family: var(--mono); font-size: 12px; }
+  .ucs .pill { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--fg); white-space: nowrap; }
+  .ucs .pill.hot { border-color: var(--fill); background: color-mix(in srgb, var(--fill) 16%, var(--bg)); }
+  .ucs .bar { display: block; height: 6px; border-radius: 3px; background: var(--line); }
+  /* a: source + preview */
+  .u-a .src, .u-a .pre { top: 16px; bottom: 16px; width: calc(50% - 22px); padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); overflow: hidden; }
+  .u-a .src { left: 16px; } .u-a .pre { right: 16px; }
+  .u-a .ty { display: block; white-space: nowrap; overflow: hidden; width: 11ch; color: var(--fg); animation: u-type 4.5s steps(11) infinite; }
+  .u-a .src .bar, .u-a .pre .bar { margin-top: 9px; width: 85%; } .u-a .src .bar + .bar, .u-a .pre .bar + .bar { width: 60%; }
+  .u-a .h { display: block; width: 62%; height: 12px; border-radius: 3px; background: var(--fg); animation: u-fade 4.5s infinite; }
+  .u-a .pre .bar { animation: u-fade2 4.5s infinite; }
+  @keyframes u-type { 0% { width: 0; } 45%, 100% { width: 11ch; } }
+  @keyframes u-fade { 0%, 8% { opacity: 0; } 18%, 100% { opacity: 1; } }
+  @keyframes u-fade2 { 0%, 45% { opacity: 0; } 60%, 100% { opacity: 1; } }
+  /* b: agents write into a note */
+  .u-b .ag { left: 14px; display: flex; flex-direction: column; gap: 9px; top: 28px; }
+  .u-b .ag .pill { animation: u-pulse 4.5s infinite; } .u-b .ag .pill:nth-child(2) { animation-delay: 1.5s; } .u-b .ag .pill:nth-child(3) { animation-delay: 3s; }
+  .u-b .link { left: 112px; top: 83px; width: 56px; height: 2px; background: repeating-linear-gradient(90deg, var(--fill) 0 6px, transparent 6px 11px); background-size: 11px 2px; animation: u-flow .9s linear infinite; }
+  .u-b .nt { right: 14px; top: 18px; bottom: 18px; width: 138px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+  .u-b .nt .bar { margin-bottom: 9px; } .u-b .nt .bar:nth-child(2) { width: 80%; } .u-b .nt .bar:nth-child(3) { width: 55%; }
+  .u-b .nt .bar.new { background: var(--fill); transform-origin: left; animation: u-grow 4.5s infinite; } .u-b .nt .bar.new + .bar.new { animation-delay: .8s; }
+  @keyframes u-pulse { 0%, 28%, 100% { border-color: var(--line); background: var(--bg); } 6%, 22% { border-color: var(--fill); background: color-mix(in srgb, var(--fill) 16%, var(--bg)); } }
+  @keyframes u-flow { to { background-position: 11px 0; } }
+  @keyframes u-grow { 0%, 10% { transform: scaleX(0); } 30%, 100% { transform: scaleX(1); } }
+  /* c: board card moves, then goes to an agent */
+  .u-c .col { top: 14px; bottom: 14px; width: 27%; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+  .u-c .col:nth-of-type(1) { left: 12px; } .u-c .col:nth-of-type(2) { left: 36.5%; }
+  .u-c .col b { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 600; color: var(--faint); }
+  .u-c .cd { display: block; height: 22px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--soft); }
+  .u-c .mv { left: calc(36.5% + 8px); top: 40px; width: calc(27% - 16px); height: 22px; border: 1px solid var(--fill); border-radius: 5px; background: color-mix(in srgb, var(--fill) 16%, var(--bg)); animation: u-card 4.5s ease-in-out infinite; }
+  .u-c .go { right: 12px; top: 30px; font-size: 11px; animation: u-go 4.5s infinite; }
+  .u-c .wsp { right: 12px; bottom: 26px; width: 22%; padding: 7px 8px; border: 1px solid var(--fill); border-radius: 9px; background: color-mix(in srgb, var(--fill) 16%, transparent); color: var(--fg); font-size: 11px; text-align: center; animation: u-ws 4.5s infinite; }
+  @keyframes u-card { 0%, 12% { transform: translateX(calc(-36.5% - 4px)); } 40%, 100% { transform: none; } }
+  @keyframes u-go { 0%, 40% { opacity: 0; transform: translateY(4px); } 52%, 100% { opacity: 1; transform: none; } }
+  @keyframes u-ws { 0%, 62% { border: 1px dashed var(--rule); background: none; color: var(--muted); } 72%, 100% { border: 1px solid var(--fill); background: color-mix(in srgb, var(--fill) 16%, transparent); color: var(--fg); } }
+  /* d: share */
+  .u-d .nt { left: 16px; top: 18px; width: 40%; height: 74px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+  .u-d .nt .bar { margin-bottom: 9px; } .u-d .nt .bar + .bar { width: 60%; }
+  .u-d .url { left: 16px; bottom: 22px; display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+  .u-d .url i { font-style: normal; padding: 1px 7px; border-radius: 5px; background: var(--fill); color: var(--on); font: 600 11px var(--sans); animation: u-copy 4.5s infinite; }
+  .u-d .tm { right: 16px; top: 18px; bottom: 18px; width: 30%; min-width: 96px; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+  .u-d .tm b { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 600; color: var(--faint); }
+  .u-d .av { display: inline-block; width: 22px; height: 22px; margin-right: 3px; border-radius: 50%; background: var(--rule); animation: u-pop 4.5s infinite both; } .u-d .av:nth-of-type(2) { background: var(--fill); animation-delay: .5s; } .u-d .av:nth-of-type(3) { background: var(--line); animation-delay: 1s; }
+  @keyframes u-copy { 0%, 30% { background: var(--fill); } 40%, 60% { background: var(--fg); } 70%, 100% { background: var(--fill); } }
+  @keyframes u-pop { 0%, 40% { transform: scale(0); } 55%, 100% { transform: scale(1); } }
+  /* e: desktop window, three systems */
+  .u-e .win { left: 50%; top: 20px; width: 200px; height: 112px; margin-left: -100px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); overflow: hidden; }
+  .u-e .win .tb { display: flex; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--line); } .u-e .win .tb i { width: 8px; height: 8px; border-radius: 50%; background: var(--rule); }
+  .u-e .win .bd { padding: 12px; } .u-e .win .bar { margin-bottom: 9px; } .u-e .win .bar + .bar { width: 70%; } .u-e .win .bar + .bar + .bar { width: 45%; }
+  .u-e .os { left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; }
+  .u-e .os .pill { font-size: 11.5px; padding: 3px 8px; animation: u-pulse 4.5s infinite; } .u-e .os .pill:nth-child(2) { animation-delay: 1.5s; } .u-e .os .pill:nth-child(3) { animation-delay: 3s; }
+  /* f: plugins and themes */
+  .u-f .pg { left: 16px; top: 18px; bottom: 18px; width: 50%; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); animation: u-theme 4.5s infinite; }
+  .u-f .pg .bar { margin-bottom: 9px; animation: u-bar 4.5s infinite; } .u-f .pg .bar + .bar { width: 70%; } .u-f .pg .bar + .bar + .bar { width: 45%; }
+  .u-f .pg .h { display: block; width: 50%; height: 12px; margin-bottom: 12px; border-radius: 3px; background: var(--fg); animation: u-h 4.5s infinite; }
+  .u-f .th { right: 16px; top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .u-f .th .pill { font-size: 11.5px; animation: u-pulse 4.5s infinite; } .u-f .th .pill:nth-child(2) { animation-delay: 1.5s; } .u-f .th .pill:nth-child(3) { animation-delay: 3s; }
+  @keyframes u-theme { 0%, 31% { background: var(--bg); } 33%, 64% { background: #0d1524; } 66%, 97% { background: #f4efe0; } 100% { background: var(--bg); } }
+  @keyframes u-bar { 0%, 31% { background: var(--line); } 33%, 64% { background: #24324d; } 66%, 97% { background: #d9cdb4; } 100% { background: var(--line); } }
+  @keyframes u-h { 0%, 31% { background: var(--fg); } 33%, 64% { background: #7cc4ff; } 66%, 97% { background: #874710; } 100% { background: var(--fg); } }
+  @media (max-width: 980px) { .ucs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .uc { padding-bottom: 72px; } .ucs { grid-template-columns: minmax(0, 1fr); gap: 14px; } .ucs .viz { height: 156px; } }
+  @media (prefers-reduced-motion: reduce) { .ucs * { animation: none !important; } }
 </style>
 <noscript><style>video[data-poster] { display: none; }</style></noscript>
 </head>
@@ -391,6 +473,7 @@
   <a class="link" href="#share">Sharing</a>
   <a class="link" href="#download">Download</a>
   <a class="link" href="#plans">Plans</a>
+  <a class="gh" href="https://github.com/SharpMD/sharpmd" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.34.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg><span class="t">GitHub</span><span class="n" id="gh-n"></span></a>
   <div class="lang"><a href="es/?site" class="on" aria-current="true" hreflang="es">EN</a><a href="es/?site" hreflang="es">ES</a></div>
   <a class="btn fill small" href="src/app.html">Open the app</a>
 </div></nav>
@@ -437,6 +520,38 @@
     <li><h3>Your files stay yours</h3><p>A <code>.md</code> on your disk opens without being uploaded. Open source, with a server you can run yourself.</p></li>
   </ul>
 </div></section>
+
+<section class="uc" id="cases"><div class="wrap">
+  <h2>What you use it for</h2>
+  <ul class="ucs">
+    <li class="u-a"><div class="viz" aria-hidden="true"><div class="src mono"><span class="ty"># Trip plan</span><span class="bar"></span><span class="bar"></span></div><div class="pre"><span class="h"></span><span class="bar"></span><span class="bar"></span></div></div><div class="tx"><h3>Write with a live preview</h3><p>Type Markdown and see the page as it will look.</p></div></li>
+    <li class="u-b"><div class="viz" aria-hidden="true"><div class="ag"><span class="pill">Claude Code</span><span class="pill">Cursor</span><span class="pill">Codex</span></div><span class="link"></span><div class="nt"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar new"></span><span class="bar new"></span></div></div><div class="tx"><h3>Agents that edit your notes</h3><p>Claude Code, Cursor and Codex read and write them over MCP.</p></div></li>
+    <li class="u-c"><div class="viz" aria-hidden="true"><div class="col"><b>To do</b><i class="cd"></i><i class="cd"></i></div><div class="col"><b>In progress</b></div><i class="mv"></i><span class="pill hot go">Work in Orca</span><div class="wsp">Agent</div></div><div class="tx"><h3>Task boards</h3><p>Move a card across columns, then send it to an agent.</p></div></li>
+    <li class="u-d"><div class="viz" aria-hidden="true"><div class="nt"><span class="bar"></span><span class="bar"></span></div><div class="url mono">sharpmd.app/s/k3x9 <i>Copy</i></div><div class="tm"><b>Team folder</b><span class="av"></span><span class="av"></span><span class="av"></span></div></div><div class="tx"><h3>Share with a link</h3><p>A public link or a team folder, as you prefer.</p></div></li>
+    <li class="u-e"><div class="viz" aria-hidden="true"><div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="bd"><span class="bar"></span><span class="bar"></span><span class="bar"></span></div></div><div class="os"><span class="pill">Windows</span><span class="pill">macOS</span><span class="pill">Linux</span></div></div><div class="tx"><h3>Desktop app</h3><p>For Windows, macOS and Linux.</p></div></li>
+    <li class="u-f"><div class="viz" aria-hidden="true"><div class="pg"><span class="h"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span></div><div class="th"><span class="pill">Tide</span><span class="pill">Sand</span><span class="pill">Plugin</span></div></div><div class="tx"><h3>Plugins and themes</h3><p>Add plugins and community CSS themes.</p></div></li>
+  </ul>
+</div></section>
+
+<script>
+// Star count for the GitHub link: cached an hour in this browser, hidden if the fetch fails.
+(function () {
+  var el = document.getElementById('gh-n'), K = 'sharpmd:gh-stars';
+  if (!el) return;
+  function show(n) {
+    if (typeof n !== 'number' || !isFinite(n)) return;
+    el.textContent = n > 999 ? (Math.round(n / 100) / 10).toString().replace(/\.0$/, '') + 'k' : String(n);
+  }
+  try {
+    var c = JSON.parse(localStorage.getItem(K) || 'null');
+    if (c && Date.now() - c.t < 3600000) { show(c.n); return; }
+  } catch (e) { /* no storage */ }
+  fetch('https://api.github.com/repos/SharpMD/sharpmd').then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (j) {
+    show(j.stargazers_count);
+    try { localStorage.setItem(K, JSON.stringify({ n: j.stargazers_count, t: Date.now() })); } catch (e) { /* no storage */ }
+  }).catch(function () { /* count stays hidden */ });
+})();
+</script>
 
 <section class="band fs" id="editor"><div class="wrap">
     <h2>Edit the document you are reading.</h2>
