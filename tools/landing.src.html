@@ -36,7 +36,7 @@
   section[id], header[id] { scroll-margin-top: 64px; }
   .band { background: var(--soft); border-block: 1px solid var(--line); }
   .band code, .band kbd { background: var(--bg); }
-  .muted, .feature p, .two p, .points p, .use p { color: var(--muted); }
+  .muted, .feature p, .two p, .points p { color: var(--muted); }
   .center { text-align: center; }
 
   /* Arriba: el texto a la izquierda y, a la derecha, la app en movimiento. Detrás del clip, un resplandor lima apenas visible. */
@@ -205,22 +205,19 @@
   .rows li.no::after { content: ""; flex: none; width: 12px; height: 2px; margin: 0 3px; border-radius: 1px; background: var(--line); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-  /* Dónde corre */
-  .use { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 48px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
-  .use > div { display: flex; flex-direction: column; padding: 28px 24px 24px; }
-  .use > div + div { border-left: 1px solid var(--line); }
-  .use h3 { margin: 16px 0 8px; }
-  .use p { font-size: 15.5px; margin: 0 0 16px; }
-  .use a { margin-top: auto; align-self: flex-start; color: var(--accent); font-weight: 650; font-size: 15.5px; text-decoration: none; }
-  .use a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .get { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0 0; padding: 0; list-style: none; }
-  .get a, .get .wait { display: flex; align-items: center; gap: 12px; min-width: 210px; padding: 12px 18px 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--fg); text-decoration: none; transition: border-color .15s; }
-  .get a:hover { border-color: var(--fill); }
-  .get .wait { color: var(--muted); }
-  .get svg { flex: none; width: 26px; height: 26px; fill: currentColor; }
-  .get svg.ln { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
-  .get b { display: block; font-size: 15.5px; font-weight: 650; line-height: 1.25; }
-  .get small { display: block; color: var(--faint); font-size: 13px; line-height: 1.3; }
+  /* Descargar */
+  .dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 44px; }
+  .dl-card { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 24px 24px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--soft); color: var(--fg); text-decoration: none; transition: border-color .15s; }
+  .dl-card .ic { width: 48px; height: 48px; border-radius: 12px; }
+  .dl-card .ic svg { width: 28px; height: 28px; }
+  .dl-card .ic svg .fl { fill: currentColor; stroke: none; }
+  .dl-card h3 { margin: 18px 0 4px; font-size: 19.5px; line-height: 1.25; }
+  .dl-card p { margin: 0 0 18px; color: var(--muted); font-size: 15.5px; line-height: 1.4; }
+  .dl-card .act { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 15.5px; font-weight: 650; }
+  .dl-card .act::after { content: "\2192"; transition: transform .15s; }
+  .dl-card:hover { border-color: var(--fill); }
+  .dl-card:hover .act::after { transform: translateX(3px); }
+  .dl-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .note { margin: 20px 0 0; color: var(--faint); font-size: 14.5px; }
   .note a { color: var(--muted); }
   .two.host { margin-top: 40px; } .two.host h3 { font-size: 19.5px; margin-bottom: 8px; }
@@ -286,7 +283,7 @@
   footer a { color: var(--muted); text-decoration: none; transition: color .15s; } footer a:hover { color: var(--fg); }
 
   @media (max-width: 1100px) { nav .wrap { gap: 20px; } }
-  @media (max-width: 980px) { .use { grid-template-columns: 1fr 1fr; } .use > div:nth-child(3) { border-left: 0; } .use > div:nth-child(n+3) { border-top: 1px solid var(--line); } .plans.three { grid-template-columns: 1fr; max-width: 520px; } }
+  @media (max-width: 980px) { .dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } .plans.three { grid-template-columns: 1fr; max-width: 520px; } }
   @media (max-width: 860px) {
     nav a.link { display: none; } section { padding: 72px 0; } .hero { padding: 48px 0 64px; }
     .hero .wrap, .feature, .feature.flip, .asks, .two { grid-template-columns: minmax(0, 1fr); gap: 34px; }
@@ -300,13 +297,13 @@
     .vis { display: block; position: static; width: auto; grid-column: 1 / -1; }
     .two.host { margin-top: 34px; } .six.duo { grid-template-columns: minmax(0, 1fr); }
   }
-  @media (max-width: 640px) { section { padding: 64px 0; } .gains { padding-bottom: 64px; } nav .wrap { height: 60px; } section[id], header[id] { scroll-margin-top: 60px; } nav .btn { display: none; } .eyebrow { font-size: 12px; } .term pre { font-size: 10.5px; padding: 12px; } .vis .term, .ill { aspect-ratio: auto; } .ill { flex-direction: column; align-items: stretch; padding: 14px; } .pn { flex: none; } .arrow { align-self: center; transform: rotate(90deg); margin: 4px 0; } .cols > div { min-height: 76px; } .plans, .plans.three, .use { grid-template-columns: minmax(0, 1fr); max-width: none; } .use > div + div { border-left: 0; border-top: 1px solid var(--line); } .cta .btn { flex: 1 1 auto; } footer span { flex-basis: 100%; } footer .wrap { gap: 0 22px; } footer a, .use a, .more-link a { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; } .opts h3 { margin: -10px 0 -6px; } .opts h3 button { display: inline-flex; align-items: center; min-height: 44px; cursor: auto; } }
+  @media (max-width: 640px) { .dl { grid-template-columns: minmax(0, 1fr); } .dl-card { display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: 16px; align-items: start; padding: 18px; } .dl-card .ic { grid-row: 1 / 4; } .dl-card h3 { margin: 0 0 2px; } .dl-card p { margin: 0 0 8px; } section { padding: 64px 0; } .gains { padding-bottom: 64px; } nav .wrap { height: 60px; } section[id], header[id] { scroll-margin-top: 60px; } nav .btn { display: none; } .eyebrow { font-size: 12px; } .term pre { font-size: 10.5px; padding: 12px; } .vis .term, .ill { aspect-ratio: auto; } .ill { flex-direction: column; align-items: stretch; padding: 14px; } .pn { flex: none; } .arrow { align-self: center; transform: rotate(90deg); margin: 4px 0; } .cols > div { min-height: 76px; } .plans, .plans.three, .use { grid-template-columns: minmax(0, 1fr); max-width: none; } .use > div + div { border-left: 0; border-top: 1px solid var(--line); } .cta .btn { flex: 1 1 auto; } footer span { flex-basis: 100%; } footer .wrap { gap: 0 22px; } footer a, .use a, .more-link a { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; } .opts h3 { margin: -10px 0 -6px; } .opts h3 button { display: inline-flex; align-items: center; min-height: 44px; cursor: auto; } }
   /* En el telefono, lo que se apilaba pasa a una fila que se desliza: la pagina queda mas corta. */
   @media (max-width: 640px) {
-    .six, .six.duo, .plans, .plans.three, .more, .use { display: flex; gap: 12px; max-width: none; margin-left: -20px; margin-right: -20px; padding: 0 20px 4px; border: 0; background: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding: 0 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-    .six::-webkit-scrollbar, .plans::-webkit-scrollbar, .more::-webkit-scrollbar, .use::-webkit-scrollbar { display: none; }
-    .six > li, .plans > .plan, .more > div, .use > div { flex: 0 0 84%; min-width: 0; scroll-snap-align: start; }
-    .six > li, .more > div, .use > div, .use > div + div, .use > div:nth-child(n+3) { padding: 22px 20px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
+    .six, .six.duo, .plans, .plans.three, .more { display: flex; gap: 12px; max-width: none; margin-left: -20px; margin-right: -20px; padding: 0 20px 4px; border: 0; background: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding: 0 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .six::-webkit-scrollbar, .plans::-webkit-scrollbar, .more::-webkit-scrollbar { display: none; }
+    .six > li, .plans > .plan, .more > div { flex: 0 0 84%; min-width: 0; scroll-snap-align: start; }
+    .six > li, .more > div { padding: 22px 20px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
     .band .six > li { background: var(--bg); }
     .more h3 { padding: 0 0 12px; }
     section h2 + .six, .gains .six { margin-top: 0; }
@@ -324,6 +321,7 @@
   <a class="link" href="#features"><span lang="en">Features</span><span lang="es">Funciones</span></a>
   <a class="link" href="#ai"><span lang="en">Your AI</span><span lang="es">Tu IA</span></a>
   <a class="link" href="#share"><span lang="en">Sharing</span><span lang="es">Compartir</span></a>
+  <a class="link" href="#download"><span lang="en">Download</span><span lang="es">Descargar</span></a>
   <a class="link" href="#plans"><span lang="en">Plans</span><span lang="es">Planes</span></a>
   <!--LANG-->
   <a class="btn fill small" href="src/app.html"><span lang="en">Open the app</span><span lang="es">Abrir la app</span></a>
@@ -601,6 +599,20 @@
 </div></details>
 </div></section>
 
+<section class="fs" id="download"><div class="wrap">
+  <h2><span lang="en">Download SharpMD</span><span lang="es">Descargá SharpMD</span></h2>
+  <p class="sub"><span lang="en">Pick where you want it. Open source.</span><span lang="es">Elegí dónde usarlo. Código abierto.</span></p>
+  <div class="dl">
+    <a class="dl-card" href="src/app.html"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5S9.6 5.8 12 3.5z"/></svg></span><h3><span lang="en">Web app</span><span lang="es">App web</span></h3><p><span lang="en">Free, nothing to install</span><span lang="es">Gratis, sin instalar nada</span></p><span class="act"><span lang="en">Open the app</span><span lang="es">Abrir la app</span></span></a>
+    <a class="dl-card" href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 8.6h7.1M9.05 13.7 5.5 7.55M14.95 13.7l-3.55 6.15"/></svg></span><h3><span lang="en">Chrome extension</span><span lang="es">Extensión de Chrome</span></h3><p>Chrome, Edge, Brave</p><span class="act"><span lang="en">Add to Chrome</span><span lang="es">Agregar a Chrome</span></span></a>
+    <a class="dl-card" href="https://play.google.com/store/apps/details?id=app.sharpmd" target="_blank" rel="noopener noreferrer"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.6 3.9v16.2a.8.8 0 0 0 1.2.7l13.4-8.1a.8.8 0 0 0 0-1.4L6.8 3.2a.8.8 0 0 0-1.2.7zM5.9 4.2l8.2 7.8-8.2 7.8M14.1 12l2.4-2.4M14.1 12l2.4 2.4"/></svg></span><h3>Android</h3><p><span lang="en">Phone and tablet</span><span lang="es">Celular y tablet</span></p><span class="act"><span lang="en">Get it on Google Play</span><span lang="es">Conseguir en Google Play</span></span></a>
+    <a class="dl-card" href="https://github.com/SharpMD/sharpmd/releases/latest" target="_blank" rel="noopener noreferrer"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fl" d="M3.5 5.6 10.7 4.6v6.6H3.5zM12 4.4l8.5-1.2v8H12zM3.5 12.8h7.2v6.6l-7.2-1zM12 12.8h8.5v8L12 19.6z"/></svg></span><h3>Windows</h3><p><span lang="en">Windows 10 and 11</span><span lang="es">Windows 10 y 11</span></p><span class="act"><span lang="en">Download</span><span lang="es">Descargar</span></span></a>
+    <a class="dl-card" href="https://github.com/SharpMD/sharpmd/releases/latest" target="_blank" rel="noopener noreferrer"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fl" transform="translate(2.4 1.6) scale(.8)" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></span><h3>macOS</h3><p><span lang="en">Desktop app for Mac</span><span lang="es">App de escritorio para Mac</span></p><span class="act"><span lang="en">Download</span><span lang="es">Descargar</span></span></a>
+    <a class="dl-card" href="https://github.com/SharpMD/sharpmd/tree/main/server" target="_blank" rel="noopener noreferrer"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fl" transform="translate(1.2 1.2) scale(.9)" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></span><h3><span lang="en">Your own server</span><span lang="es">Tu propio servidor</span></h3><p><span lang="en">Self-host, AGPL</span><span lang="es">Autoalojado, AGPL</span></p><span class="act"><span lang="en">View the source</span><span lang="es">Ver el código</span></span></a>
+  </div>
+  <p class="note"><span lang="en">Already running on sharpmd.app. To host it yourself, follow the <a href="https://github.com/SharpMD/sharpmd/blob/main/server/README.md">server README</a>.</span><span lang="es">Ya está andando en sharpmd.app. Para alojarlo vos, seguí el <a href="https://github.com/SharpMD/sharpmd/blob/main/server/README.md">README del servidor</a>.</span></p>
+</div></section>
+
 <section class="center" id="plans"><div class="wrap">
   <h2><span lang="en">Plans</span><span lang="es">Planes</span></h2>
   <p class="lede rule"><span lang="en">What you do on your own, on your device, is free. You pay for what runs on our server to connect you with other people or with your AI.</span><span lang="es">Lo que hacés solo y en tu dispositivo es gratis. Se paga lo que corre en nuestro servidor para conectarte con otras personas o con tu IA.</span></p>
@@ -711,33 +723,6 @@
 </div></section>
 
 <script>if (window.matchMedia && matchMedia("(min-width: 641px)").matches) [].forEach.call(document.querySelectorAll(".plan .fold"), function (d) { d.open = true; });</script>
-
-<section class="band fs" id="use"><div class="wrap">
-  <h2><span lang="en">Where it runs</span><span lang="es">Dónde corre</span></h2>
-  <p class="sub"><span lang="en">Four pieces, all open source.</span><span lang="es">Cuatro piezas, todas de código abierto.</span></p>
-  <div class="use">
-    <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 9.5h17M7 7.3h.01M9.5 7.3h.01"/></svg></span><h3><span lang="en">The web app</span><span lang="es">La app web</span></h3><p><span lang="en">Nothing to install. Chrome, Edge and Brave open folders and save in place. Firefox and Safari open one file at a time and saving downloads a copy.</span><span lang="es">Nada que instalar. Chrome, Edge y Brave abren carpetas y guardan en el lugar. Firefox y Safari abren de a un archivo y al guardar descargan una copia.</span></p><a href="src/app.html"><span lang="en">Open the app</span><span lang="es">Abrir la app</span></a></div>
-    <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5h2a1.75 1.75 0 1 1 3.5 0h2A1.5 1.5 0 0 1 18.5 6v2a1.75 1.75 0 1 0 0 3.5v2a1.5 1.5 0 0 1-1.5 1.5h-2a1.75 1.75 0 1 0-3.5 0h-2A1.5 1.5 0 0 1 8 13.5v-2a1.75 1.75 0 1 1 0-3.5V6a1.5 1.5 0 0 1 1.5-1.5z" transform="translate(-1.2 2.5)"/></svg></span><h3><span lang="en">The extension</span><span lang="es">La extensión</span></h3><p><span lang="en">Works without a connection. Set Chrome as the default app for <code>.md</code> files and a double-click opens them rendered.</span><span lang="es">Funciona sin conexión. Ponés Chrome como programa por defecto para los <code>.md</code> y con doble clic se abren ya formateados.</span></p><a href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer"><span lang="en">Add to Chrome</span><span lang="es">Agregar a Chrome</span></a></div>
-    <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2.2"/><path d="M11 18h2"/></svg></span><h3><span lang="en">On the phone</span><span lang="es">En el celular</span></h3><p><span lang="en">The web app fits a small screen and installs from the browser. The Android app is that same app in a package, with the same notes and the same account.</span><span lang="es">La app web entra en pantalla chica y se instala desde el navegador. La app de Android es esa misma app empaquetada, con las mismas notas y la misma cuenta.</span></p><a href="src/app.html"><span lang="en">Open it on your phone</span><span lang="es">Abrirla en el celular</span></a></div>
-    <div><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4.5" width="16" height="6" rx="1.5"/><rect x="4" y="13.5" width="16" height="6" rx="1.5"/><path d="M7.5 7.5h.01M7.5 16.5h.01M11 7.5h5M11 16.5h5"/></svg></span><h3><span lang="en">The sync server</span><span lang="es">El servidor de sincronización</span></h3><p><span lang="en">What the cloud notes, the AI connection and the automations run on: one Node file with SQLite, under AGPL.</span><span lang="es">Sobre esto corren las notas en la nube, la conexión con la IA y las automatizaciones: un archivo de Node con SQLite, con licencia AGPL.</span></p><a href="https://github.com/SharpMD/sharpmd/tree/main/server"><span lang="en">Server source</span><span lang="es">Código del servidor</span></a></div>
-  </div>
-  <ul class="get">
-    <li><a href="https://github.com/SharpMD/sharpmd"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg><span><b>GitHub</b><small><span lang="en">Source code</span><span lang="es">Código fuente</span></small></span></a></li>
-    <li><a href="https://chromewebstore.google.com/detail/ejgkmgehiacbnfognldclppemehapcek" target="_blank" rel="noopener noreferrer"><svg class="ln" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8h7.8M9.2 13.6 5.3 6.9M14.8 13.6l-3.9 6.8"/></svg><span><b>Chrome Web Store</b><small><span lang="en">Chrome extension</span><span lang="es">Extensión de Chrome</span></small></span></a></li>
-    <li><a href="https://play.google.com/store/apps/details?id=app.sharpmd" target="_blank" rel="noopener noreferrer"><svg class="ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 4.2v15.6a.8.8 0 0 0 1.2.7l13-7.8a.8.8 0 0 0 0-1.4l-13-7.8a.8.8 0 0 0-1.2.7z"/></svg><span><b>Google Play</b><small><span lang="en">Android app</span><span lang="es">App de Android</span></small></span></a></li>
-  </ul>
-  <div class="two host">
-    <div>
-      <h3><span lang="en">On sharpmd.app it is already running</span><span lang="es">En sharpmd.app ya está andando</span></h3>
-      <p><span lang="en">We run the accounts, the sign-in mail, the backups, the updates and the MCP endpoint over HTTPS. You sign in and paste one message into your AI.</span><span lang="es">Nosotros mantenemos las cuentas, el correo de ingreso, los respaldos, las actualizaciones y la conexión MCP con HTTPS. Vos entrás y pegás un mensaje en tu IA.</span></p>
-    </div>
-    <div>
-      <h3><span lang="en">On your own server it is the same code</span><span lang="es">En tu servidor es el mismo código</span></h3>
-      <p><span lang="en">You set up the domain with HTTPS, a mailer for the sign-in codes, the encryption key, the backups and each update, and then type its address in Settings. The steps are in the <a href="https://github.com/SharpMD/sharpmd/blob/main/server/README.md">server README</a>.</span><span lang="es">Configurás el dominio con HTTPS, un servicio de correo para los códigos de ingreso, la llave de cifrado, los respaldos y cada actualización, y después cargás su dirección en Ajustes. Los pasos están en el <a href="https://github.com/SharpMD/sharpmd/blob/main/server/README.md">README del servidor</a>.</span></p>
-    </div>
-  </div>
-  <p class="note"><span lang="en">With the extension installed, the web app and the extension show the same notes and recent files. Install the web app and Windows offers it in Open with for .md files.</span><span lang="es">Con la extensión instalada, la app web y la extensión muestran las mismas notas y los mismos recientes. Si instalás la app web, Windows la ofrece en Abrir con para los .md.</span></p>
-</div></section>
 
 <section class="fs" id="faq"><div class="wrap asks">
   <div>
