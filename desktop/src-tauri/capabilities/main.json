@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "sharpmd.app in the main window reaches the disk commands, and only what the person opened.",
+  "windows": ["main"],
+  "remote": { "urls": ["https://sharpmd.app/*"] },
+  "permissions": [
+    "allow-fs-stat", "allow-fs-read", "allow-fs-write", "allow-fs-list", "allow-fs-mkdir", "allow-fs-touch",
+    "allow-fs-remove", "allow-fs-rename", "allow-pick-dir", "allow-pick-files", "allow-pick-save", "allow-take-pending"
+  ]
+}

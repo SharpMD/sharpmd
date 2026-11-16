@@ -1,0 +1,13 @@
+{
+  "name": "sharpmd-desktop",
+  "private": true,
+  "version": "2.92.0",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

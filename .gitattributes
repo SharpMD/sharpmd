@@ -36,3 +36,4 @@
 /local-tools.html export-ignore
 /t/ export-ignore
 /updates.html export-ignore
+/desktop/ export-ignore

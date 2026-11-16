@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fs-read"
+description = "Enables the fs_read command without any pre-configured scope."
+commands.allow = ["fs_read"]
+
+[[permission]]
+identifier = "deny-fs-read"
+description = "Denies the fs_read command without any pre-configured scope."
+commands.deny = ["fs_read"]

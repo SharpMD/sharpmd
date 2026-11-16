@@ -10,12 +10,14 @@
       req.onerror = () => reject(req.error);
     });
   }
+  // En la app de escritorio los archivos son del sistema, no del navegador: lo guardado vuelve sin sus métodos y la app los repone.
+  const desk = (r) => (window.__smdDesktop ? window.__smdDesktop.revive(r) : r);
   async function handlesAll() {
     try {
       const db = await handlesDb();
       return await new Promise((resolve, reject) => {
         const q = db.transaction('h').objectStore('h').getAll();
-        q.onsuccess = () => resolve(q.result || []); q.onerror = () => reject(q.error);
+        q.onsuccess = () => resolve(desk(q.result || [])); q.onerror = () => reject(q.error);
       });
     } catch (e) { return []; }
   }
@@ -24,7 +26,7 @@
       const db = await handlesDb();
       return await new Promise((resolve, reject) => {
         const q = db.transaction('h').objectStore('h').get(key);
-        q.onsuccess = () => resolve(q.result || null); q.onerror = () => reject(q.error);
+        q.onsuccess = () => resolve(desk(q.result || null)); q.onerror = () => reject(q.error);
       });
     } catch (e) { return null; }
   }

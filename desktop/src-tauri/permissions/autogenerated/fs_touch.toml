@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-fs-touch"
+description = "Enables the fs_touch command without any pre-configured scope."
+commands.allow = ["fs_touch"]
+
+[[permission]]
+identifier = "deny-fs-touch"
+description = "Denies the fs_touch command without any pre-configured scope."
+commands.deny = ["fs_touch"]
