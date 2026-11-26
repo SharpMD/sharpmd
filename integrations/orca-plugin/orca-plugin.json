@@ -28,7 +28,7 @@
         "title": "SharpMD MCP URL",
         "description": "Only change this if you run your own SharpMD server.",
         "type": "string",
-        "default": "https://sharpmd.app/mcp"
+        "default": "https://sync.sharpmd.app/mcp"
       },
       {
         "key": "agent",

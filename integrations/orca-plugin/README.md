@@ -18,7 +18,7 @@ The agent you start needs the SharpMD MCP server configured on its own side so i
 
 Paste a SharpMD token in the panel the first time. It is stored with Orca's encrypted plugin
 `secrets`, is never logged, and is never shown back or sent to the panel again. The panel has no
-network access, so the plugin's worker makes every call to `https://sharpmd.app/mcp` (JSON-RPC over
+network access, so the plugin's worker makes every call to `https://sync.sharpmd.app/mcp` (JSON-RPC over
 POST, `Authorization: Bearer <token>`).
 
 ## Settings

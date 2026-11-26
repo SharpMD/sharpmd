@@ -3,7 +3,7 @@
 
 const TOKEN_KEY = 'token'
 const MAX_BOARD_NOTES = 25
-const DEFAULT_URL = 'https://sharpmd.app/mcp'
+const DEFAULT_URL = 'https://sync.sharpmd.app/mcp'
 
 /** @param {import('orca/worker').OrcaWorkerApi} orca */
 export default async function activate(orca) {

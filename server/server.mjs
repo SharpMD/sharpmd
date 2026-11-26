@@ -6990,6 +6990,9 @@ const server = http.createServer(async (req, res) => {
   if (fileServe(req, res)) return;
   for (const k in BASE_HEADERS) res.setHeader(k, BASE_HEADERS[k]);
   res.setHeader('vary', 'origin');
+  // La API no es para buscadores: sin esto Google sigue los ejemplos de las páginas públicas, recibe 401 y lo reporta como error.
+  res.setHeader('x-robots-tag', 'noindex, nofollow');
+  if (req.url === '/robots.txt' && (req.method === 'GET' || req.method === 'HEAD')) { res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=86400' }); res.end(req.method === 'HEAD' ? undefined : 'User-agent: *\nDisallow: /\n'); return; }
   cors(req, res);
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   try {
